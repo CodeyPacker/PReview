@@ -18,18 +18,18 @@ describe('settings', () => {
   });
 
   it('stores an update and returns the merged settings', () => {
-    expect(updateSettings(db, { theme: 'dark' })).toEqual({ theme: 'dark' });
-    expect(getSettings(db)).toEqual({ theme: 'dark' });
+    expect(updateSettings(db, { theme: 'dark' })).toEqual({ ...defaultSettings, theme: 'dark' });
+    expect(getSettings(db)).toEqual({ ...defaultSettings, theme: 'dark' });
   });
 
   it('overwrites an existing value', () => {
     updateSettings(db, { theme: 'dark' });
-    expect(updateSettings(db, { theme: 'light' })).toEqual({ theme: 'light' });
+    expect(updateSettings(db, { theme: 'light' })).toEqual({ ...defaultSettings, theme: 'light' });
   });
 
   it('leaves settings alone for an empty patch', () => {
     updateSettings(db, { theme: 'dark' });
-    expect(updateSettings(db, {})).toEqual({ theme: 'dark' });
+    expect(updateSettings(db, {})).toEqual({ ...defaultSettings, theme: 'dark' });
   });
 
   it('falls back to the default for a stored value that no longer matches the schema', () => {

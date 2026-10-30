@@ -1,0 +1,53 @@
+/* Integrations page. Read values from tokens.css custom properties only. */
+
+.page {
+  display: grid;
+  gap: var(--space-24);
+}
+
+.panel {
+  max-width: 720px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+}
+
+.text {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.text p {
+  margin: 0;
+}
+
+.detail {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+  color: var(--danger);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.error svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { githubAuthStateSchema } from './github.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
 export const appInfoSchema = z.object({
@@ -15,6 +16,10 @@ export const ipcContract = {
   'app.getInfo': { input: z.undefined(), output: appInfoSchema },
   'settings.getAll': { input: z.undefined(), output: settingsSchema },
   'settings.update': { input: settingsPatchSchema, output: settingsSchema },
+  'github.getAuth': { input: z.undefined(), output: githubAuthStateSchema },
+  'github.connect': { input: z.undefined(), output: githubAuthStateSchema },
+  'github.cancel': { input: z.undefined(), output: githubAuthStateSchema },
+  'github.disconnect': { input: z.undefined(), output: githubAuthStateSchema },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 
 export type IpcChannel = keyof typeof ipcContract;

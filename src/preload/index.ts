@@ -14,6 +14,12 @@ const api: PreviewApi = {
     getAll: () => invoke('settings.getAll', undefined),
     update: (patch) => invoke('settings.update', patch),
   },
+  github: {
+    getAuth: () => invoke('github.getAuth', undefined),
+    connect: () => invoke('github.connect', undefined),
+    cancel: () => invoke('github.cancel', undefined),
+    disconnect: () => invoke('github.disconnect', undefined),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);

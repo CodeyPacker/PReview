@@ -1,10 +1,13 @@
-import { app, BrowserWindow, dialog, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, safeStorage, shell } from 'electron';
 import type { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { openDatabase } from './database/connection.ts';
 import { migrate } from './database/migrate.ts';
 import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
+import { GitHubAuth } from './services/github/auth.ts';
+import { createCredentialStore } from './services/github/credential-store.ts';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
 
 initLogging();
@@ -56,6 +59,21 @@ function createWindow(): void {
   }
 }
 
+function createGitHubAuth(): GitHubAuth {
+  const auth = new GitHubAuth({
+    store: createCredentialStore(join(app.getPath('userData'), 'github-credentials'), safeStorage),
+    fetch,
+    sleep: (ms, signal) => sleep(ms, undefined, { signal }),
+    openUrl: (url) => {
+      if (isSafeExternalUrl(url)) void shell.openExternal(url);
+    },
+    copyText: (text) => void clipboard.writeText(text),
+    log,
+  });
+  void auth.verify();
+  return auth;
+}
+
 function openAppDatabase(): DatabaseSync {
   const path = join(app.getPath('userData'), 'preview.db');
   const db = openDatabase(path);
@@ -78,7 +96,7 @@ void app.whenReady().then(() => {
     return;
   }
 
-  registerIpcHandlers(db);
+  registerIpcHandlers(db, createGitHubAuth());
   app.on('will-quit', () => db.close());
 
   createWindow();

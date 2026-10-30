@@ -7,6 +7,7 @@ import { SearchField } from '../components/SearchField/SearchField.tsx';
 import { cx } from '../lib/cx.ts';
 import { isMac, modKey } from '../lib/platform.ts';
 import styles from './AppShell.module.css';
+import { GitHubPrompt } from './GitHubPrompt.tsx';
 
 export function AppShell() {
   return (
@@ -45,6 +46,7 @@ export function AppShell() {
           <Outlet />
         </main>
       </div>
+      <GitHubPrompt />
     </div>
   );
 }
