@@ -1,1 +1,19 @@
 /* Count styles. Read values from tokens.css custom properties only. */
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-full);
+  background: var(--tone-soft);
+  color: var(--tone-fg);
+  font: 600 var(--text-xs) / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.solid {
+  background: var(--accent);
+  color: var(--on-accent);
+}
