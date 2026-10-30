@@ -7,11 +7,15 @@ export default defineConfig({
   test: {
     projects: [
       {
-        // Main-process and shared code, run in Node.
+        // Main-process and shared code, plus renderer tests that render to a string, run in Node.
         test: {
           name: 'unit',
           environment: 'node',
-          include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts'],
+          include: [
+            'src/main/**/*.test.ts',
+            'src/shared/**/*.test.ts',
+            'src/renderer/**/*.test.tsx',
+          ],
         },
       },
       {
