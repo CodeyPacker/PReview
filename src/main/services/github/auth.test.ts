@@ -37,10 +37,11 @@ function memoryStore(initial?: GitHubCredentials): CredentialStore & { value?: G
   return {
     value: initial,
     load() {
-      return this.value;
+      return Promise.resolve(this.value);
     },
     save(credentials) {
       this.value = credentials;
+      return Promise.resolve();
     },
     clear() {
       this.value = undefined;
@@ -48,7 +49,7 @@ function memoryStore(initial?: GitHubCredentials): CredentialStore & { value?: G
   };
 }
 
-function setup(routes: Record<string, Response[]>, stored?: GitHubCredentials) {
+async function setup(routes: Record<string, Response[]>, stored?: GitHubCredentials) {
   const store = memoryStore(stored);
   const deps: GitHubAuthDeps = {
     store,
@@ -58,7 +59,7 @@ function setup(routes: Record<string, Response[]>, stored?: GitHubCredentials) {
     copyText: vi.fn(),
     log: { info: vi.fn(), warn: vi.fn() },
   };
-  return { auth: new GitHubAuth(deps), store, deps };
+  return { auth: await GitHubAuth.restore(deps), store, deps };
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -103,7 +104,7 @@ describe('pollForToken', () => {
 
 describe('GitHubAuth', () => {
   it('connects through the device flow and stores the token', async () => {
-    const { auth, store, deps } = setup({
+    const { auth, store, deps } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],
       'https://github.com/login/oauth/access_token': [json({ access_token: 'gho_token' })],
       'https://api.github.com/user': [json(githubUser)],
@@ -120,7 +121,7 @@ describe('GitHubAuth', () => {
   });
 
   it('reports a denied authorization and stores nothing', async () => {
-    const { auth, store } = setup({
+    const { auth, store } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],
       'https://github.com/login/oauth/access_token': [json({ error: 'access_denied' })],
     });
@@ -135,7 +136,7 @@ describe('GitHubAuth', () => {
   });
 
   it('reports a network failure without the raw error', async () => {
-    const { auth } = setup({});
+    const { auth } = await setup({});
     expect(await auth.connect()).toEqual({
       status: 'disconnected',
       error: 'Could not reach GitHub. Check your connection and try again.',
@@ -143,7 +144,7 @@ describe('GitHubAuth', () => {
   });
 
   it('stops polling when canceled', async () => {
-    const { auth, store } = setup({
+    const { auth, store } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],
       'https://github.com/login/oauth/access_token': [json({ access_token: 'gho_token' })],
       'https://api.github.com/user': [json(githubUser)],
@@ -156,15 +157,15 @@ describe('GitHubAuth', () => {
     expect(store.value).toBeUndefined();
   });
 
-  it('starts connected from stored credentials and forgets them on disconnect', () => {
-    const { auth, store } = setup({}, { token: 'gho_token', user });
+  it('starts connected from stored credentials and forgets them on disconnect', async () => {
+    const { auth, store } = await setup({}, { token: 'gho_token', user });
     expect(auth.getState()).toEqual({ status: 'connected', user });
     expect(auth.disconnect()).toEqual({ status: 'disconnected' });
     expect(store.value).toBeUndefined();
   });
 
   it('disconnects when GitHub rejects the stored token', async () => {
-    const { auth, store } = setup(
+    const { auth, store } = await setup(
       { 'https://api.github.com/user': [json({ message: 'Bad credentials' }, 401)] },
       { token: 'gho_revoked', user },
     );
@@ -177,7 +178,7 @@ describe('GitHubAuth', () => {
   });
 
   it('stays connected when GitHub cannot be reached', async () => {
-    const { auth, store } = setup({}, { token: 'gho_token', user });
+    const { auth, store } = await setup({}, { token: 'gho_token', user });
     await auth.verify();
     expect(auth.getState()).toEqual({ status: 'connected', user });
     expect(store.value).toEqual({ token: 'gho_token', user });

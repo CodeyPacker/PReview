@@ -7,7 +7,7 @@ import { migrate } from './database/migrate.ts';
 import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
 import { GitHubAuth } from './services/github/auth.ts';
-import { createCredentialStore } from './services/github/credential-store.ts';
+import { createCredentialStore, type Encryptor } from './services/github/credential-store.ts';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
 
 initLogging();
@@ -59,9 +59,21 @@ function createWindow(): void {
   }
 }
 
-function createGitHubAuth(): GitHubAuth {
-  const auth = new GitHubAuth({
-    store: createCredentialStore(join(app.getPath('userData'), 'github-credentials'), safeStorage),
+// Adapts safeStorage's async API to the store's Encryptor.
+const encryptor: Encryptor = {
+  isEncryptionAvailable: () => safeStorage.isAsyncEncryptionAvailable(),
+  encryptString: (text) => safeStorage.encryptStringAsync(text),
+  decryptString: async (encrypted) => {
+    let decrypted = await safeStorage.decryptStringAsync(encrypted);
+    // A rotated key changes the plain text the first call returns, so ask again.
+    if (decrypted.shouldReEncrypt) decrypted = await safeStorage.decryptStringAsync(encrypted);
+    return decrypted.result;
+  },
+};
+
+async function createGitHubAuth(): Promise<GitHubAuth> {
+  const auth = await GitHubAuth.restore({
+    store: createCredentialStore(join(app.getPath('userData'), 'github-credentials'), encryptor),
     fetch,
     sleep: (ms, signal) => sleep(ms, undefined, { signal }),
     openUrl: (url) => {
@@ -82,7 +94,7 @@ function openAppDatabase(): DatabaseSync {
   return db;
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   let db: DatabaseSync;
   try {
     db = openAppDatabase();
@@ -96,7 +108,7 @@ void app.whenReady().then(() => {
     return;
   }
 
-  registerIpcHandlers(db, createGitHubAuth());
+  registerIpcHandlers(db, await createGitHubAuth());
   app.on('will-quit', () => db.close());
 
   createWindow();

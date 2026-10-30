@@ -1,5 +1,9 @@
 import type { GitHubAuthState } from '../../../shared/contracts/github.ts';
-import { SecureStorageUnavailableError, type CredentialStore } from './credential-store.ts';
+import {
+  SecureStorageUnavailableError,
+  type CredentialStore,
+  type GitHubCredentials,
+} from './credential-store.ts';
 import {
   DeviceFlowError,
   fetchUser,
@@ -30,9 +34,16 @@ export class GitHubAuth {
   private state: GitHubAuthState = { status: 'disconnected' };
   private flow: AbortController | undefined;
 
-  constructor(private readonly deps: GitHubAuthDeps) {
-    const stored = deps.store.load();
+  constructor(
+    private readonly deps: GitHubAuthDeps,
+    stored?: GitHubCredentials,
+  ) {
     if (stored) this.state = { status: 'connected', user: stored.user };
+  }
+
+  // Starts connected when the store holds a token.
+  static async restore(deps: GitHubAuthDeps): Promise<GitHubAuth> {
+    return new GitHubAuth(deps, await deps.store.load());
   }
 
   getState(): GitHubAuthState {
@@ -42,11 +53,11 @@ export class GitHubAuth {
   // Checks the stored token with GitHub and refreshes the profile. A rejected token is
   // removed. A network failure keeps the connection as it is.
   async verify(): Promise<void> {
-    const stored = this.deps.store.load();
+    const stored = await this.deps.store.load();
     if (!stored) return;
     try {
       const user = await fetchUser(this.deps.fetch, stored.token);
-      this.deps.store.save({ token: stored.token, user });
+      await this.deps.store.save({ token: stored.token, user });
       if (this.state.status === 'connected') this.state = { status: 'connected', user };
     } catch (error) {
       if (!(error instanceof GitHubUnauthorizedError)) {
@@ -113,7 +124,7 @@ export class GitHubAuth {
       const token = await pollForToken(this.deps.fetch, this.deps.sleep, code, flow.signal);
       const user = await fetchUser(this.deps.fetch, token);
       if (this.flow !== flow) return;
-      this.deps.store.save({ token, user });
+      await this.deps.store.save({ token, user });
       this.state = { status: 'connected', user };
       this.deps.log.info(`Connected GitHub as ${user.login}`);
     } catch (error) {

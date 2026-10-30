@@ -6,9 +6,9 @@ import { createCredentialStore, type Encryptor } from './credential-store.ts';
 
 // Reverses the bytes, so the stored file never contains the plain token.
 const encryptor: Encryptor = {
-  isEncryptionAvailable: () => true,
-  encryptString: (text) => Buffer.from(text).reverse(),
-  decryptString: (buffer) => Buffer.from(buffer).reverse().toString(),
+  isEncryptionAvailable: () => Promise.resolve(true),
+  encryptString: (text) => Promise.resolve(Buffer.from(text).reverse()),
+  decryptString: (buffer) => Promise.resolve(Buffer.from(buffer).reverse().toString()),
 };
 
 const credentials = {
@@ -27,28 +27,31 @@ beforeEach(() => {
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('credential store', () => {
-  it('round-trips credentials through the encryptor', () => {
+  it('round-trips credentials through the encryptor', async () => {
     const store = createCredentialStore(path, encryptor);
-    store.save(credentials);
+    await store.save(credentials);
     expect(readFileSync(path, 'utf8')).not.toContain('gho_secret');
-    expect(store.load()).toEqual(credentials);
+    expect(await store.load()).toEqual(credentials);
   });
 
-  it('reads nothing after clear, and clears a missing file', () => {
+  it('reads nothing after clear, and clears a missing file', async () => {
     const store = createCredentialStore(path, encryptor);
     store.clear();
-    store.save(credentials);
+    await store.save(credentials);
     store.clear();
-    expect(store.load()).toBeUndefined();
+    expect(await store.load()).toBeUndefined();
   });
 
-  it('reads an unreadable file as no credentials', () => {
+  it('reads an unreadable file as no credentials', async () => {
     writeFileSync(path, 'garbage');
-    expect(createCredentialStore(path, encryptor).load()).toBeUndefined();
+    expect(await createCredentialStore(path, encryptor).load()).toBeUndefined();
   });
 
-  it('refuses to save without secure storage', () => {
-    const store = createCredentialStore(path, { ...encryptor, isEncryptionAvailable: () => false });
-    expect(() => store.save(credentials)).toThrow('Secure storage is not available');
+  it('refuses to save without secure storage', async () => {
+    const store = createCredentialStore(path, {
+      ...encryptor,
+      isEncryptionAvailable: () => Promise.resolve(false),
+    });
+    await expect(store.save(credentials)).rejects.toThrow('Secure storage is not available');
   });
 });
