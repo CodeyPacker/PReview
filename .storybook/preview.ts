@@ -3,7 +3,7 @@ import '../src/renderer/tokens.css';
 
 // Mirrors the app: the theme is a data-theme attribute on <html>.
 const withTheme: Decorator = (Story, context) => {
-  document.documentElement.dataset.theme = context.globals.theme;
+  document.documentElement.dataset.theme = context.globals.theme as 'light' | 'dark';
   document.body.style.background = 'var(--canvas)';
   document.body.style.color = 'var(--ink)';
   return Story();

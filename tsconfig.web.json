@@ -18,5 +18,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true
   },
-  "include": ["src/renderer", "src/shared", ".storybook"]
+  "include": ["src/renderer", "src/shared", ".storybook/*.ts"]
 }

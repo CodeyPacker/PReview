@@ -1,0 +1,6 @@
+out
+dist
+storybook-static
+pnpm-lock.yaml
+SCOPE
+src/renderer/routeTree.gen.ts
