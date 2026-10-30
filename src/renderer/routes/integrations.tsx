@@ -5,17 +5,25 @@ import { GitHubConnectDialog } from '../app/GitHubConnectDialog.tsx';
 import { LocalFoldersPanel } from '../app/LocalFoldersPanel.tsx';
 import { PageHeader } from '../app/PageHeader.tsx';
 import { RepositoriesPanel } from '../app/RepositoriesPanel.tsx';
+import { RepositoryDetailPanel } from '../app/RepositoryDetailPanel.tsx';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { IconTile } from '../components/IconTile/IconTile.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { useDisconnectGitHub, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
+import { useRepositories } from '../hooks/useRepositories.ts';
 import styles from './integrations.module.css';
 
 export const Route = createFileRoute('/integrations')({ component: IntegrationsPage });
 
 function IntegrationsPage() {
+  const { data } = useRepositories();
+  const [selectedId, setSelectedId] = useState<number>();
+  const repositories = data?.repositories ?? [];
+  const selected =
+    repositories.find((repository) => repository.id === selectedId) ?? repositories[0];
+
   return (
     <div className={styles.page}>
       <PageHeader
@@ -24,7 +32,10 @@ function IntegrationsPage() {
       />
       <GitHubPanel />
       <LocalFoldersPanel />
-      <RepositoriesPanel />
+      <div className={styles.repositories}>
+        <RepositoriesPanel selectedId={selected?.id} onSelect={setSelectedId} />
+        <RepositoryDetailPanel repository={selected} />
+      </div>
     </div>
   );
 }

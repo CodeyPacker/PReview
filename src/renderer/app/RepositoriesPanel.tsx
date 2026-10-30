@@ -1,32 +1,20 @@
 import { GitBranch, RefreshCw, TriangleAlert } from 'lucide-react';
-import type { Repository } from '../../shared/contracts/repositories.ts';
 import { Button } from '../components/Button/Button.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
+import { StatusDot } from '../components/StatusDot/StatusDot.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
-import { Switch } from '../components/Switch/Switch.tsx';
-import {
-  useRepositories,
-  useRescan,
-  useUpdateRepositorySettings,
-} from '../hooks/useRepositories.ts';
+import { useRepositories, useRescan } from '../hooks/useRepositories.ts';
 import styles from './RepositoriesPanel.module.css';
+import { repositoryName } from './repositoryName.ts';
 
-const SETTINGS = [
-  { key: 'monitored', label: 'Monitor pull requests' },
-  { key: 'includeDrafts', label: 'Include drafts' },
-  { key: 'includeAutomated', label: 'Include automated PRs' },
-] as const;
-
-function repositoryName(repository: Repository): string {
-  return repository.github
-    ? `${repository.github.owner}/${repository.github.name}`
-    : repository.name;
+export interface RepositoriesPanelProps {
+  selectedId: number | undefined;
+  onSelect: (id: number) => void;
 }
 
-export function RepositoriesPanel() {
+export function RepositoriesPanel({ selectedId, onSelect }: RepositoriesPanelProps) {
   const { data } = useRepositories();
   const rescan = useRescan();
-  const updateSettings = useUpdateRepositorySettings();
   const repositories = data?.repositories ?? [];
   const scanning = data?.scanning ?? false;
 
@@ -55,36 +43,27 @@ export function RepositoriesPanel() {
       ) : (
         <ul className={styles.list}>
           {repositories.map((repository) => (
-            <li key={repository.id} className={styles.item}>
-              <div className={styles.summary}>
-                <div className={styles.text}>
-                  <p className="headline">{repositoryName(repository)}</p>
-                  <p className={styles.path}>{repository.path}</p>
-                </div>
-                {repository.status === 'available' ? (
-                  <StatusPill tone="success" icon={null}>
-                    Available
-                  </StatusPill>
-                ) : (
+            <li key={repository.id}>
+              <button
+                type="button"
+                className={styles.item}
+                aria-current={repository.id === selectedId}
+                onClick={() => onSelect(repository.id)}
+              >
+                <span className={styles.text}>
+                  <span className="headline">{repositoryName(repository)}</span>
+                  <span className={styles.path}>{repository.path}</span>
+                </span>
+                {repository.status === 'unavailable' ? (
                   <StatusPill tone="warning" icon={<TriangleAlert aria-hidden />}>
                     Unavailable
                   </StatusPill>
+                ) : repository.settings.monitored ? (
+                  <StatusDot tone="success" label="Monitoring" />
+                ) : (
+                  <StatusDot tone="neutral" label="Paused" />
                 )}
-              </div>
-              <div className={styles.settings}>
-                {SETTINGS.map(({ key, label }) => (
-                  <Switch
-                    key={key}
-                    size="sm"
-                    label={label}
-                    aria-label={`${label} in ${repositoryName(repository)}`}
-                    checked={repository.settings[key]}
-                    onCheckedChange={(checked) =>
-                      updateSettings.mutate({ id: repository.id, patch: { [key]: checked } })
-                    }
-                  />
-                ))}
-              </div>
+              </button>
             </li>
           ))}
         </ul>

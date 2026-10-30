@@ -182,19 +182,22 @@ test('discovers repositories in a watched folder', async () => {
     await page.getByRole('button', { name: 'Add Folder…' }).click();
 
     await expect(page.getByText(code, { exact: true })).toBeVisible();
-    await expect(page.getByText('octo/hello')).toBeVisible();
-    await expect(page.getByText(hello, { exact: true })).toBeVisible();
-    await expect(page.getByText('Available')).toBeVisible();
+    const list = page.getByRole('region', { name: 'Repositories' });
+    await expect(list.getByText('octo/hello')).toBeVisible();
+    await expect(list.getByText(hello, { exact: true })).toBeVisible();
+    await expect(page.getByText('Available', { exact: true })).toBeVisible();
+    await expect(page.getByText('Monitoring', { exact: true })).toBeVisible();
 
-    const monitor = page.getByRole('switch', { name: 'Monitor pull requests in octo/hello' });
+    const monitor = page.getByRole('switch', { name: /Monitor pull requests/ });
     await expect(monitor).toBeChecked();
     await monitor.click();
     await expect(monitor).not.toBeChecked();
-    await expect(page.getByRole('switch', { name: 'Include drafts in octo/hello' })).toBeChecked();
+    await expect(page.getByText('Paused', { exact: true })).toBeVisible();
+    await expect(page.getByRole('switch', { name: /Include drafts/ })).toBeChecked();
 
     await page.getByRole('button', { name: `Remove ${code}` }).click();
     await expect(page.getByText('No folders yet')).toBeVisible();
-    await expect(page.getByText('Unavailable')).toBeVisible();
+    await expect(page.getByRole('button', { name: /octo\/hello.*Unavailable/ })).toBeVisible();
     await app.close();
   } finally {
     rmSync(code, { recursive: true, force: true });

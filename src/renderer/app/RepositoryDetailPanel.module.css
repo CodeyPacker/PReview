@@ -1,0 +1,28 @@
+/* Repository detail panel. Read values from tokens.css custom properties only. */
+
+.empty,
+.description {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.path {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-mono);
+}
+
+.settings {
+  display: grid;
+  gap: var(--space-16);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.setting {
+  display: grid;
+  gap: var(--space-2);
+}
