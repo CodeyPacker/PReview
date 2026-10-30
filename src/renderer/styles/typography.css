@@ -1,0 +1,51 @@
+/* Text styles from the design system. Apply as classes: <h1 className="title-1">. */
+
+.display {
+  font: 700 var(--text-4xl) / 44px var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.title-1 {
+  font: 700 var(--text-3xl) / 38px var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+.title-2 {
+  font: 650 var(--text-xl) / 28px var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+.numeral {
+  font: 700 var(--text-2xl) / 32px var(--font-display);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.title-3 {
+  font: 600 var(--text-lg) / 22px var(--font-sans);
+}
+
+.headline {
+  font: 600 var(--text-base) / 20px var(--font-sans);
+}
+
+.body {
+  font: 400 var(--text-base) / 20px var(--font-sans);
+}
+
+.callout {
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.caption {
+  font: 500 var(--text-sm) / 16px var(--font-sans);
+}
+
+.micro {
+  font: 600 var(--text-xs) / 14px var(--font-sans);
+  letter-spacing: 0.01em;
+}
+
+.code {
+  font: 400 var(--text-md) / 20px var(--font-mono);
+}

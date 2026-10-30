@@ -1,0 +1,49 @@
+/* Tone classes. Each sets the --tone-* variables that colored components read. */
+
+.accent {
+  --tone-fg: var(--accent-text);
+  --tone-fill: var(--accent);
+  --tone-soft: var(--accent-soft);
+  --tone-soft-hover: var(--accent-soft-hover);
+  --tone-border: var(--accent-border);
+}
+
+.success {
+  --tone-fg: var(--success);
+  --tone-fill: var(--success-fill);
+  --tone-soft: var(--success-soft);
+  --tone-soft-hover: var(--success-soft);
+  --tone-border: var(--success-fill);
+}
+
+.danger {
+  --tone-fg: var(--danger);
+  --tone-fill: var(--danger-fill);
+  --tone-soft: var(--danger-soft);
+  --tone-soft-hover: var(--danger-soft);
+  --tone-border: var(--danger-fill);
+}
+
+.warning {
+  --tone-fg: var(--warning);
+  --tone-fill: var(--warning-fill);
+  --tone-soft: var(--warning-soft);
+  --tone-soft-hover: var(--warning-soft);
+  --tone-border: var(--warning-fill);
+}
+
+.info {
+  --tone-fg: var(--info);
+  --tone-fill: var(--info-fill);
+  --tone-soft: var(--info-soft);
+  --tone-soft-hover: var(--info-soft);
+  --tone-border: var(--info-fill);
+}
+
+.neutral {
+  --tone-fg: var(--ink-secondary);
+  --tone-fill: var(--ink-tertiary);
+  --tone-soft: var(--surface-sunken);
+  --tone-soft-hover: var(--surface-hover);
+  --tone-border: var(--border-strong);
+}
