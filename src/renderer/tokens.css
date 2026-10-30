@@ -8,8 +8,8 @@
   --canvas-tint: #e6e9fa; /* Top stop of the ambient sky wash on the window ground (bottom stop is `canvas`). */
   --surface: #ffffffb8; /* Glass panels (sidebar, cards, toolbars). Pair with `blur-glass` backdrop blur. */
   --surface-solid: #ffffff; /* Opaque panels where blur is off (Zen Mode, reduced transparency) and the diff viewer. */
-  --surface-raised: #ffffff; /* Cards inside a panel, popovers, menus, segmented-control thumb. */
-  --surface-sunken: #f5f4f9; /* Inputs, search fields, wells, unselected segmented track. */
+  --surface-raised: #ffffff; /* Cards inside a panel, popovers, menus, toggle group thumb. */
+  --surface-sunken: #f5f4f9; /* Inputs, search fields, wells, unselected toggle group track. */
   --surface-hover: #efedf6; /* Hover fill for rows, nav items, plain buttons. */
   --surface-selected: #f0ecff; /* Selected row, active nav item, selected file in tree. */
   --border: #2a1f6614; /* Hairline around panels, cards, dividers between list rows. */
@@ -62,7 +62,7 @@
   --accent-option-5: #f25c4a; /* Accent choice 5 in Settings › Appearance. */
   --accent-option-6: #e85aa5; /* Accent choice 6 in Settings › Appearance. */
   --scrim: #0e0d1466; /* Behind modal dialogs and the post-merge sheet. */
-  --shadow-xs: 0 1px 2px #2a1f660f; /* Segmented thumb, raised chips, switch knob. */
+  --shadow-xs: 0 1px 2px #2a1f660f; /* Toggle group thumb, raised chips, switch knob. */
   --shadow-sm:
     0 1px 2px #2a1f660a, 0 4px 12px #2a1f660d; /* Cards inside panels, list rows on hover. */
   --shadow-md: 0 1px 2px #2a1f660a, 0 10px 30px #2a1f6614; /* Panels and the sidebar. */
@@ -233,7 +233,7 @@
 
   /* radius */
   --radius-xs: 6px; /* Tags, count badges, kbd hints, file icons. */
-  --radius-sm: 8px; /* Small buttons, segmented thumbs, menu items, nav items. */
+  --radius-sm: 8px; /* Small buttons, toggle group thumbs, menu items, nav items. */
   --radius-md: 10px; /* Buttons, inputs, selects, icon buttons. */
   --radius-lg: 14px; /* List rows, inner cards, stat cards, character and badge tiles. */
   --radius-xl: 18px; /* Panels and the sidebar. */
@@ -243,7 +243,7 @@
   /* fontSize */
   --text-xs: 11px; /* Count badges, kbd, chart axes. */
   --text-sm: 12px; /* Captions, timestamps, small pills. */
-  --text-md: 13px; /* Metadata, descriptions, pills, segmented labels. */
+  --text-md: 13px; /* Metadata, descriptions, pills, toggle group labels. */
   --text-base: 14px; /* Body, buttons, list titles. */
   --text-lg: 17px; /* Panel titles, large buttons. */
   --text-xl: 22px; /* Stat values, PR title. */
@@ -253,7 +253,7 @@
 
   /* size */
   --control-sm: 28px; /* Small buttons, chips, pills inside rows. */
-  --control-md: 34px; /* Default buttons, inputs, selects, segmented controls. */
+  --control-md: 34px; /* Default buttons, inputs, selects, toggle groups. */
   --control-lg: 44px; /* Hero CTAs (Open Review, Open Next Pull Request). */
   --icon-sm: 14px; /* Icons inside small controls and pills. */
   --icon-md: 16px; /* Default icon size. */
@@ -265,7 +265,7 @@
 
   /* transition */
   --duration-fast: 120ms; /* Hover and press color changes. */
-  --duration-base: 200ms; /* Switch knob, segmented thumb, progress fills. */
+  --duration-base: 200ms; /* Switch knob, toggle group thumb, progress fills. */
   --duration-slow: 320ms; /* Panels sliding, Zen Mode enter and exit. */
   --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* Default easing. */
   --ease-spring: cubic-bezier(

@@ -33,20 +33,20 @@
   background: var(--surface-sunken);
 }
 
-.pad-none {
+.padNone {
   padding: 0;
 }
 
-.pad-sm {
+.padSm {
   gap: var(--space-12);
   padding: var(--space-12);
 }
 
-.pad-md {
+.padMd {
   padding: var(--space-20);
 }
 
-.pad-lg {
+.padLg {
   gap: var(--space-20);
   padding: var(--space-24);
 }

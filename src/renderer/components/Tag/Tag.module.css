@@ -1,1 +1,37 @@
 /* Tag styles. Read values from tokens.css custom properties only. */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: 26px;
+  padding: 0 var(--space-12);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--tone-soft);
+  color: var(--tone-fg);
+  font: 500 var(--text-md) / 1 var(--font-sans);
+  white-space: nowrap;
+}
+
+.tag > svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+.sm {
+  height: 20px;
+  padding: 0 var(--space-8);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-sm);
+}
+
+button.tag {
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+button.tag:hover {
+  background: var(--tone-soft-hover);
+}

@@ -15,9 +15,16 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   titleAs?: 'h2' | 'h3';
   icon?: ReactNode;
   count?: number;
-  // Right side of the header: a "View All" button, a select, a segmented control.
+  // Right side of the header: a "View All" button, a select, a toggle group.
   action?: ReactNode;
 }
+
+const paddingClass = {
+  none: styles.padNone,
+  sm: styles.padSm,
+  md: styles.padMd,
+  lg: styles.padLg,
+};
 
 export function Panel({
   as: Tag = 'section',
@@ -37,7 +44,7 @@ export function Panel({
     <Tag
       {...rest}
       aria-labelledby={title ? titleId : rest['aria-labelledby']}
-      className={cx(styles.panel, styles[variant], styles[`pad-${padding}`], className)}
+      className={cx(styles.panel, styles[variant], paddingClass[padding], className)}
     >
       {title && (
         <header className={styles.header}>

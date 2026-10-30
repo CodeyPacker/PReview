@@ -1,38 +1,16 @@
 /* SearchField styles. Read values from tokens.css custom properties only. */
 
 .field {
-  --height: var(--control-md);
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-  width: 100%;
-  height: var(--height);
-  padding: 0 var(--space-12);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: var(--surface-sunken);
-  color: var(--ink-secondary);
+  composes: field from '../../styles/forms.module.css';
   cursor: text;
-  transition:
-    border-color var(--duration-fast) var(--ease-standard),
-    background var(--duration-fast) var(--ease-standard);
 }
 
 .lg {
-  --height: var(--control-lg);
-  padding: 0 var(--space-16);
-  border-radius: var(--radius-lg);
+  composes: fieldLg from '../../styles/forms.module.css';
   background: var(--surface);
   box-shadow: var(--shadow-sm);
   -webkit-backdrop-filter: blur(var(--blur-glass));
   backdrop-filter: blur(var(--blur-glass));
-}
-
-.field:focus-within {
-  border-color: var(--accent-border);
-  background: var(--surface-raised);
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 0;
 }
 
 .icon {
@@ -42,18 +20,7 @@
 }
 
 .input {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  border: 0;
-  background: transparent;
-  outline: none;
-  color: var(--ink);
-  font: 400 var(--text-base) / 20px var(--font-sans);
-}
-
-.input::placeholder {
-  color: var(--ink-tertiary);
+  composes: input from '../../styles/forms.module.css';
 }
 
 .input::-webkit-search-cancel-button {
