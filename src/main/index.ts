@@ -24,6 +24,11 @@ function createWindow(): void {
     minWidth: 1024,
     minHeight: 680,
     show: false,
+    // macOS: no title bar; the window buttons sit inside the sidebar's top-left corner.
+    ...(process.platform === 'darwin' && {
+      titleBarStyle: 'hiddenInset' as const,
+      trafficLightPosition: { x: 32, y: 34 },
+    }),
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

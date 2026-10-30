@@ -56,3 +56,41 @@ test('rejects an invalid setting', async () => {
 
   await app.close();
 });
+
+test('opens on the dashboard and navigates from the sidebar', async () => {
+  const app = await launch();
+  const page = await app.firstWindow();
+  const nav = page.getByRole('navigation', { name: 'Main' });
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  );
+
+  await nav.getByRole('link', { name: 'Inbox' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Inbox' })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Inbox' })).toHaveAttribute('aria-current', 'page');
+  expect(new URL(page.url()).hash).toBe('#/inbox');
+
+  for (const name of ['Characters', 'Achievements', 'Integrations', 'Settings']) {
+    await nav.getByRole('link', { name }).click();
+    await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  }
+
+  await app.close();
+});
+
+test('applies the saved theme to the window', async () => {
+  let app = await launch();
+  let page = await app.firstWindow();
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBeUndefined();
+  await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
+  await app.close();
+
+  app = await launch();
+  page = await app.firstWindow();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await app.close();
+});
