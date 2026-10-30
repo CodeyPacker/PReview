@@ -1,1 +1,46 @@
 /* NavItem styles. Read values from tokens.css custom properties only. */
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: 40px;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  font: 500 var(--text-base) / 1 var(--font-sans);
+  text-decoration: none;
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.item:hover:not(.active) {
+  background: var(--surface-hover);
+}
+
+.icon {
+  display: inline-flex;
+  color: var(--ink-secondary);
+}
+
+.icon > svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.active {
+  background: var(--surface-selected);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.active .icon {
+  color: var(--accent-text);
+}
