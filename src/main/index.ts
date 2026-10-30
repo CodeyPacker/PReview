@@ -1,5 +1,13 @@
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
+import type { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
+import { openDatabase } from './database/connection.ts';
+import { migrate } from './database/migrate.ts';
+import { registerIpcHandlers } from './ipc/index.ts';
+import { initLogging, log } from './logging/log.ts';
+import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
+
+initLogging();
 
 function isSafeExternalUrl(url: string): boolean {
   try {
@@ -17,7 +25,7 @@ function createWindow(): void {
     minHeight: 680,
     show: false,
     webPreferences: {
-      preload: join(import.meta.dirname, '../preload/index.cjs'),
+      preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -35,14 +43,39 @@ function createWindow(): void {
   // The app never navigates its own window away from the bundled page.
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void win.loadURL(process.env.ELECTRON_RENDERER_URL);
+  const devUrl = devServerUrl(app.isPackaged);
+  if (devUrl) {
+    void win.loadURL(devUrl);
   } else {
-    void win.loadFile(join(import.meta.dirname, '../renderer/index.html'));
+    void win.loadFile(rendererIndexPath);
   }
 }
 
+function openAppDatabase(): DatabaseSync {
+  const path = join(app.getPath('userData'), 'preview.db');
+  const db = openDatabase(path);
+  const version = migrate(db);
+  log.info(`Database ready at schema version ${version}`, path);
+  return db;
+}
+
 void app.whenReady().then(() => {
+  let db: DatabaseSync;
+  try {
+    db = openAppDatabase();
+  } catch (error) {
+    log.error('Could not open the database', error);
+    dialog.showErrorBox(
+      'PReview could not open its database',
+      error instanceof Error ? error.message : String(error),
+    );
+    app.exit(1);
+    return;
+  }
+
+  registerIpcHandlers(db);
+  app.on('will-quit', () => db.close());
+
   createWindow();
 
   app.on('activate', () => {
