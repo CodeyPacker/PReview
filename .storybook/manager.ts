@@ -1,0 +1,110 @@
+import {
+  Activity,
+  Bug,
+  ChartColumnBig,
+  ChartNoAxesColumn,
+  ChartPie,
+  ChartSpline,
+  ChevronsRight,
+  ChevronsUpDown,
+  CircleDot,
+  CircleUser,
+  Columns3,
+  Diff,
+  FolderTree,
+  Gauge,
+  Hash,
+  Keyboard,
+  LayoutGrid,
+  Link,
+  List,
+  MessageSquare,
+  Milestone,
+  MousePointerClick,
+  Palette,
+  PanelsTopLeft,
+  PanelTop,
+  Pill,
+  Search,
+  Shapes,
+  SlidersHorizontal,
+  Smile,
+  Sparkles,
+  Square,
+  SquareCheck,
+  SquareMousePointer,
+  SquareSplitHorizontal,
+  Tag,
+  TextCursorInput,
+  ToggleRight,
+  Trophy,
+  type LucideIcon,
+} from 'lucide-react';
+import { createElement } from 'react';
+import { addons } from 'storybook/manager-api';
+
+// Sidebar icon for each component, shown before its name. Add an entry when a
+// component gets stories; components without one show their name alone.
+const componentIcons: Record<string, LucideIcon> = {
+  AchievementCard: Trophy,
+  ActivityItem: Activity,
+  Avatar: CircleUser,
+  BarChart: ChartColumnBig,
+  Breadcrumbs: ChevronsRight,
+  Button: MousePointerClick,
+  CharacterCard: Smile,
+  Checkbox: SquareCheck,
+  ChoiceTile: LayoutGrid,
+  ColorSwatch: Palette,
+  Comment: MessageSquare,
+  Count: Hash,
+  DiffStat: Diff,
+  Donut: ChartPie,
+  FileTreeItem: FolderTree,
+  FindingItem: Bug,
+  Icon: Shapes,
+  IconButton: SquareMousePointer,
+  IconTile: Square,
+  Kbd: Keyboard,
+  LevelTrack: Milestone,
+  ListItem: List,
+  NavItem: Link,
+  Panel: PanelsTopLeft,
+  ProgressBar: Gauge,
+  SearchField: Search,
+  SegmentedControl: Columns3,
+  Select: ChevronsUpDown,
+  SettingRow: SlidersHorizontal,
+  Sparkline: ChartSpline,
+  SplitButton: SquareSplitHorizontal,
+  StatCard: ChartNoAxesColumn,
+  StatusDot: CircleDot,
+  StatusPill: Pill,
+  Switch: ToggleRight,
+  Tabs: PanelTop,
+  Tag: Tag,
+  TextField: TextCursorInput,
+  XPChip: Sparkles,
+};
+
+addons.setConfig({
+  sidebar: {
+    renderLabel: (item) => {
+      const Icon = item.type === 'component' ? componentIcons[item.name] : undefined;
+      if (!Icon) return item.name;
+      // createElement rather than JSX: Storybook compiles this file with the classic JSX
+      // transform, which needs React in scope.
+      return createElement(
+        'span',
+        { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } },
+        createElement(Icon, {
+          size: 14,
+          strokeWidth: 2,
+          'aria-hidden': true,
+          style: { flex: 'none', opacity: 0.75 },
+        }),
+        item.name,
+      );
+    },
+  },
+});

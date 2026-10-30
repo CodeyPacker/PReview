@@ -32,7 +32,7 @@ export default defineConfig([
 
   // Renderer and Storybook run in the browser.
   {
-    files: ['src/renderer/**/*.{ts,tsx}', '.storybook/**/*.ts'],
+    files: ['src/renderer/**/*.{ts,tsx}', '.storybook/**/*.{ts,tsx}'],
     extends: [reactHooks.configs.flat['recommended-latest'], reactRefresh.configs.vite],
     languageOptions: { globals: globals.browser },
   },
