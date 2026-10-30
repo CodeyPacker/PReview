@@ -42,6 +42,27 @@ describe('migrate', () => {
     expect(tableExists(db, 'b')).toBe(false);
   });
 
+  it('keeps repositories when the path rule is relaxed', () => {
+    const db = openDatabase(':memory:');
+    migrate(db, migrations.slice(0, 2));
+    db.exec(
+      "INSERT INTO repositories (path, name, status) VALUES ('/code/hello', 'hello', 'available')",
+    );
+    migrate(db);
+    db.exec(
+      "INSERT INTO repositories (path, name, status) VALUES ('/code/hello', 'other', 'unavailable')",
+    );
+    expect(db.prepare('SELECT id, name FROM repositories ORDER BY id').all()).toEqual([
+      { id: 1, name: 'hello' },
+      { id: 2, name: 'other' },
+    ]);
+    expect(() =>
+      db.exec(
+        "INSERT INTO repositories (path, name, status) VALUES ('/code/hello', 'third', 'available')",
+      ),
+    ).toThrow();
+  });
+
   it('refuses a database newer than the app', () => {
     const db = openDatabase(':memory:');
     db.exec('PRAGMA user_version = 99');

@@ -43,6 +43,17 @@ export function listRepositories(db: DatabaseSync): Repository[] {
   }));
 }
 
+// The repository at a path is the same one when it has the same first commit, and its
+// origin has not been pointed at a different repository. A missing root commit (a
+// repository with no commits yet) or a missing origin can't contradict the record.
+function isSameRepository(row: RepositoryRow, scanned: ScannedRepository): boolean {
+  if (row.root_commit && scanned.rootCommit && row.root_commit !== scanned.rootCommit) return false;
+  if (row.remote_url && scanned.remoteUrl) {
+    return remoteIdentity(row.remote_url) === remoteIdentity(scanned.remoteUrl);
+  }
+  return true;
+}
+
 // A moved repository has the same root commit and the same origin as an unavailable one.
 // Two such candidates, or a repository with no commits, leave the match unclear, and an
 // unclear match registers a new repository instead of guessing.
@@ -62,8 +73,11 @@ function findMoved(
 
 // Brings the stored repositories in line with a full scan: updates what was found,
 // reconnects moved repositories, registers new ones and marks the rest unavailable.
+// A record is reused at its path only when the repository there is the same one. An
+// unrelated clone at that path gets a new record and the original stays, unavailable.
 // Nothing is deleted, so review history survives a repository that disappears.
-export function reconcileRepositories(db: DatabaseSync, scanned: ScannedRepository[]): void {
+export function reconcileRepositories(db: DatabaseSync, found: ScannedRepository[]): void {
+  const scanned = [...new Map(found.map((repository) => [repository.path, repository])).values()];
   const update = db.prepare(`
     UPDATE repositories SET
       path = ?, name = ?, remote_url = ?, github_owner = ?, github_name = ?, root_commit = ?,
@@ -75,17 +89,28 @@ export function reconcileRepositories(db: DatabaseSync, scanned: ScannedReposito
       (path, name, remote_url, github_owner, github_name, root_commit, status)
     VALUES (?, ?, ?, ?, ?, ?, 'available')
   `);
-
   const markUnavailable = db.prepare("UPDATE repositories SET status = 'unavailable' WHERE id = ?");
 
   transaction(db, () => {
-    const seen = new Set(scanned.map((repository) => repository.path));
     const stored = db
       .prepare(`SELECT ${COLUMNS} FROM repositories`)
       .all() as unknown as RepositoryRow[];
-    const byPath = new Map(stored.map((row) => [row.path, row]));
-    const unclaimed = stored.filter((row) => !seen.has(row.path));
 
+    // Records the scan found again at their own path. An available record is preferred,
+    // then the newest.
+    const atPath = new Map<ScannedRepository, RepositoryRow>();
+    for (const repository of scanned) {
+      const same = stored
+        .filter((row) => row.path === repository.path && isSameRepository(row, repository))
+        .sort(
+          (a, b) =>
+            Number(b.status === 'available') - Number(a.status === 'available') || b.id - a.id,
+        );
+      if (same[0]) atPath.set(repository, same[0]);
+    }
+
+    const reused = new Set([...atPath.values()].map((row) => row.id));
+    const unclaimed = stored.filter((row) => !reused.has(row.id));
     for (const row of unclaimed) markUnavailable.run(row.id);
 
     for (const repository of scanned) {
@@ -100,7 +125,7 @@ export function reconcileRepositories(db: DatabaseSync, scanned: ScannedReposito
         repository.rootCommit,
       ] as const;
 
-      const existing = byPath.get(repository.path) ?? findMoved(repository, unclaimed);
+      const existing = atPath.get(repository) ?? findMoved(repository, unclaimed);
       if (existing) {
         update.run(...values, existing.id);
         const index = unclaimed.indexOf(existing);

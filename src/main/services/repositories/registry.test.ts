@@ -77,6 +77,81 @@ describe('reconcileRepositories', () => {
     expect(repository).toMatchObject({ id: 1, status: 'available' });
   });
 
+  it('keeps the original as unavailable when an unrelated clone takes its path', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    reconcileRepositories(db, [
+      scanned('/code/hello', {
+        rootCommit: 'root-other',
+        remoteUrl: 'git@github.com:other/thing.git',
+      }),
+    ]);
+    expect(listRepositories(db)).toMatchObject([
+      {
+        id: 2,
+        path: '/code/hello',
+        github: { owner: 'other', name: 'thing' },
+        status: 'available',
+      },
+      {
+        id: 1,
+        path: '/code/hello',
+        github: { owner: 'octo', name: 'hello' },
+        status: 'unavailable',
+      },
+    ]);
+  });
+
+  it('treats a different root commit alone as a different repository', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    reconcileRepositories(db, [scanned('/code/hello', { rootCommit: 'root-other' })]);
+    expect(listRepositories(db).map(({ id, status }) => ({ id, status }))).toEqual([
+      { id: 2, status: 'available' },
+      { id: 1, status: 'unavailable' },
+    ]);
+  });
+
+  it('treats a different origin alone as a different repository', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    reconcileRepositories(db, [
+      scanned('/code/hello', { remoteUrl: 'git@github.com:fork/hello.git' }),
+    ]);
+    expect(listRepositories(db).map(({ id, status }) => ({ id, status }))).toEqual([
+      { id: 2, status: 'available' },
+      { id: 1, status: 'unavailable' },
+    ]);
+  });
+
+  it('keeps the record when the repository at the path gains its first commit or origin', () => {
+    reconcileRepositories(db, [scanned('/code/new', { rootCommit: null, remoteUrl: null })]);
+    reconcileRepositories(db, [scanned('/code/new')]);
+    expect(listRepositories(db)).toMatchObject([{ id: 1, status: 'available' }]);
+  });
+
+  it('reuses the original record when it returns after a replacement left', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    reconcileRepositories(db, [scanned('/code/hello', { rootCommit: 'root-other' })]);
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    expect(listRepositories(db).map(({ id, status }) => ({ id, status }))).toEqual([
+      { id: 1, status: 'available' },
+      { id: 2, status: 'unavailable' },
+    ]);
+  });
+
+  it('reconnects the displaced original when it turns up elsewhere', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    reconcileRepositories(db, [
+      scanned('/code/hello', {
+        rootCommit: 'root-other',
+        remoteUrl: 'git@github.com:other/thing.git',
+      }),
+      scanned('/work/hello'),
+    ]);
+    expect(listRepositories(db).map(({ id, path, status }) => ({ id, path, status }))).toEqual([
+      { id: 1, path: '/work/hello', status: 'available' },
+      { id: 2, path: '/code/hello', status: 'available' },
+    ]);
+  });
+
   it('reconnects a moved repository to its record', () => {
     reconcileRepositories(db, [scanned('/code/hello')]);
     reconcileRepositories(db, [scanned('/work/hello-renamed')]);
