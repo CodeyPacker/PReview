@@ -1,0 +1,100 @@
+/* Typography styles. Read values from tokens.css custom properties only.
+   Line heights and letter spacing match the text styles in styles/typography.css. */
+
+.text[data-size='xs'] {
+  font-size: var(--text-xs);
+  line-height: 14px;
+  letter-spacing: 0.01em;
+}
+
+.text[data-size='sm'] {
+  font-size: var(--text-sm);
+  line-height: 16px;
+}
+
+.text[data-size='md'] {
+  font-size: var(--text-md);
+  line-height: 18px;
+}
+
+.text[data-size='base'] {
+  font-size: var(--text-base);
+  line-height: 20px;
+}
+
+.text[data-size='lg'] {
+  font-size: var(--text-lg);
+  line-height: 22px;
+}
+
+.text[data-size='xl'] {
+  font-size: var(--text-xl);
+  line-height: 28px;
+  letter-spacing: -0.01em;
+}
+
+.text[data-size='2xl'] {
+  font-size: var(--text-2xl);
+  line-height: 32px;
+  letter-spacing: -0.01em;
+}
+
+.text[data-size='3xl'] {
+  font-size: var(--text-3xl);
+  line-height: 38px;
+  letter-spacing: -0.015em;
+}
+
+.text[data-size='4xl'] {
+  font-size: var(--text-4xl);
+  line-height: 44px;
+  letter-spacing: -0.02em;
+}
+
+.text[data-color='inherit'] {
+  color: inherit;
+}
+
+.text[data-color='primary'] {
+  color: var(--ink);
+}
+
+.text[data-color='secondary'] {
+  color: var(--ink-secondary);
+}
+
+.text[data-color='inverse'] {
+  color: var(--ink-inverse);
+}
+
+.text[data-color='accent'] {
+  color: var(--accent-text);
+}
+
+.text[data-weight='regular'] {
+  font-weight: 400;
+}
+
+.text[data-weight='medium'] {
+  font-weight: 500;
+}
+
+.text[data-weight='semibold'] {
+  font-weight: 600;
+}
+
+.text[data-weight='bold'] {
+  font-weight: 700;
+}
+
+.text[data-font='sans'] {
+  font-family: var(--font-sans);
+}
+
+.text[data-font='display'] {
+  font-family: var(--font-display);
+}
+
+.text[data-font='mono'] {
+  font-family: var(--font-mono);
+}
