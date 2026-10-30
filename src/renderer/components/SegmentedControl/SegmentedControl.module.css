@@ -1,1 +1,110 @@
 /* SegmentedControl styles. Read values from tokens.css custom properties only. */
+
+.group {
+  --height: var(--control-md);
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.sm {
+  --height: var(--control-sm);
+}
+
+.block {
+  display: flex;
+}
+
+.block .item {
+  flex: 1;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  height: var(--height);
+  padding: 0 var(--space-12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
+  font: 500 var(--text-md) / 1 var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background var(--duration-base) var(--ease-standard),
+    color var(--duration-base) var(--ease-standard);
+}
+
+.item > svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.item:hover:not([data-checked], [data-disabled]) {
+  color: var(--ink);
+}
+
+.item[data-checked] {
+  font-weight: 600;
+}
+
+.item[data-disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* track: one inset bar, the selected segment tinted. */
+.track {
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+}
+
+.track .item {
+  height: calc(var(--height) - 8px);
+}
+
+.track .item[data-checked] {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* chips: separate bordered buttons that wrap. */
+.chips {
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.chips .item {
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+}
+
+.chips .item:hover:not([data-checked], [data-disabled]) {
+  background: var(--surface-hover);
+}
+
+.chips .item[data-checked] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+/* pills: borderless, the selected one filled. */
+.pills .item {
+  border-radius: var(--radius-full);
+}
+
+.pills .item:hover:not([data-checked], [data-disabled]) {
+  background: var(--surface-hover);
+}
+
+.pills .item[data-checked] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
