@@ -29,6 +29,8 @@ const preview: Preview = {
   parameters: {
     layout: 'centered',
     backgrounds: { disabled: true },
+    // Accessibility violations fail the story's test.
+    a11y: { test: 'error' },
   },
 };
 

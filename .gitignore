@@ -4,3 +4,5 @@ dist
 .DS_Store
 storybook-static
 out
+test-results
+playwright-report
