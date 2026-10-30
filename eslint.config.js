@@ -37,6 +37,20 @@ export default defineConfig([
     languageOptions: { globals: globals.browser },
   },
 
+  // Route files follow TanStack Router's conventions: the router plugin splits each page
+  // component into its own chunk (so Fast Refresh still works), and `throw redirect()`
+  // is how a route redirects.
+  {
+    files: ['src/renderer/routes/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      '@typescript-eslint/only-throw-error': [
+        'error',
+        { allow: [{ from: 'package', package: '@tanstack/router-core', name: 'Redirect' }] },
+      ],
+    },
+  },
+
   storybook.configs['flat/recommended'],
   {
     files: ['**/*.stories.tsx'],
