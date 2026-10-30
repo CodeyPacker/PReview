@@ -1,1 +1,64 @@
-/* TextField styles. Read values from tokens.css custom properties only. */
+/* TextField styles. Read values from tokens.css custom properties only.
+   The input box itself comes from styles/forms.module.css. */
+
+.textField {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.inline {
+  grid-template-columns: minmax(96px, 30%) 1fr;
+  align-items: start;
+  column-gap: var(--space-16);
+}
+
+.label {
+  color: var(--ink);
+  font: 500 var(--text-md) / 20px var(--font-sans);
+}
+
+/* Centers the label on the first line of the input. */
+.inline .label {
+  padding-top: calc((var(--control-md) - 20px) / 2);
+}
+
+.body {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.body > div > svg {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.textField[data-invalid] .body > div {
+  border-color: var(--danger-fill);
+}
+
+.textField[data-disabled] {
+  opacity: 0.45;
+}
+
+.multiline {
+  height: auto;
+  align-items: flex-start;
+  padding-block: var(--space-8);
+}
+
+.textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.hint {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
+
+.error {
+  color: var(--danger);
+}
