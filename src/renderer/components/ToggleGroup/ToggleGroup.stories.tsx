@@ -1,12 +1,12 @@
-// SegmentedControl stories (Storybook, CSF 3).
+// ToggleGroup stories (Storybook, CSF 3).
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Columns2, Rows3 } from 'lucide-react';
 import { expect, fn, userEvent } from 'storybook/test';
-import { SegmentedControl } from './SegmentedControl.tsx';
+import { ToggleGroup } from './ToggleGroup.tsx';
 
 const meta = {
-  title: 'Components/SegmentedControl',
-  component: SegmentedControl,
+  title: 'Components/ToggleGroup',
+  component: ToggleGroup,
   args: {
     'aria-label': 'Diff view',
     options: [
@@ -15,7 +15,7 @@ const meta = {
     ],
     onValueChange: fn(),
   },
-} satisfies Meta<typeof SegmentedControl>;
+} satisfies Meta<typeof ToggleGroup>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

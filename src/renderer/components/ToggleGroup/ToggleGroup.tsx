@@ -1,13 +1,13 @@
-// SegmentedControl: One choice from a short, fixed set, shown all at once.
+// ToggleGroup: One choice from a short, fixed set, shown all at once.
 import { Radio } from '@base-ui/react/radio';
 import { RadioGroup } from '@base-ui/react/radio-group';
 import { cx } from '../../lib/cx.ts';
 import { toOption, type OptionInput } from '../../lib/options.ts';
 import { useControllableState } from '../../lib/useControllableState.ts';
 import { Count } from '../Count/Count.tsx';
-import styles from './SegmentedControl.module.css';
+import styles from './ToggleGroup.module.css';
 
-export interface SegmentedControlProps<V extends string = string> {
+export interface ToggleGroupProps<V extends string = string> {
   options: OptionInput<V>[];
   value?: V;
   // Defaults to the first option.
@@ -26,7 +26,7 @@ export interface SegmentedControlProps<V extends string = string> {
   className?: string;
 }
 
-export function SegmentedControl<V extends string = string>({
+export function ToggleGroup<V extends string = string>({
   options,
   value,
   defaultValue,
@@ -38,7 +38,7 @@ export function SegmentedControl<V extends string = string>({
   name,
   className,
   ...aria
-}: SegmentedControlProps<V>) {
+}: ToggleGroupProps<V>) {
   const items = options.map(toOption);
   const [selected, setSelected] = useControllableState(
     value,

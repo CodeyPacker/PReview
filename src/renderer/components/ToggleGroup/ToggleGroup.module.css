@@ -1,4 +1,4 @@
-/* SegmentedControl styles. Read values from tokens.css custom properties only. */
+/* ToggleGroup styles. Read values from tokens.css custom properties only. */
 
 .group {
   --height: var(--control-md);

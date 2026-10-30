@@ -15,7 +15,7 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   titleAs?: 'h2' | 'h3';
   icon?: ReactNode;
   count?: number;
-  // Right side of the header: a "View All" button, a select, a segmented control.
+  // Right side of the header: a "View All" button, a select, a toggle group.
   action?: ReactNode;
 }
 

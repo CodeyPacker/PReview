@@ -72,7 +72,6 @@ const componentIcons: Record<string, LucideIcon> = {
   Panel: PanelsTopLeft,
   ProgressBar: Gauge,
   SearchField: Search,
-  SegmentedControl: Columns3,
   Select: ChevronsUpDown,
   SettingRow: SlidersHorizontal,
   Sparkline: ChartSpline,
@@ -84,6 +83,7 @@ const componentIcons: Record<string, LucideIcon> = {
   Tabs: PanelTop,
   Tag: Tag,
   TextField: TextCursorInput,
+  ToggleGroup: Columns3,
   XPChip: Sparkles,
 };
 

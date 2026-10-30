@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-// One choice in a Select, SegmentedControl or Tabs.
+// One choice in a Select, ToggleGroup or Tabs.
 export interface Option<V extends string = string> {
   value: V;
   label?: ReactNode;
