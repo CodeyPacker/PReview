@@ -1,1 +1,49 @@
 /* StatusDot styles. Read values from tokens.css custom properties only. */
+
+.statusDot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--tone-fill);
+}
+
+.pulse {
+  animation: pulse 2s var(--ease-standard) infinite;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--tone-fill);
+  }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+.text {
+  display: grid;
+}
+
+.label {
+  color: var(--tone-fg);
+  font: 500 var(--text-md) / 18px var(--font-sans);
+}
+
+.muted {
+  color: var(--ink-secondary);
+}
+
+.sublabel {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
