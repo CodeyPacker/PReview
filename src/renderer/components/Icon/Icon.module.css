@@ -1,1 +1,21 @@
 /* Icon styles. Read values from tokens.css custom properties only. */
+
+.icon {
+  flex: none;
+  display: block;
+}
+
+.sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.md {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.lg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
