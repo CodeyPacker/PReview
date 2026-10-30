@@ -38,6 +38,7 @@ import {
   TextCursorInput,
   ToggleRight,
   Trophy,
+  Type,
   type LucideIcon,
 } from 'lucide-react';
 import { createElement } from 'react';
@@ -84,6 +85,7 @@ const componentIcons: Record<string, LucideIcon> = {
   Tabs: PanelTop,
   Tag: Tag,
   TextField: TextCursorInput,
+  Typography: Type,
   XPChip: Sparkles,
 };
 
