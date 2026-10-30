@@ -1,4 +1,10 @@
-import { _electron as electron, expect, test, type ElectronApplication } from '@playwright/test';
+import {
+  _electron as electron,
+  expect,
+  test,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +24,15 @@ function launch(): Promise<ElectronApplication> {
   return electron.launch({ args: ['.', `--user-data-dir=${userDataDir}`] });
 }
 
+// A fresh user-data folder has no GitHub connection, so the connect prompt opens first.
+async function dismissGitHubPrompt(page: Page): Promise<void> {
+  await page
+    .getByRole('dialog', { name: 'Connect GitHub' })
+    .getByRole('button', { name: 'Not now' })
+    .click();
+  await expect(page.getByRole('dialog')).toBeHidden();
+}
+
 test('launches the app window', async () => {
   const app = await launch();
   const page = await app.firstWindow();
@@ -33,13 +48,19 @@ test('launches the app window', async () => {
 test('keeps a saved setting after a restart', async () => {
   let app = await launch();
   let page = await app.firstWindow();
-  expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({ theme: 'system' });
+  expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
+    theme: 'system',
+    githubPromptDismissed: false,
+  });
   await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
   await app.close();
 
   app = await launch();
   page = await app.firstWindow();
-  expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({ theme: 'dark' });
+  expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
+    theme: 'dark',
+    githubPromptDismissed: false,
+  });
   await app.close();
 });
 
@@ -52,7 +73,10 @@ test('rejects an invalid setting', async () => {
       window.preview.settings.update({ theme: 'neon' } as unknown as { theme: 'dark' }),
     ),
   ).rejects.toThrow('settings.update: invalid input');
-  expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({ theme: 'system' });
+  expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
+    theme: 'system',
+    githubPromptDismissed: false,
+  });
 
   await app.close();
 });
@@ -60,6 +84,7 @@ test('rejects an invalid setting', async () => {
 test('opens on the dashboard and navigates from the sidebar', async () => {
   const app = await launch();
   const page = await app.firstWindow();
+  await dismissGitHubPrompt(page);
   const nav = page.getByRole('navigation', { name: 'Main' });
 
   await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
@@ -84,6 +109,7 @@ test('opens on the dashboard and navigates from the sidebar', async () => {
 test('applies the saved theme to the window', async () => {
   let app = await launch();
   let page = await app.firstWindow();
+  await dismissGitHubPrompt(page);
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBeUndefined();
   await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
@@ -92,5 +118,30 @@ test('applies the saved theme to the window', async () => {
   app = await launch();
   page = await app.firstWindow();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await app.close();
+});
+
+test('prompts to connect GitHub until the prompt is dismissed', async () => {
+  let app = await launch();
+  let page = await app.firstWindow();
+  const dialog = page.getByRole('dialog', { name: 'Connect GitHub' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Connect GitHub' })).toBeVisible();
+  expect(await page.evaluate(() => window.preview.github.getAuth())).toEqual({
+    status: 'disconnected',
+  });
+  await dismissGitHubPrompt(page);
+  await app.close();
+
+  app = await launch();
+  page = await app.firstWindow();
+  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  await nav.getByRole('link', { name: 'Integrations' }).click();
+  await expect(page.getByText('Not connected')).toBeVisible();
+  await page.getByRole('button', { name: 'Connect GitHub' }).click();
+  await expect(page.getByRole('dialog', { name: 'Connect GitHub' })).toBeVisible();
   await app.close();
 });

@@ -1,3 +1,4 @@
+import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
 
@@ -10,5 +11,12 @@ export interface PreviewApi {
   settings: {
     getAll(): Promise<Settings>;
     update(patch: SettingsPatch): Promise<Settings>;
+  };
+  github: {
+    getAuth(): Promise<GitHubAuthState>;
+    // Opens GitHub's device page and copies the code. Resolves once the code is ready.
+    connect(): Promise<GitHubAuthState>;
+    cancel(): Promise<GitHubAuthState>;
+    disconnect(): Promise<GitHubAuthState>;
   };
 }
