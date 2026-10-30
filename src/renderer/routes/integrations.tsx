@@ -30,8 +30,10 @@ function IntegrationsPage() {
         title="Integrations"
         description="Connect your repositories and tools to bring pull requests into PReview."
       />
-      <GitHubPanel />
-      <LocalFoldersPanel />
+      <div className={styles.connections}>
+        <GitHubPanel />
+        <LocalFoldersPanel />
+      </div>
       <div className={styles.repositories}>
         <RepositoriesPanel selectedId={selected?.id} onSelect={setSelectedId} />
         <RepositoryDetailPanel repository={selected} />
