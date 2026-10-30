@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
-import { listRepositories, reconcileRepositories, type ScannedRepository } from './registry.ts';
+import {
+  listRepositories,
+  reconcileRepositories,
+  updateRepositorySettings,
+  type ScannedRepository,
+} from './registry.ts';
 
 function scanned(path: string, overrides: Partial<ScannedRepository> = {}): ScannedRepository {
   return {
@@ -31,6 +36,7 @@ describe('reconcileRepositories', () => {
         remoteUrl: 'git@github.com:octo/hello.git',
         github: { owner: 'octo', name: 'hello' },
         status: 'available',
+        settings: { monitored: true, includeDrafts: true, includeAutomated: true },
       },
     ]);
   });
@@ -211,5 +217,68 @@ describe('reconcileRepositories', () => {
     reconcileRepositories(db, [scanned('/code/zeta', { rootCommit: 'z', remoteUrl: null })]);
     reconcileRepositories(db, [scanned('/code/alpha', { rootCommit: 'a', remoteUrl: null })]);
     expect(listRepositories(db).map((repository) => repository.name)).toEqual(['alpha', 'zeta']);
+  });
+});
+
+describe('updateRepositorySettings', () => {
+  it('changes only the settings in the patch', () => {
+    reconcileRepositories(db, [
+      scanned('/code/hello'),
+      scanned('/code/other', { rootCommit: 'r2' }),
+    ]);
+    updateRepositorySettings(db, 1, { includeDrafts: false });
+    updateRepositorySettings(db, 1, { monitored: false });
+
+    const [first, second] = listRepositories(db);
+    expect(first?.settings).toEqual({
+      monitored: false,
+      includeDrafts: false,
+      includeAutomated: true,
+    });
+    expect(second?.settings).toEqual({
+      monitored: true,
+      includeDrafts: true,
+      includeAutomated: true,
+    });
+  });
+
+  it('keeps the settings when a repository disappears and returns', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    updateRepositorySettings(db, 1, { monitored: false, includeAutomated: false });
+
+    reconcileRepositories(db, []);
+    expect(listRepositories(db)[0]?.settings.monitored).toBe(false);
+
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    expect(listRepositories(db)).toMatchObject([
+      { id: 1, settings: { monitored: false, includeDrafts: true, includeAutomated: false } },
+    ]);
+  });
+
+  it('keeps the settings when a repository moves', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    updateRepositorySettings(db, 1, { includeDrafts: false });
+
+    reconcileRepositories(db, [scanned('/work/hello')]);
+    expect(listRepositories(db)).toMatchObject([
+      { id: 1, path: '/work/hello', settings: { includeDrafts: false } },
+    ]);
+  });
+
+  it('gives a replacement clone default settings', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    updateRepositorySettings(db, 1, { monitored: false });
+
+    reconcileRepositories(db, [scanned('/code/hello', { rootCommit: 'root-2' })]);
+    expect(listRepositories(db)).toMatchObject([
+      { id: 2, status: 'available', settings: { monitored: true } },
+      { id: 1, status: 'unavailable', settings: { monitored: false } },
+    ]);
+  });
+
+  it('ignores an unknown repository', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    updateRepositorySettings(db, 99, { monitored: false });
+    expect(listRepositories(db)[0]?.settings.monitored).toBe(true);
   });
 });

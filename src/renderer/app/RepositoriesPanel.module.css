@@ -19,12 +19,23 @@
 }
 
 .item {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: var(--space-12);
   padding: var(--space-12);
   border-radius: var(--radius-lg);
   background: var(--surface-sunken);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-16);
 }
 
 .text {

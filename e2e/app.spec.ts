@@ -186,6 +186,12 @@ test('discovers repositories in a watched folder', async () => {
     await expect(page.getByText(hello, { exact: true })).toBeVisible();
     await expect(page.getByText('Available')).toBeVisible();
 
+    const monitor = page.getByRole('switch', { name: 'Monitor pull requests in octo/hello' });
+    await expect(monitor).toBeChecked();
+    await monitor.click();
+    await expect(monitor).not.toBeChecked();
+    await expect(page.getByRole('switch', { name: 'Include drafts in octo/hello' })).toBeChecked();
+
     await page.getByRole('button', { name: `Remove ${code}` }).click();
     await expect(page.getByText('No folders yet')).toBeVisible();
     await expect(page.getByText('Unavailable')).toBeVisible();

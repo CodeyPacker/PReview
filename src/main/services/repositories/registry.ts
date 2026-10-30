@@ -1,5 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { Repository, RepositoryStatus } from '../../../shared/contracts/repositories.ts';
+import type {
+  Repository,
+  RepositorySettingsPatch,
+  RepositoryStatus,
+} from '../../../shared/contracts/repositories.ts';
 import { transaction } from '../../database/connection.ts';
 import { githubRepoFromRemote, remoteIdentity, stripCredentials } from './remote.ts';
 
@@ -21,15 +25,21 @@ interface RepositoryRow {
   status: RepositoryStatus;
 }
 
+interface ListedRow extends RepositoryRow {
+  monitored: number;
+  include_drafts: number;
+  include_automated: number;
+}
+
 const COLUMNS = 'id, path, name, remote_url, github_owner, github_name, root_commit, status';
 
 export function listRepositories(db: DatabaseSync): Repository[] {
   const rows = db
     .prepare(
-      `SELECT ${COLUMNS} FROM repositories
+      `SELECT ${COLUMNS}, monitored, include_drafts, include_automated FROM repositories
        ORDER BY status, COALESCE(github_owner, '') COLLATE NOCASE, name COLLATE NOCASE, path`,
     )
-    .all() as unknown as RepositoryRow[];
+    .all() as unknown as ListedRow[];
   return rows.map((row) => ({
     id: row.id,
     path: row.path,
@@ -40,7 +50,34 @@ export function listRepositories(db: DatabaseSync): Repository[] {
         ? { owner: row.github_owner, name: row.github_name }
         : null,
     status: row.status,
+    settings: {
+      monitored: row.monitored === 1,
+      includeDrafts: row.include_drafts === 1,
+      includeAutomated: row.include_automated === 1,
+    },
   }));
+}
+
+const SETTING_COLUMNS = {
+  monitored: 'monitored',
+  includeDrafts: 'include_drafts',
+  includeAutomated: 'include_automated',
+} as const;
+
+// Changes only the settings in the patch. An unknown id changes nothing.
+export function updateRepositorySettings(
+  db: DatabaseSync,
+  id: number,
+  patch: RepositorySettingsPatch,
+): void {
+  const changes = Object.entries(SETTING_COLUMNS).flatMap(([key, column]) => {
+    const value = patch[key as keyof RepositorySettingsPatch];
+    return value === undefined ? [] : [{ column, value: Number(value) }];
+  });
+  if (changes.length === 0) return;
+  db.prepare(
+    `UPDATE repositories SET ${changes.map(({ column }) => `${column} = ?`).join(', ')} WHERE id = ?`,
+  ).run(...changes.map(({ value }) => value), id);
 }
 
 // The repository at a path is the same one when it has the same first commit, and its

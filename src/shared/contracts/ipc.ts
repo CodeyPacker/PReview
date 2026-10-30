@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { githubAuthStateSchema } from './github.ts';
-import { repositoriesStateSchema, scanDepthSchema, watchedFolderSchema } from './repositories.ts';
+import {
+  repositoriesStateSchema,
+  repositorySettingsPatchSchema,
+  scanDepthSchema,
+  watchedFolderSchema,
+} from './repositories.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
 export const appInfoSchema = z.object({
@@ -35,6 +40,10 @@ export const ipcContract = {
   'repositories.list': { input: z.undefined(), output: repositoriesStateSchema },
   // Starts a scan and returns without waiting for it.
   'repositories.scan': { input: z.undefined(), output: repositoriesStateSchema },
+  'repositories.updateSettings': {
+    input: z.object({ id: z.number().int(), patch: repositorySettingsPatchSchema }),
+    output: repositoriesStateSchema,
+  },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 
 export type IpcChannel = keyof typeof ipcContract;

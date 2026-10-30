@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { WatchedFolder } from '../../shared/contracts/repositories.ts';
+import type {
+  RepositorySettingsPatch,
+  WatchedFolder,
+} from '../../shared/contracts/repositories.ts';
 
 const foldersKey = ['folders'] as const;
 const repositoriesKey = ['repositories'] as const;
@@ -45,6 +48,15 @@ export function useRescan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => window.preview.repositories.scan(),
+    onSuccess: (state) => queryClient.setQueryData(repositoriesKey, state),
+  });
+}
+
+export function useUpdateRepositorySettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (change: { id: number; patch: RepositorySettingsPatch }) =>
+      window.preview.repositories.updateSettings(change.id, change.patch),
     onSuccess: (state) => queryClient.setQueryData(repositoriesKey, state),
   });
 }

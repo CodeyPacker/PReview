@@ -1,6 +1,6 @@
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
-import type { RepositoriesState, WatchedFolder } from './repositories.ts';
+import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
 
 // The API the preload script exposes to the renderer as `window.preview`.
@@ -31,5 +31,6 @@ export interface PreviewApi {
     list(): Promise<RepositoriesState>;
     // Starts a scan of the watched folders. Resolves without waiting for it to finish.
     scan(): Promise<RepositoriesState>;
+    updateSettings(id: number, patch: RepositorySettingsPatch): Promise<RepositoriesState>;
   };
 }
