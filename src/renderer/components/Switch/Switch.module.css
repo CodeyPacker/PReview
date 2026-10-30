@@ -1,1 +1,48 @@
 /* Switch styles. Read values from tokens.css custom properties only. */
+
+.switch {
+  --width: 44px;
+  --height: 26px;
+  flex: none;
+  position: relative;
+  display: inline-block;
+  width: var(--width);
+  height: var(--height);
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-standard);
+}
+
+.sm {
+  --width: 34px;
+  --height: 20px;
+}
+
+.switch[data-checked] {
+  background: var(--accent);
+}
+
+.switch[data-disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: calc(var(--height) - 4px);
+  height: calc(var(--height) - 4px);
+  border-radius: var(--radius-full);
+  /* The knob stays white in both themes, like the native macOS switch. */
+  background: #ffffff;
+  box-shadow:
+    var(--shadow-xs),
+    0 2px 4px #0000001f;
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+
+.thumb[data-checked] {
+  transform: translateX(calc(var(--width) - var(--height)));
+}
