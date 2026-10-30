@@ -1,1 +1,17 @@
 /* IconButton styles. Read values from tokens.css custom properties only. */
+
+.iconButton {
+  width: var(--height);
+  padding: 0;
+}
+
+.dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--danger-fill);
+  box-shadow: 0 0 0 2px var(--surface-raised);
+}
