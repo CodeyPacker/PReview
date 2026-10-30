@@ -3,6 +3,7 @@ import { Input } from '@base-ui/react/input';
 import { Search } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { cx } from '../../lib/cx.ts';
+import forms from '../../styles/forms.module.css';
 import { Kbd } from '../Kbd/Kbd.tsx';
 import styles from './SearchField.module.css';
 
@@ -19,13 +20,21 @@ export interface SearchFieldProps extends Omit<
 
 export function SearchField({ size = 'md', shortcut, className, ...rest }: SearchFieldProps) {
   return (
-    <label className={cx(styles.field, styles[size], className)}>
+    <label
+      className={cx(
+        forms.field,
+        size === 'lg' && forms.fieldLg,
+        styles.field,
+        styles[size],
+        className,
+      )}
+    >
       <Search className={styles.icon} aria-hidden />
       <Input
         {...rest}
         type="search"
         aria-label={rest['aria-label'] ?? rest.placeholder ?? 'Search'}
-        className={styles.input}
+        className={cx(forms.input, styles.input)}
       />
       {shortcut && <Kbd keys={shortcut} />}
     </label>

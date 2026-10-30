@@ -1,12 +1,11 @@
-/* SearchField styles. Read values from tokens.css custom properties only. */
+/* SearchField styles. Read values from tokens.css custom properties only.
+   The input box itself comes from styles/forms.module.css. */
 
 .field {
-  composes: field from '../../styles/forms.module.css';
   cursor: text;
 }
 
 .lg {
-  composes: fieldLg from '../../styles/forms.module.css';
   background: var(--surface);
   box-shadow: var(--shadow-sm);
   -webkit-backdrop-filter: blur(var(--blur-glass));
@@ -17,10 +16,6 @@
   flex: none;
   width: var(--icon-md);
   height: var(--icon-md);
-}
-
-.input {
-  composes: input from '../../styles/forms.module.css';
 }
 
 .input::-webkit-search-cancel-button {
