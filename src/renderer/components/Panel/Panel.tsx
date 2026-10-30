@@ -19,6 +19,13 @@ export interface PanelProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   action?: ReactNode;
 }
 
+const paddingClass = {
+  none: styles.padNone,
+  sm: styles.padSm,
+  md: styles.padMd,
+  lg: styles.padLg,
+};
+
 export function Panel({
   as: Tag = 'section',
   variant = 'glass',
@@ -37,7 +44,7 @@ export function Panel({
     <Tag
       {...rest}
       aria-labelledby={title ? titleId : rest['aria-labelledby']}
-      className={cx(styles.panel, styles[variant], styles[`pad-${padding}`], className)}
+      className={cx(styles.panel, styles[variant], paddingClass[padding], className)}
     >
       {title && (
         <header className={styles.header}>
