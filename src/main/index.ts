@@ -1,5 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, safeStorage, shell } from 'electron';
 import type { DatabaseSync } from 'node:sqlite';
+import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { openDatabase } from './database/connection.ts';
@@ -8,6 +9,8 @@ import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
 import { GitHubAuth } from './services/github/auth.ts';
 import { createCredentialStore, type Encryptor } from './services/github/credential-store.ts';
+import { RepositoryDiscovery } from './services/repositories/discovery.ts';
+import { runGit } from './services/repositories/git-info.ts';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
 
 initLogging();
@@ -86,6 +89,20 @@ async function createGitHubAuth(): Promise<GitHubAuth> {
   return auth;
 }
 
+// Resolves to the real path, so a symlinked folder is watched once.
+async function pickFolder(): Promise<string | undefined> {
+  const options = {
+    title: 'Add Watched Folder',
+    properties: ['openDirectory' as const],
+  };
+  const window = BrowserWindow.getFocusedWindow();
+  const result = await (window
+    ? dialog.showOpenDialog(window, options)
+    : dialog.showOpenDialog(options));
+  const [picked] = result.filePaths;
+  return result.canceled || !picked ? undefined : realpath(picked);
+}
+
 function openAppDatabase(): DatabaseSync {
   const path = join(app.getPath('userData'), 'preview.db');
   const db = openDatabase(path);
@@ -108,7 +125,9 @@ void app.whenReady().then(async () => {
     return;
   }
 
-  registerIpcHandlers(db, await createGitHubAuth());
+  const discovery = new RepositoryDiscovery({ db, git: runGit, log });
+  registerIpcHandlers(db, { github: await createGitHubAuth(), discovery, pickFolder });
+  void discovery.scan();
   app.on('will-quit', () => db.close());
 
   createWindow();

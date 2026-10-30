@@ -20,6 +20,8 @@ describe('migrate', () => {
     const db = openDatabase(':memory:');
     expect(migrate(db)).toBe(migrations.at(-1)?.version);
     expect(tableExists(db, 'settings')).toBe(true);
+    expect(tableExists(db, 'watched_folders')).toBe(true);
+    expect(tableExists(db, 'repositories')).toBe(true);
   });
 
   it('does nothing when the database is current', () => {

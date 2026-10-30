@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { githubAuthStateSchema } from './github.ts';
+import { repositoriesStateSchema, scanDepthSchema, watchedFolderSchema } from './repositories.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
 export const appInfoSchema = z.object({
@@ -20,6 +21,20 @@ export const ipcContract = {
   'github.connect': { input: z.undefined(), output: githubAuthStateSchema },
   'github.cancel': { input: z.undefined(), output: githubAuthStateSchema },
   'github.disconnect': { input: z.undefined(), output: githubAuthStateSchema },
+  'folders.list': { input: z.undefined(), output: z.array(watchedFolderSchema) },
+  // Opens the native folder picker. A canceled picker changes nothing.
+  'folders.add': { input: z.undefined(), output: z.array(watchedFolderSchema) },
+  'folders.setScanDepth': {
+    input: z.object({ id: z.number().int(), scanDepth: scanDepthSchema }),
+    output: z.array(watchedFolderSchema),
+  },
+  'folders.remove': {
+    input: z.object({ id: z.number().int() }),
+    output: z.array(watchedFolderSchema),
+  },
+  'repositories.list': { input: z.undefined(), output: repositoriesStateSchema },
+  // Starts a scan and returns without waiting for it.
+  'repositories.scan': { input: z.undefined(), output: repositoriesStateSchema },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 
 export type IpcChannel = keyof typeof ipcContract;

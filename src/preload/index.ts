@@ -20,6 +20,16 @@ const api: PreviewApi = {
     cancel: () => invoke('github.cancel', undefined),
     disconnect: () => invoke('github.disconnect', undefined),
   },
+  folders: {
+    list: () => invoke('folders.list', undefined),
+    add: () => invoke('folders.add', undefined),
+    setScanDepth: (id, scanDepth) => invoke('folders.setScanDepth', { id, scanDepth }),
+    remove: (id) => invoke('folders.remove', { id }),
+  },
+  repositories: {
+    list: () => invoke('repositories.list', undefined),
+    scan: () => invoke('repositories.scan', undefined),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);
