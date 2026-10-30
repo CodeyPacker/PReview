@@ -1,1 +1,54 @@
 /* ProgressBar styles. Read values from tokens.css custom properties only. */
+
+.progress {
+  --track: 8px;
+  display: grid;
+  gap: var(--space-6);
+  width: 100%;
+  min-width: 80px;
+}
+
+.sm {
+  --track: 6px;
+}
+
+.lg {
+  --track: 12px;
+}
+
+.meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.value {
+  margin-left: auto;
+}
+
+.track {
+  height: var(--track);
+  border-radius: var(--radius-full);
+  background: var(--chart-track);
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone-fill);
+  transition: width var(--duration-slow) var(--ease-spring);
+}
+
+/* XP draws a subtle violet ramp. */
+.ramp .fill {
+  background: linear-gradient(90deg, var(--chart-1), var(--accent));
+}
