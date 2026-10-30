@@ -1,9 +1,5 @@
 /* Repositories panel. Read values from tokens.css custom properties only. */
 
-.panel {
-  max-width: 720px;
-}
-
 .empty {
   margin: 0;
   color: var(--ink-secondary);

@@ -1,9 +1,5 @@
 /* Local Folders panel. Read values from tokens.css custom properties only. */
 
-.panel {
-  max-width: 720px;
-}
-
 .description,
 .empty {
   margin: 0;

@@ -27,7 +27,6 @@ export function LocalFoldersPanel() {
     <Panel
       title="Local Folders"
       icon={<FolderOpen aria-hidden />}
-      className={styles.panel}
       action={
         <Button
           variant="primary"

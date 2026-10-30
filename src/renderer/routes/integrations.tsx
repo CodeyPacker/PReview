@@ -36,7 +36,7 @@ function GitHubPanel() {
   const connected = auth?.status === 'connected' ? auth : undefined;
 
   return (
-    <Panel title="GitHub" className={styles.panel}>
+    <Panel title="GitHub">
       <div className={styles.row}>
         {connected ? (
           <Avatar

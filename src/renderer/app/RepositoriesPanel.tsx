@@ -35,7 +35,6 @@ export function RepositoriesPanel() {
       title="Repositories"
       icon={<GitBranch aria-hidden />}
       count={repositories.length}
-      className={styles.panel}
       action={
         <Button
           size="sm"
