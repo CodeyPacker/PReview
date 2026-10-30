@@ -2,6 +2,7 @@
 
 .group {
   --height: var(--control-md);
+  position: relative;
   display: inline-flex;
   gap: var(--space-2);
 }
@@ -19,6 +20,8 @@
 }
 
 .item {
+  /* Above the indicator. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -56,6 +59,29 @@
   cursor: not-allowed;
 }
 
+/* The selected background in track and pills. useActiveItemRect sets its box from the
+   checked item. Chips keep a background per item because they wrap onto new rows. */
+.indicator {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--active-width);
+  height: var(--active-height);
+  translate: var(--active-left) var(--active-top);
+}
+
+.group[data-indicator-ready] .indicator {
+  transition:
+    translate var(--duration-base) var(--ease-standard),
+    width var(--duration-base) var(--ease-standard);
+}
+
+.track[data-has-active] .indicator,
+.pills[data-has-active] .indicator {
+  display: block;
+}
+
 /* track: one inset bar, the selected segment tinted. */
 .track {
   padding: 3px;
@@ -68,8 +94,12 @@
   height: calc(var(--height) - 8px);
 }
 
-.track .item[data-checked] {
+.track .indicator {
+  border-radius: var(--radius-sm);
   background: var(--accent-soft);
+}
+
+.track .item[data-checked] {
   color: var(--accent-text);
 }
 
@@ -104,7 +134,11 @@
   background: var(--surface-hover);
 }
 
-.pills .item[data-checked] {
+.pills .indicator {
+  border-radius: var(--radius-full);
   background: var(--accent);
+}
+
+.pills .item[data-checked] {
   color: var(--on-accent);
 }

@@ -1,8 +1,10 @@
 // ToggleGroup: One choice from a short, fixed set, shown all at once.
 import { Radio } from '@base-ui/react/radio';
 import { RadioGroup } from '@base-ui/react/radio-group';
+import { useRef } from 'react';
 import { cx } from '../../lib/cx.ts';
 import { toOption, type OptionInput } from '../../lib/options.ts';
+import { useActiveItemRect } from '../../lib/useActiveItemRect.ts';
 import { useControllableState } from '../../lib/useControllableState.ts';
 import { Count } from '../Count/Count.tsx';
 import styles from './ToggleGroup.module.css';
@@ -46,15 +48,20 @@ export function ToggleGroup<V extends string = string>({
     defaultValue ?? (items[0]?.value as V),
     onValueChange,
   );
+  const groupRef = useRef<HTMLDivElement>(null);
+  useActiveItemRect(groupRef, ':scope > [data-checked]', selected);
   return (
     <RadioGroup<V>
       {...aria}
+      ref={groupRef}
       value={selected}
       onValueChange={setSelected}
       disabled={disabled}
       name={name}
       className={cx(styles.group, styles[variant], styles[size], block && styles.block, className)}
     >
+      {/* The selected background. It slides to the checked item in track and pills. */}
+      <span aria-hidden className={styles.indicator} />
       {items.map((item) => (
         <Radio.Root
           key={item.value}
