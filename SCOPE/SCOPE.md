@@ -212,13 +212,13 @@ preview/
 │   │   ├── git/
 │   │   └── security/
 │   ├── preload/
-│   ├── renderer/
-│   │   ├── app/
-│   │   ├── components/
-│   │   ├── features/
-│   │   ├── hooks/
-│   │   ├── styles/
-│   │   └── routes/
+│   ├── app/
+│   ├── components/
+│   ├── features/
+│   ├── hooks/
+│   ├── routes/
+│   ├── styles/
+│   ├── tokens.css
 │   └── shared/
 │       ├── contracts/
 │       ├── types/
@@ -229,6 +229,8 @@ preview/
 ```
 
 Organize code by domain and responsibility.
+
+Renderer-process code (`app/`, `components/`, `features/`, `hooks/`, `routes/`, `styles/`, `tokens.css`) lives directly under `src/`, with no `renderer/` directory.
 
 Do not create excessive abstractions or files without a real implementation need.
 
