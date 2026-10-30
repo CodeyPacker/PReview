@@ -1,0 +1,68 @@
+/* Shared form styles. Components compose these so every text input looks the same. */
+
+/* The bordered box around a text input, its icons and hints. */
+.field {
+  --height: var(--control-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  height: var(--height);
+  padding: 0 var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--ink-secondary);
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.field:focus-within {
+  border-color: var(--accent-border);
+  background: var(--surface-raised);
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+.fieldSm {
+  --height: var(--control-sm);
+  border-radius: var(--radius-sm);
+}
+
+.fieldLg {
+  --height: var(--control-lg);
+  padding: 0 var(--space-16);
+  border-radius: var(--radius-lg);
+}
+
+/* The input inside .field. */
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  outline: none;
+  color: var(--ink);
+  font: 400 var(--text-base) / 20px var(--font-sans);
+}
+
+.input::placeholder {
+  color: var(--ink-tertiary);
+}
+
+/* A control with its text label to the right: Switch, Checkbox. */
+.inlineLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  color: var(--ink);
+  font: 400 var(--text-base) / 20px var(--font-sans);
+  cursor: pointer;
+}
+
+.inlineLabel:has([data-disabled]) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
