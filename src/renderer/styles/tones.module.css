@@ -1,4 +1,6 @@
-/* Tone classes. Each sets the --tone-* variables that colored components read. */
+/* Tone classes. Each sets the --tone-* variables that colored components read.
+   fg: text. fill: dots, bars. icon: icons on soft. soft: tinted backgrounds. solid + on: filled
+   backgrounds and the content on them. */
 
 .accent {
   --tone-fg: var(--accent-text);
@@ -6,6 +8,9 @@
   --tone-soft: var(--accent-soft);
   --tone-soft-hover: var(--accent-soft-hover);
   --tone-border: var(--accent-border);
+  --tone-icon: var(--accent-text);
+  --tone-solid: var(--accent);
+  --tone-on: var(--on-accent);
 }
 
 .success {
@@ -14,6 +19,9 @@
   --tone-soft: var(--success-soft);
   --tone-soft-hover: var(--success-soft);
   --tone-border: var(--success-fill);
+  --tone-icon: var(--success-fill);
+  --tone-solid: var(--success-fill);
+  --tone-on: var(--on-accent);
 }
 
 .danger {
@@ -22,6 +30,9 @@
   --tone-soft: var(--danger-soft);
   --tone-soft-hover: var(--danger-soft);
   --tone-border: var(--danger-fill);
+  --tone-icon: var(--danger-fill);
+  --tone-solid: var(--danger-fill);
+  --tone-on: var(--on-accent);
 }
 
 .warning {
@@ -30,6 +41,9 @@
   --tone-soft: var(--warning-soft);
   --tone-soft-hover: var(--warning-soft);
   --tone-border: var(--warning-fill);
+  --tone-icon: var(--warning-fill);
+  --tone-solid: var(--warning-fill);
+  --tone-on: var(--on-accent);
 }
 
 .info {
@@ -38,6 +52,9 @@
   --tone-soft: var(--info-soft);
   --tone-soft-hover: var(--info-soft);
   --tone-border: var(--info-fill);
+  --tone-icon: var(--info-fill);
+  --tone-solid: var(--info-fill);
+  --tone-on: var(--on-accent);
 }
 
 .neutral {
@@ -46,4 +63,7 @@
   --tone-soft: var(--surface-sunken);
   --tone-soft-hover: var(--surface-hover);
   --tone-border: var(--border-strong);
+  --tone-icon: var(--ink-secondary);
+  --tone-solid: var(--ink);
+  --tone-on: var(--ink-inverse);
 }
