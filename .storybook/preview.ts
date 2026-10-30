@@ -1,5 +1,5 @@
 import type { Decorator, Preview } from '@storybook/react-vite';
-import '../src/tokens.css';
+import '../src/renderer/tokens.css';
 
 // Mirrors the app: the theme is a data-theme attribute on <html>.
 const withTheme: Decorator = (Story, context) => {

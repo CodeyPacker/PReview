@@ -11,7 +11,11 @@
     "moduleDetection": "force",
     "noEmit": true,
     "skipLibCheck": true,
-    "strict": true
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true
   },
-  "include": ["vite.config.ts"]
+  "include": ["electron.vite.config.ts", "src/main", "src/preload", "src/shared"]
 }
