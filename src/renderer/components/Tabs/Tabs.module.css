@@ -1,1 +1,85 @@
 /* Tabs styles. Read values from tokens.css custom properties only. */
+
+.list {
+  --height: 40px;
+  position: relative;
+  display: flex;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border);
+  /* Scrolls sideways when it overflows. Never wraps. */
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sm {
+  --height: 34px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  height: var(--height);
+  padding: 0 var(--space-12);
+  border: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: transparent;
+  color: var(--ink-secondary);
+  font: 500 var(--text-base) / 1 var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sm .tab {
+  padding: 0 var(--space-8);
+  font-size: var(--text-md);
+}
+
+.block .tab {
+  flex: 1;
+  justify-content: center;
+}
+
+.tab > svg {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.tab:hover:not([data-active], [data-disabled]) {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.tab[data-active] {
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.tab[data-disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tab:focus-visible {
+  outline-offset: -2px;
+}
+
+/* The underline. Base UI sets its position and width from the active tab. */
+.indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: calc(var(--active-tab-width) - 2 * var(--space-8));
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  translate: calc(var(--active-tab-left) + var(--space-8)) 0;
+  transition:
+    translate var(--duration-base) var(--ease-standard),
+    width var(--duration-base) var(--ease-standard);
+}
+
+.panel {
+  outline: none;
+}
