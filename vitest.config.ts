@@ -17,8 +17,10 @@ export default defineConfig({
       {
         // Every Storybook story renders in Chromium and must pass the a11y checks.
         plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })],
-        // Pre-bundle React so a cold run (fresh clone, CI) doesn't reload the browser mid-test.
+        // Scan every story up front so Vite pre-bundles all their dependencies before the
+        // browser starts. Otherwise a cold run (fresh clone, CI) reloads the page mid-test.
         optimizeDeps: {
+          entries: ['src/renderer/**/*.stories.tsx'],
           include: [
             'react',
             'react-dom',
