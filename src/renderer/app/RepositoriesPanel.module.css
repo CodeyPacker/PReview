@@ -1,0 +1,47 @@
+/* Repositories panel. Read values from tokens.css custom properties only. */
+
+.panel {
+  max-width: 720px;
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+}
+
+.text {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.text p {
+  margin: 0;
+}
+
+.path {
+  overflow: hidden;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

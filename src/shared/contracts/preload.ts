@@ -1,5 +1,6 @@
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
+import type { RepositoriesState, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
 
 // The API the preload script exposes to the renderer as `window.preview`.
@@ -18,5 +19,17 @@ export interface PreviewApi {
     connect(): Promise<GitHubAuthState>;
     cancel(): Promise<GitHubAuthState>;
     disconnect(): Promise<GitHubAuthState>;
+  };
+  folders: {
+    list(): Promise<WatchedFolder[]>;
+    // Opens the native folder picker and watches the chosen folder.
+    add(): Promise<WatchedFolder[]>;
+    setScanDepth(id: number, scanDepth: number): Promise<WatchedFolder[]>;
+    remove(id: number): Promise<WatchedFolder[]>;
+  };
+  repositories: {
+    list(): Promise<RepositoriesState>;
+    // Starts a scan of the watched folders. Resolves without waiting for it to finish.
+    scan(): Promise<RepositoriesState>;
   };
 }

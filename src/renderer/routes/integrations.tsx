@@ -2,7 +2,9 @@ import { createFileRoute } from '@tanstack/react-router';
 import { CircleAlert, GitPullRequest } from 'lucide-react';
 import { useState } from 'react';
 import { GitHubConnectDialog } from '../app/GitHubConnectDialog.tsx';
+import { LocalFoldersPanel } from '../app/LocalFoldersPanel.tsx';
 import { PageHeader } from '../app/PageHeader.tsx';
+import { RepositoriesPanel } from '../app/RepositoriesPanel.tsx';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { IconTile } from '../components/IconTile/IconTile.tsx';
@@ -21,6 +23,8 @@ function IntegrationsPage() {
         description="Connect your repositories and tools to bring pull requests into PReview."
       />
       <GitHubPanel />
+      <LocalFoldersPanel />
+      <RepositoriesPanel />
     </div>
   );
 }

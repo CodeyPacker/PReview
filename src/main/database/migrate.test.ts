@@ -20,6 +20,8 @@ describe('migrate', () => {
     const db = openDatabase(':memory:');
     expect(migrate(db)).toBe(migrations.at(-1)?.version);
     expect(tableExists(db, 'settings')).toBe(true);
+    expect(tableExists(db, 'watched_folders')).toBe(true);
+    expect(tableExists(db, 'repositories')).toBe(true);
   });
 
   it('does nothing when the database is current', () => {
@@ -38,6 +40,27 @@ describe('migrate', () => {
     expect(userVersion(db)).toBe(1);
     expect(tableExists(db, 'a')).toBe(true);
     expect(tableExists(db, 'b')).toBe(false);
+  });
+
+  it('keeps repositories when the path rule is relaxed', () => {
+    const db = openDatabase(':memory:');
+    migrate(db, migrations.slice(0, 2));
+    db.exec(
+      "INSERT INTO repositories (path, name, status) VALUES ('/code/hello', 'hello', 'available')",
+    );
+    migrate(db);
+    db.exec(
+      "INSERT INTO repositories (path, name, status) VALUES ('/code/hello', 'other', 'unavailable')",
+    );
+    expect(db.prepare('SELECT id, name FROM repositories ORDER BY id').all()).toEqual([
+      { id: 1, name: 'hello' },
+      { id: 2, name: 'other' },
+    ]);
+    expect(() =>
+      db.exec(
+        "INSERT INTO repositories (path, name, status) VALUES ('/code/hello', 'third', 'available')",
+      ),
+    ).toThrow();
   });
 
   it('refuses a database newer than the app', () => {

@@ -5,7 +5,8 @@ import {
   type ElectronApplication,
   type Page,
 } from '@playwright/test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -144,4 +145,52 @@ test('prompts to connect GitHub until the prompt is dismissed', async () => {
   await page.getByRole('button', { name: 'Connect GitHub' }).click();
   await expect(page.getByRole('dialog', { name: 'Connect GitHub' })).toBeVisible();
   await app.close();
+});
+
+// Makes a Git repository with an origin remote under root and returns its real path.
+function createRepository(root: string, name: string): string {
+  const path = join(root, name);
+  mkdirSync(path, { recursive: true });
+  const git = (...args: string[]) =>
+    execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], {
+      cwd: path,
+    });
+  git('init', '-q');
+  git('remote', 'add', 'origin', `git@github.com:octo/${name}.git`);
+  git('commit', '-q', '--allow-empty', '-m', 'first');
+  return realpathSync(path);
+}
+
+test('discovers repositories in a watched folder', async () => {
+  const code = realpathSync(mkdtempSync(join(tmpdir(), 'preview-e2e-code-')));
+  try {
+    const hello = createRepository(join(code, 'work'), 'hello');
+    const app = await launch();
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Integrations' })
+      .click();
+    await expect(page.getByText('No folders yet')).toBeVisible();
+
+    // The native picker can't be driven, so the main process answers it with the folder.
+    await app.evaluate(({ dialog }, folder) => {
+      (dialog as { showOpenDialog: unknown }).showOpenDialog = () =>
+        Promise.resolve({ canceled: false, filePaths: [folder] });
+    }, code);
+    await page.getByRole('button', { name: 'Add Folder…' }).click();
+
+    await expect(page.getByText(code, { exact: true })).toBeVisible();
+    await expect(page.getByText('octo/hello')).toBeVisible();
+    await expect(page.getByText(hello, { exact: true })).toBeVisible();
+    await expect(page.getByText('Available')).toBeVisible();
+
+    await page.getByRole('button', { name: `Remove ${code}` }).click();
+    await expect(page.getByText('No folders yet')).toBeVisible();
+    await expect(page.getByText('Unavailable')).toBeVisible();
+    await app.close();
+  } finally {
+    rmSync(code, { recursive: true, force: true });
+  }
 });
