@@ -2,6 +2,8 @@
 // Read operations only. Write operations (reviews, replies, thread resolution, merge) are added
 // when the features that need them are built.
 
+import type { PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
+
 export type ProviderName = 'github';
 
 export interface ProviderRepository {
@@ -36,13 +38,11 @@ export interface ProviderPullRequest {
   updatedAt: string;
 }
 
-export type ChangedFileStatus = 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed';
-
 export interface ProviderChangedFile {
   path: string;
   // The path before a rename or copy.
   previousPath: string | null;
-  status: ChangedFileStatus;
+  status: PullRequestFile['status'];
   additions: number;
   deletions: number;
 }

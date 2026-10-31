@@ -68,7 +68,9 @@ export function DiffViewer({ path, previousPath, original, modified, mode }: Dif
       modified: createModel('modified', path, modified),
     };
     editor.current.setModel(next);
-    // Monaco leaves its text input unnamed, which screen readers can't announce.
+    // Monaco's own originalAriaLabel and modifiedAriaLabel options leave the input unnamed until it
+    // detects a screen reader, which axe fails. The selectors are Monaco's, so recheck them when
+    // upgrading it. The DiffViewer story fails if they stop matching.
     container.current
       ?.querySelector('.original-in-monaco-diff-editor .native-edit-context')
       ?.setAttribute('aria-label', 'Before the change');

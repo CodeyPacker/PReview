@@ -1,11 +1,12 @@
 // FileTreeItem: One row of the changed-file tree.
 import { FileMinus, FilePen, FilePlus, FileSymlink, type LucideIcon } from 'lucide-react';
 import type { ButtonHTMLAttributes } from 'react';
+import type { PullRequestFile } from '../../../shared/contracts/pull-request-files.ts';
 import { cx } from '../../lib/cx.ts';
 import { DiffStat } from '../DiffStat/DiffStat.tsx';
 import styles from './FileTreeItem.module.css';
 
-export type FileStatus = 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed';
+export type FileStatus = PullRequestFile['status'];
 
 const statusIcons: Record<FileStatus, { icon: LucideIcon; label: string; className: string }> = {
   added: { icon: FilePlus, label: 'Added', className: styles.added ?? '' },
