@@ -1,11 +1,18 @@
 import { GitBranch, RefreshCw, TriangleAlert } from 'lucide-react';
 import { Button } from '../components/Button/Button.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
+import { StatusDot } from '../components/StatusDot/StatusDot.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { useRepositories, useRescan } from '../hooks/useRepositories.ts';
 import styles from './RepositoriesPanel.module.css';
+import { repositoryName } from './repositoryName.ts';
 
-export function RepositoriesPanel() {
+export interface RepositoriesPanelProps {
+  selectedId: number | undefined;
+  onSelect: (id: number) => void;
+}
+
+export function RepositoriesPanel({ selectedId, onSelect }: RepositoriesPanelProps) {
   const { data } = useRepositories();
   const rescan = useRescan();
   const repositories = data?.repositories ?? [];
@@ -16,7 +23,6 @@ export function RepositoriesPanel() {
       title="Repositories"
       icon={<GitBranch aria-hidden />}
       count={repositories.length}
-      className={styles.panel}
       action={
         <Button
           size="sm"
@@ -37,24 +43,27 @@ export function RepositoriesPanel() {
       ) : (
         <ul className={styles.list}>
           {repositories.map((repository) => (
-            <li key={repository.id} className={styles.item}>
-              <div className={styles.text}>
-                <p className="headline">
-                  {repository.github
-                    ? `${repository.github.owner}/${repository.github.name}`
-                    : repository.name}
-                </p>
-                <p className={styles.path}>{repository.path}</p>
-              </div>
-              {repository.status === 'available' ? (
-                <StatusPill tone="success" icon={null}>
-                  Available
-                </StatusPill>
-              ) : (
-                <StatusPill tone="warning" icon={<TriangleAlert aria-hidden />}>
-                  Unavailable
-                </StatusPill>
-              )}
+            <li key={repository.id}>
+              <button
+                type="button"
+                className={styles.item}
+                aria-current={repository.id === selectedId}
+                onClick={() => onSelect(repository.id)}
+              >
+                <span className={styles.text}>
+                  <span className="headline">{repositoryName(repository)}</span>
+                  <span className={styles.path}>{repository.path}</span>
+                </span>
+                {repository.status === 'unavailable' ? (
+                  <StatusPill tone="warning" icon={<TriangleAlert aria-hidden />}>
+                    Unavailable
+                  </StatusPill>
+                ) : repository.settings.monitored ? (
+                  <StatusDot tone="success" label="Monitoring" />
+                ) : (
+                  <StatusDot tone="neutral" label="Paused" />
+                )}
+              </button>
             </li>
           ))}
         </ul>

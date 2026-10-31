@@ -17,6 +17,19 @@ export type WatchedFolder = z.infer<typeof watchedFolderSchema>;
 export const repositoryStatusSchema = z.enum(['available', 'unavailable']);
 export type RepositoryStatus = z.infer<typeof repositoryStatusSchema>;
 
+// What PReview does with the pull requests of a repository. All three start on.
+export const repositorySettingsSchema = z.object({
+  // Off pauses the repository: its pull requests stop syncing into the Inbox.
+  monitored: z.boolean(),
+  includeDrafts: z.boolean(),
+  // Pull requests opened by bots and automated tools.
+  includeAutomated: z.boolean(),
+});
+export type RepositorySettings = z.infer<typeof repositorySettingsSchema>;
+
+export const repositorySettingsPatchSchema = repositorySettingsSchema.partial();
+export type RepositorySettingsPatch = z.infer<typeof repositorySettingsPatchSchema>;
+
 export const repositorySchema = z.object({
   id: z.number().int(),
   path: z.string(),
@@ -26,6 +39,7 @@ export const repositorySchema = z.object({
   // Parsed from the origin remote. Null when origin is not a GitHub repository.
   github: z.object({ owner: z.string(), name: z.string() }).nullable(),
   status: repositoryStatusSchema,
+  settings: repositorySettingsSchema,
 });
 export type Repository = z.infer<typeof repositorySchema>;
 

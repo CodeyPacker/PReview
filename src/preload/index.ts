@@ -29,6 +29,7 @@ const api: PreviewApi = {
   repositories: {
     list: () => invoke('repositories.list', undefined),
     scan: () => invoke('repositories.scan', undefined),
+    updateSettings: (id, patch) => invoke('repositories.updateSettings', { id, patch }),
   },
 };
 

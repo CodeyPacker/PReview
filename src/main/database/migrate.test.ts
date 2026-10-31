@@ -63,6 +63,18 @@ describe('migrate', () => {
     ).toThrow();
   });
 
+  it('gives existing repositories the default settings', () => {
+    const db = openDatabase(':memory:');
+    migrate(db, migrations.slice(0, 3));
+    db.exec(
+      "INSERT INTO repositories (path, name, status) VALUES ('/code/hello', 'hello', 'available')",
+    );
+    migrate(db);
+    expect(
+      db.prepare('SELECT monitored, include_drafts, include_automated FROM repositories').all(),
+    ).toEqual([{ monitored: 1, include_drafts: 1, include_automated: 1 }]);
+  });
+
   it('refuses a database newer than the app', () => {
     const db = openDatabase(':memory:');
     db.exec('PRAGMA user_version = 99');
@@ -74,7 +86,7 @@ describe('migrate', () => {
     expect(() => migrate(db, [{ version: 2, name: 'gap', sql: '' }])).toThrow('out of order');
   });
 
-  it('numbers shipped migrations 1, 2, 3 without gaps', () => {
+  it('numbers shipped migrations from 1 without gaps', () => {
     expect(migrations.map((m) => m.version)).toEqual(migrations.map((_, i) => i + 1));
   });
 });

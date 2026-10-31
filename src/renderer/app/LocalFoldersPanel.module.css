@@ -1,9 +1,5 @@
 /* Local Folders panel. Read values from tokens.css custom properties only. */
 
-.panel {
-  max-width: 720px;
-}
-
 .description,
 .empty {
   margin: 0;
@@ -12,6 +8,7 @@
 }
 
 .list {
+  grid-template-columns: minmax(0, 1fr);
   display: grid;
   gap: var(--space-8);
   margin: 0;

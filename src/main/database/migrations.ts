@@ -82,4 +82,15 @@ export const migrations: readonly Migration[] = [
         WHERE status = 'available';
     `,
   },
+  {
+    version: 4,
+    name: 'repository_settings',
+    // Settings sit on the repository row. A reconnected repository keeps its row, so it
+    // keeps its settings.
+    sql: `
+      ALTER TABLE repositories ADD COLUMN monitored INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE repositories ADD COLUMN include_drafts INTEGER NOT NULL DEFAULT 1;
+      ALTER TABLE repositories ADD COLUMN include_automated INTEGER NOT NULL DEFAULT 1;
+    `,
+  },
 ];
