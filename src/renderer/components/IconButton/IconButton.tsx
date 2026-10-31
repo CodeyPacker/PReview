@@ -13,14 +13,15 @@ export interface IconButtonProps extends Omit<
   label: string;
   // Red unread dot (notifications).
   dot?: boolean;
+  shortcut?: string;
 }
 
-export function IconButton({ icon, label, dot, className, ...rest }: IconButtonProps) {
+export function IconButton({ icon, label, dot, shortcut, className, ...rest }: IconButtonProps) {
   return (
     <Button
       {...rest}
       aria-label={label}
-      title={label}
+      title={shortcut ? `${label} (${shortcut})` : label}
       iconStart={icon}
       iconEnd={dot ? <span className={styles.dot} aria-hidden /> : undefined}
       className={cx(styles.iconButton, className)}

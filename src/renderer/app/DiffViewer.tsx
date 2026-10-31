@@ -1,22 +1,46 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
 import { definePreviewTheme, monaco, monoFont } from './monaco.ts';
 import styles from './DiffViewer.module.css';
 import { useThemeVersion } from './useThemeVersion.ts';
+import type { FileSearchMatch } from '../lib/fileSearch.ts';
+import { createFileScroller } from '../lib/fileScroller.ts';
 
 export type DiffMode = 'split' | 'unified';
 
+export interface DiffViewerHandle {
+  startScroll: (direction: -1 | 1) => void;
+  stopScroll: () => void;
+  cancelScroll: () => void;
+}
+
 export interface DiffViewerProps {
+  ref?: Ref<DiffViewerHandle>;
   path: string;
   // The path before a rename. Gives the old side its own language and name.
   previousPath: string | null;
   original: string;
   modified: string;
   mode: DiffMode;
+  onLineNumberOffsetChange?: (offset: number) => void;
+  searchQuery?: string;
+  searchMatch?: FileSearchMatch;
 }
 
 interface Models {
   original: monaco.editor.ITextModel;
   modified: monaco.editor.ITextModel;
+}
+
+// Monaco's own originalAriaLabel and modifiedAriaLabel options leave the input unnamed until it
+// detects a screen reader, which axe fails. The selectors are Monaco's, so recheck them when
+// upgrading it. The DiffViewer story fails if they stop matching.
+function nameInputs(container: HTMLElement | null): void {
+  container
+    ?.querySelector('.original-in-monaco-diff-editor .native-edit-context')
+    ?.setAttribute('aria-label', 'Before the change');
+  container
+    ?.querySelector('.modified-in-monaco-diff-editor .native-edit-context')
+    ?.setAttribute('aria-label', 'After the change');
 }
 
 // Gives every model its own URI, so a file can be shown again before the old model is gone.
@@ -29,13 +53,34 @@ function createModel(scheme: string, path: string, text: string): monaco.editor.
 }
 
 // A read-only Monaco diff of one file.
-export function DiffViewer({ path, previousPath, original, modified, mode }: DiffViewerProps) {
+export function DiffViewer({
+  ref,
+  path,
+  previousPath,
+  original,
+  modified,
+  mode,
+  onLineNumberOffsetChange,
+  searchQuery = '',
+  searchMatch,
+}: DiffViewerProps) {
   const themeVersion = useThemeVersion();
   const theme = `preview-${themeVersion}`;
 
   const container = useRef<HTMLDivElement>(null);
   const editor = useRef<monaco.editor.IStandaloneDiffEditor>(null);
   const models = useRef<Models>(null);
+  const scroller = useRef<ReturnType<typeof createFileScroller> | null>(null);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      startScroll: (direction) => scroller.current?.start(direction),
+      stopScroll: () => scroller.current?.stop(),
+      cancelScroll: () => scroller.current?.cancel(),
+    }),
+    [],
+  );
 
   useEffect(() => {
     if (!container.current) return;
@@ -43,6 +88,8 @@ export function DiffViewer({ path, previousPath, original, modified, mode }: Dif
       readOnly: true,
       originalEditable: false,
       automaticLayout: true,
+      smoothScrolling: !matchMedia('(prefers-reduced-motion: reduce)').matches,
+      useInlineViewWhenSpaceIsLimited: false,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       renderOverviewRuler: false,
@@ -50,7 +97,36 @@ export function DiffViewer({ path, previousPath, original, modified, mode }: Dif
       fontSize: 13,
     });
     editor.current = diffEditor;
+    const code = diffEditor.getModifiedEditor();
+    const motion = matchMedia('(prefers-reduced-motion: reduce)');
+    const fileScroller = createFileScroller({
+      read: () => Math.max(0, code.getScrollTop()),
+      write: (top) => code.setScrollTop(top, monaco.editor.ScrollType.Immediate),
+      max: () => Math.max(0, code.getScrollHeight() - code.getLayoutInfo().height),
+      step: () => code.getOption(monaco.editor.EditorOption.lineHeight) * 3,
+      reducedMotion: () => motion.matches,
+    });
+    scroller.current = fileScroller;
+    const updateMotion = () => {
+      fileScroller.cancel();
+      diffEditor.updateOptions({ smoothScrolling: !motion.matches });
+    };
+    const stopForPointer = () => fileScroller.cancel();
+    const element = container.current;
+    element.addEventListener('wheel', stopForPointer, { passive: true, capture: true });
+    element.addEventListener('pointerdown', stopForPointer, true);
+    motion.addEventListener('change', updateMotion);
+    // Monaco builds and rebuilds its inputs as the layout and models change.
+    const inputObserver = new MutationObserver(() => nameInputs(element));
+    inputObserver.observe(element, { childList: true, subtree: true });
+    nameInputs(element);
     return () => {
+      inputObserver.disconnect();
+      fileScroller.cancel();
+      scroller.current = null;
+      element.removeEventListener('wheel', stopForPointer, true);
+      element.removeEventListener('pointerdown', stopForPointer, true);
+      motion.removeEventListener('change', updateMotion);
       // The editor has to let go of the models before they are disposed.
       diffEditor.setModel(null);
       diffEditor.dispose();
@@ -63,20 +139,12 @@ export function DiffViewer({ path, previousPath, original, modified, mode }: Dif
 
   useEffect(() => {
     if (!editor.current) return;
+    scroller.current?.cancel();
     const next = {
       original: createModel('original', previousPath ?? path, original),
       modified: createModel('modified', path, modified),
     };
     editor.current.setModel(next);
-    // Monaco's own originalAriaLabel and modifiedAriaLabel options leave the input unnamed until it
-    // detects a screen reader, which axe fails. The selectors are Monaco's, so recheck them when
-    // upgrading it. The DiffViewer story fails if they stop matching.
-    container.current
-      ?.querySelector('.original-in-monaco-diff-editor .native-edit-context')
-      ?.setAttribute('aria-label', 'Before the change');
-    container.current
-      ?.querySelector('.modified-in-monaco-diff-editor .native-edit-context')
-      ?.setAttribute('aria-label', 'After the change');
     const previous = models.current;
     models.current = next;
     previous?.original.dispose();
@@ -84,8 +152,94 @@ export function DiffViewer({ path, previousPath, original, modified, mode }: Dif
   }, [path, previousPath, original, modified]);
 
   useEffect(() => {
-    editor.current?.updateOptions({ renderSideBySide: mode === 'split' });
-  }, [mode]);
+    const diffEditor = editor.current;
+    if (!diffEditor) return;
+    diffEditor.updateOptions({
+      renderSideBySide: mode === 'split',
+      compactMode: mode === 'unified' && original.length === 0,
+    });
+    // Keep old numbers on deleted lines, but avoid repeating unchanged lines' numbers.
+    const updateLineNumbers = () => {
+      const changes = diffEditor.getLineChanges() ?? [];
+      diffEditor.getOriginalEditor().updateOptions({
+        lineNumbers:
+          mode === 'split'
+            ? 'on'
+            : (line) =>
+                changes.some(
+                  (change) =>
+                    change.originalEndLineNumber !== 0 &&
+                    line >= change.originalStartLineNumber &&
+                    line <= change.originalEndLineNumber,
+                )
+                  ? String(line)
+                  : '',
+      });
+    };
+    updateLineNumbers();
+    const subscription = diffEditor.onDidUpdateDiff(updateLineNumbers);
+    return () => subscription.dispose();
+  }, [mode, original]);
+
+  useEffect(() => {
+    const diffEditor = editor.current;
+    if (!diffEditor || !onLineNumberOffsetChange) return;
+    const numberEditor =
+      mode === 'unified' && original.length === 0
+        ? diffEditor.getModifiedEditor()
+        : diffEditor.getOriginalEditor();
+    const alignHeader = () => {
+      const layout = numberEditor.getLayoutInfo();
+      const font = numberEditor.getOption(
+        monaco.editor.EditorOption.fontInfo,
+      ) as monaco.editor.FontInfo;
+      onLineNumberOffsetChange(
+        layout.lineNumbersLeft + layout.lineNumbersWidth - font.typicalHalfwidthCharacterWidth,
+      );
+    };
+    alignHeader();
+    const subscription = numberEditor.onDidLayoutChange(alignHeader);
+    return () => subscription.dispose();
+  }, [mode, original, onLineNumberOffsetChange]);
+
+  useEffect(() => {
+    const diffEditor = editor.current;
+    if (!diffEditor) return;
+    const before = diffEditor.getOriginalEditor();
+    const after = diffEditor.getModifiedEditor();
+    const originalHits = before.createDecorationsCollection();
+    const modifiedHits = after.createDecorationsCollection();
+    if (searchQuery) {
+      const find = (code: monaco.editor.IStandaloneCodeEditor) =>
+        code.getModel()?.findMatches(searchQuery, false, false, false, null, false, 500) ?? [];
+      const beforeMatches = find(before);
+      const afterMatches = find(after);
+      const decorate = (matches: monaco.editor.FindMatch[]) =>
+        matches.map(({ range }) => ({ range, options: { inlineClassName: styles.searchHit } }));
+      originalHits.set(decorate(beforeMatches));
+      modifiedHits.set(decorate(afterMatches));
+      const match =
+        searchMatch ??
+        (afterMatches[0]
+          ? { side: 'modified' as const, line: afterMatches[0].range.startLineNumber }
+          : beforeMatches[0]
+            ? { side: 'original' as const, line: beforeMatches[0].range.startLineNumber }
+            : undefined);
+      if (match) {
+        scroller.current?.cancel();
+        (match.side === 'original' ? before : after).revealLineInCenter(
+          match.line,
+          matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? monaco.editor.ScrollType.Immediate
+            : monaco.editor.ScrollType.Smooth,
+        );
+      }
+    }
+    return () => {
+      originalHits.clear();
+      modifiedHits.clear();
+    };
+  }, [searchQuery, searchMatch, path, original, modified, mode]);
 
   useEffect(() => {
     // Monaco themes can't be changed in place, so each theme change defines a new one.
@@ -93,5 +247,5 @@ export function DiffViewer({ path, previousPath, original, modified, mode }: Dif
     monaco.editor.setTheme(theme);
   }, [theme]);
 
-  return <div ref={container} className={styles.viewer} />;
+  return <div data-review-diff ref={container} className={styles.viewer} />;
 }

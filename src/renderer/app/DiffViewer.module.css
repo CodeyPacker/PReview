@@ -8,3 +8,8 @@
   border-radius: var(--radius-lg);
   background: var(--surface-solid);
 }
+
+.searchHit {
+  background: color-mix(in srgb, var(--warning-fill) 35%, transparent);
+  border-radius: 2px;
+}

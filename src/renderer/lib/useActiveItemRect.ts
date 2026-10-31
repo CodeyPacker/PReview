@@ -28,6 +28,8 @@ export function useActiveItemRect(
     );
     const observer = new ResizeObserver(measure);
     observer.observe(container);
+    const item = container.querySelector<HTMLElement>(selector);
+    if (item) observer.observe(item);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();

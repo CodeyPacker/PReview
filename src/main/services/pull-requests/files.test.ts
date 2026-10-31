@@ -3,7 +3,7 @@ import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
 import type { GitProvider } from '../../providers/types.ts';
 import { reconcileRepositories } from '../repositories/registry.ts';
-import { MAX_FILE_LENGTH, PullRequestFiles } from './files.ts';
+import { MAX_FILE_LENGTH, MAX_IMAGE_BYTES, PullRequestFiles } from './files.ts';
 
 let db: ReturnType<typeof openDatabase>;
 let pullRequestId: number;
@@ -44,6 +44,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
     getFileContent: vi.fn<GitProvider['getFileContent']>((_repository, path, ref) =>
       Promise.resolve(contents[`${ref}:${path}`]),
     ),
+    getFileBytes: vi.fn<GitProvider['getFileBytes']>().mockResolvedValue(undefined),
   } satisfies GitProvider;
   return { provider, files: new PullRequestFiles({ db, provider }) };
 }
@@ -116,6 +117,7 @@ describe('PullRequestFiles getDiff', () => {
       original: 'old',
       modified: 'new',
       unavailable: null,
+      images: null,
     });
     expect(provider.getPullRequestRefs).not.toHaveBeenCalled();
   });
@@ -135,16 +137,18 @@ describe('PullRequestFiles getDiff', () => {
       original: '',
       modified: 'new',
       unavailable: null,
+      images: null,
     });
   });
 
   it('does not return binary files', async () => {
-    const { files } = setup({ [`${HEAD}:a.png`]: 'PNG\0data' });
+    const { files } = setup({ [`${HEAD}:a.bin`]: 'PNG\0data' });
 
-    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'a.png', null)).resolves.toEqual({
+    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'a.bin', null)).resolves.toEqual({
       original: '',
       modified: '',
       unavailable: 'binary',
+      images: null,
     });
   });
 
@@ -153,6 +157,33 @@ describe('PullRequestFiles getDiff', () => {
 
     await expect(files.getDiff(pullRequestId, HEAD, BASE, 'big.txt', null)).resolves.toMatchObject({
       unavailable: 'too-large',
+    });
+  });
+
+  it('returns image files as data URLs instead of text', async () => {
+    const { provider, files } = setup();
+    provider.getFileBytes.mockImplementation((_repository, _path, ref) =>
+      Promise.resolve(ref === HEAD ? new Uint8Array([1, 2, 3]) : undefined),
+    );
+
+    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'build/icon.png', null)).resolves.toEqual(
+      {
+        original: '',
+        modified: '',
+        unavailable: null,
+        images: { original: null, modified: 'data:image/png;base64,AQID' },
+      },
+    );
+    expect(provider.getFileContent).not.toHaveBeenCalled();
+  });
+
+  it('does not return images that are too large', async () => {
+    const { provider, files } = setup();
+    provider.getFileBytes.mockResolvedValue(new Uint8Array(MAX_IMAGE_BYTES + 1));
+
+    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'big.png', null)).resolves.toMatchObject({
+      unavailable: 'too-large',
+      images: null,
     });
   });
 });

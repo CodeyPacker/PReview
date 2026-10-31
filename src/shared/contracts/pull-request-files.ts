@@ -29,5 +29,8 @@ export const pullRequestFileDiffSchema = z.object({
   modified: z.string(),
   // Why the text is empty when the file has content that cannot be shown.
   unavailable: z.enum(['binary', 'too-large']).nullable(),
+  // Set for image files, which are shown instead of diffed. Each side is a data URL, or null
+  // when the image does not exist at that commit.
+  images: z.object({ original: z.string().nullable(), modified: z.string().nullable() }).nullable(),
 });
 export type PullRequestFileDiff = z.infer<typeof pullRequestFileDiffSchema>;

@@ -3,6 +3,8 @@ import { FileMinus, FilePen, FilePlus, FileSymlink, type LucideIcon } from 'luci
 import type { ButtonHTMLAttributes } from 'react';
 import type { PullRequestFile } from '../../../shared/contracts/pull-request-files.ts';
 import { cx } from '../../lib/cx.ts';
+import type { FileSearchMatch } from '../../lib/fileSearch.ts';
+import type { FileReviewState } from '../../lib/fileReview.ts';
 import { DiffStat } from '../DiffStat/DiffStat.tsx';
 import styles from './FileTreeItem.module.css';
 
@@ -24,6 +26,8 @@ export interface FileTreeItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonE
   additions: number;
   deletions: number;
   selected?: boolean;
+  reviewState?: FileReviewState;
+  searchMatch?: FileSearchMatch;
 }
 
 export function FileTreeItem({
@@ -32,6 +36,8 @@ export function FileTreeItem({
   additions,
   deletions,
   selected,
+  reviewState,
+  searchMatch,
   className,
   ...rest
 }: FileTreeItemProps) {
@@ -45,12 +51,24 @@ export function FileTreeItem({
       type="button"
       title={path}
       aria-current={selected || undefined}
+      data-review-state={reviewState}
+      aria-description={
+        reviewState === 'approved' ? 'Approved' : reviewState === 'flagged' ? 'Flagged' : undefined
+      }
       className={cx(styles.item, className)}
     >
       <Icon className={cx(styles.icon, statusClass)} aria-label={label} role="img" />
       <span className={styles.path}>
-        {folder && <span className={styles.folder}>{folder}</span>}
-        <span className={styles.name}>{name}</span>
+        <span className={styles.pathText}>
+          {folder && <span className={styles.folder}>{folder}</span>}
+          <span className={styles.name}>{name}</span>
+        </span>
+        {searchMatch && (
+          <span className={styles.snippet} title={searchMatch.preview}>
+            {searchMatch.side === 'original' ? 'Before' : 'After'} {searchMatch.line}:{' '}
+            {searchMatch.preview}
+          </span>
+        )}
       </span>
       <DiffStat additions={additions} deletions={deletions} />
     </button>

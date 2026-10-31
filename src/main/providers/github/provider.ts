@@ -54,6 +54,10 @@ const pullRequestRefsSchema = z.object({
 
 const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
 
+function encodeContentPath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
+
 export class GitHubProvider implements GitProvider {
   constructor(private readonly client: GitHubClient) {}
 
@@ -151,7 +155,21 @@ export class GitHubProvider implements GitProvider {
     path: string,
     ref: string,
   ): Promise<string | undefined> {
-    const encodedPath = path.split('/').map(encodeURIComponent).join('/');
-    return this.client.getText(`/repos/${repositoryFullName}/contents/${encodedPath}`, { ref });
+    return this.client.getText(`/repos/${repositoryFullName}/contents/${encodeContentPath(path)}`, {
+      ref,
+    });
+  }
+
+  getFileBytes(
+    repositoryFullName: string,
+    path: string,
+    ref: string,
+  ): Promise<Uint8Array | undefined> {
+    return this.client.getBytes(
+      `/repos/${repositoryFullName}/contents/${encodeContentPath(path)}`,
+      {
+        ref,
+      },
+    );
   }
 }

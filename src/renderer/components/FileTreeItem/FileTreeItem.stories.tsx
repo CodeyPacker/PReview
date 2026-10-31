@@ -31,3 +31,7 @@ export const Renamed: Story = { args: { status: 'renamed', additions: 0, deletio
 export const LongPath: Story = {
   args: { path: 'packages/web/src/features/authentication/components/LoginForm/LoginForm.tsx' },
 };
+
+export const Approved: Story = { args: { reviewState: 'approved' } };
+
+export const Flagged: Story = { args: { reviewState: 'flagged' } };

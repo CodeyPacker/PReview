@@ -18,6 +18,7 @@
 }
 
 .list {
+  position: relative;
   display: grid;
   align-content: start;
   gap: var(--space-2);
@@ -26,4 +27,31 @@
   list-style: none;
   min-height: 0;
   overflow-y: auto;
+}
+
+.indicator {
+  border-radius: var(--radius-sm);
+  background: var(--surface-selected);
+}
+
+.filter > [role='radio'] {
+  padding-inline: var(--space-6);
+  font-size: var(--text-sm);
+}
+
+/* Keep review colors intact while the shared indicator outlines the selected row. */
+.list[data-selected-review-state] .indicator {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--accent-border);
+}
+
+.search {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.searchStatus {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
 }

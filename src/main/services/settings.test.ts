@@ -22,6 +22,11 @@ describe('settings', () => {
     expect(getSettings(db)).toEqual({ ...defaultSettings, theme: 'dark' });
   });
 
+  it('persists the review leader', () => {
+    updateSettings(db, { reviewLeader: 'Control+Shift' });
+    expect(getSettings(db).reviewLeader).toBe('Control+Shift');
+  });
+
   it('overwrites an existing value', () => {
     updateSettings(db, { theme: 'dark' });
     expect(updateSettings(db, { theme: 'light' })).toEqual({ ...defaultSettings, theme: 'light' });

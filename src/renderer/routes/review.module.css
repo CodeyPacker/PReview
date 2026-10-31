@@ -3,29 +3,34 @@
 .page {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: var(--space-16);
+  gap: var(--space-8);
   height: 100%;
 }
 
 .header {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-8);
-}
-
-.title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
-}
-
-.meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  /* On macOS the header sits in the strip with the window buttons. */
+  /* Plus the gap below it, the header is as tall as the strip, so the panels start level with
+     the sidebar. */
+  min-height: calc(var(--titlebar, var(--space-8)) - var(--space-8));
+  padding-top: var(--titlebar-header-offset, 0px);
+  padding-left: var(--window-controls-inset, 0px);
   gap: var(--space-4) var(--space-16);
   color: var(--ink-secondary);
   font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.header > * {
+  -webkit-app-region: no-drag;
+}
+
+.pullRequest {
+  margin: 0;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
 }
 
 .branches {
@@ -39,15 +44,89 @@
 }
 
 .workspace {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-16);
   min-height: 0;
+  transition:
+    grid-template-columns 200ms ease,
+    gap 200ms ease;
+}
+
+.filesCollapsed {
+  grid-template-columns: minmax(0px, 0fr) minmax(0, 3fr);
+  gap: 0;
+}
+
+.filesSlot {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    opacity 200ms ease,
+    visibility 200ms;
+}
+
+.filesCollapsed .filesSlot {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.diffHeader {
+  display: grid;
+  align-items: center;
+  min-width: 0;
+}
+
+.diffActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.treeToggle {
+  position: absolute;
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+  z-index: 1;
+  top: var(--space-16);
+  left: 1px;
+  width: 22px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--surface-raised);
+  color: var(--ink-secondary);
+}
+
+.treeToggle > svg {
+  width: 12px;
+  height: 12px;
+}
+
+.treeToggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.filename {
+  grid-column: 2;
+  min-width: 0;
+  margin: 0 var(--space-12) 0 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 600 var(--text-lg) / 22px var(--font-sans);
 }
 
 .files {
-  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100%;
+  min-width: 240px;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -60,4 +139,40 @@
   margin: 0;
   color: var(--ink-secondary);
   font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace,
+  .filesSlot {
+    transition: none;
+  }
+}
+
+.reviewAction {
+  color: var(--ink-secondary);
+}
+
+.reviewAction:hover:not(:disabled) {
+  color: var(--tone-fg);
+}
+
+.reviewAction[aria-pressed='true'],
+.reviewAction[aria-pressed='true']:hover:not(:disabled) {
+  color: var(--tone-fg);
+  background: var(--tone-soft);
+  border-color: color-mix(in srgb, var(--tone-border) 50%, transparent);
+}
+
+.reviewAction[aria-pressed='true'] > svg {
+  stroke-width: 2.5;
+}
+
+.reviewAction[aria-pressed='true'] .flagIcon {
+  color: var(--warning-fill);
+  fill: var(--warning-fill);
+}
+
+.zen .author,
+.zen .branches {
+  display: none;
 }

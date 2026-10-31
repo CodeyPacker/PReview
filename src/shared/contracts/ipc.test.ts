@@ -7,10 +7,12 @@ describe('ipcContract', () => {
   it('accepts a valid settings patch', () => {
     expect(update.safeParse({ theme: 'dark' }).success).toBe(true);
     expect(update.safeParse({}).success).toBe(true);
+    expect(update.safeParse({ reviewLeader: 'Control' }).success).toBe(true);
   });
 
   it('rejects unknown values and unknown keys', () => {
     expect(update.safeParse({ theme: 'neon' }).success).toBe(false);
+    expect(update.safeParse({ reviewLeader: 'Space' }).success).toBe(false);
     expect(update.safeParse({ theme: 'dark', admin: true }).success).toBe(false);
   });
 
