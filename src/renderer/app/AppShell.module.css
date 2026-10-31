@@ -34,18 +34,23 @@
   align-items: center;
   gap: var(--space-12);
   padding: 0 var(--space-8);
-  -webkit-app-region: no-drag;
 }
 
 .logo {
-  /* Matches the bell beside it. */
-  width: var(--control-lg);
-  height: var(--control-lg);
+  width: 32px;
+  height: 32px;
   border-radius: 22%;
+}
+
+.footer {
+  padding: 0 var(--space-8);
+  -webkit-app-region: no-drag;
 }
 
 .nav {
   display: grid;
+  flex: 1;
+  align-content: start;
   gap: var(--space-4);
   -webkit-app-region: no-drag;
 }
