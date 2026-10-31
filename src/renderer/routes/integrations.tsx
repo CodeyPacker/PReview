@@ -10,6 +10,7 @@ import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { IconTile } from '../components/IconTile/IconTile.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
+import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { useDisconnectGitHub, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
 import styles from './integrations.module.css';
@@ -25,19 +26,23 @@ function IntegrationsPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.top}>
-        <PageHeader
-          title="Integrations"
-          description="Connect your repositories and tools to bring pull requests into PReview."
-        />
-        <GitHubPanel />
-      </div>
+      <PageHeader
+        title="Integrations"
+        description="Connect your repositories and tools to bring pull requests into PReview."
+      />
       <div className={styles.workspace}>
         <div className={styles.folders}>
           <LocalFoldersPanel />
-          <RepositoriesPanel selectedId={selected?.id} onSelect={setSelectedId} />
+          <RepositoriesPanel
+            className={styles.repositories}
+            selectedId={selected?.id}
+            onSelect={setSelectedId}
+          />
         </div>
-        <RepositoryDetailPanel repository={selected} />
+        <div className={styles.details}>
+          <GitHubPanel />
+          <RepositoryDetailPanel repository={selected} />
+        </div>
       </div>
     </div>
   );
@@ -50,16 +55,16 @@ function GitHubPanel() {
   const connected = auth?.status === 'connected' ? auth : undefined;
 
   return (
-    <Panel aria-label="GitHub" padding="sm">
+    <Panel title="GitHub">
       <div className={styles.row}>
         {connected ? (
           <Avatar
             name={connected.user.name ?? connected.user.login}
             src={connected.user.avatarUrl}
-            size="md"
+            size="lg"
           />
         ) : (
-          <IconTile icon={<GitPullRequest />} size="md" tone="neutral" />
+          <IconTile icon={<GitPullRequest />} size="lg" tone="neutral" />
         )}
         <div className={styles.text}>
           <p className="headline">
@@ -79,6 +84,9 @@ function GitHubPanel() {
         </div>
         {connected ? (
           <div className={styles.actions}>
+            <StatusPill tone="success" icon={null}>
+              Connected
+            </StatusPill>
             <Button
               variant="outline"
               tone="danger"

@@ -8,11 +8,12 @@ import styles from './RepositoriesPanel.module.css';
 import { repositoryName } from './repositoryName.ts';
 
 export interface RepositoriesPanelProps {
+  className?: string;
   selectedId: number | undefined;
   onSelect: (id: number) => void;
 }
 
-export function RepositoriesPanel({ selectedId, onSelect }: RepositoriesPanelProps) {
+export function RepositoriesPanel({ className, selectedId, onSelect }: RepositoriesPanelProps) {
   const { data } = useRepositories();
   const rescan = useRescan();
   const repositories = data?.repositories ?? [];
@@ -20,6 +21,7 @@ export function RepositoriesPanel({ selectedId, onSelect }: RepositoriesPanelPro
 
   return (
     <Panel
+      className={className}
       title="Repositories"
       icon={<GitBranch aria-hidden />}
       count={repositories.length}
