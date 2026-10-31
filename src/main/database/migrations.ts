@@ -93,4 +93,29 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE repositories ADD COLUMN include_automated INTEGER NOT NULL DEFAULT 1;
     `,
   },
+  {
+    version: 5,
+    name: 'pull_requests',
+    // Open pull requests as the last sync saw them. A pull request that closes is deleted
+    // from here on the next sync.
+    sql: `
+      CREATE TABLE pull_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repository_id INTEGER NOT NULL REFERENCES repositories (id) ON DELETE CASCADE,
+        provider_id TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        draft INTEGER NOT NULL,
+        url TEXT NOT NULL,
+        author_login TEXT,
+        author_avatar_url TEXT,
+        head_branch TEXT NOT NULL,
+        head_sha TEXT NOT NULL,
+        base_branch TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE (repository_id, number)
+      ) STRICT;
+    `,
+  },
 ];

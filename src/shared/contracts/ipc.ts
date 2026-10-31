@@ -6,6 +6,7 @@ import {
   scanDepthSchema,
   watchedFolderSchema,
 } from './repositories.ts';
+import { pullRequestsStateSchema } from './pull-requests.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
 export const appInfoSchema = z.object({
@@ -44,6 +45,9 @@ export const ipcContract = {
     input: z.object({ id: z.number().int(), patch: repositorySettingsPatchSchema }),
     output: repositoriesStateSchema,
   },
+  'pullRequests.list': { input: z.undefined(), output: pullRequestsStateSchema },
+  // Starts a sync and returns without waiting for it.
+  'pullRequests.refresh': { input: z.undefined(), output: pullRequestsStateSchema },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 
 export type IpcChannel = keyof typeof ipcContract;
