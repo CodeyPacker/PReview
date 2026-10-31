@@ -3,6 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { AppInfo } from '../../shared/contracts/ipc.ts';
 import type { GitHubAuth } from '../services/github/auth.ts';
 import type { RepositoryDiscovery } from '../services/repositories/discovery.ts';
+import type { PullRequestSync } from '../services/pull-requests/sync.ts';
 import { updateRepositorySettings } from '../services/repositories/registry.ts';
 import {
   addWatchedFolder,
@@ -16,13 +17,14 @@ import { handle } from './handle.ts';
 export interface IpcServices {
   github: GitHubAuth;
   discovery: RepositoryDiscovery;
+  pullRequests: PullRequestSync;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
 
 export function registerIpcHandlers(
   db: DatabaseSync,
-  { github, discovery, pickFolder }: IpcServices,
+  { github, discovery, pullRequests, pickFolder }: IpcServices,
 ): void {
   handle('app.getInfo', () => ({
     name: app.getName(),
@@ -67,5 +69,11 @@ export function registerIpcHandlers(
   handle('repositories.updateSettings', ({ id, patch }) => {
     updateRepositorySettings(db, id, patch);
     return discovery.getState();
+  });
+
+  handle('pullRequests.list', () => pullRequests.getState());
+  handle('pullRequests.refresh', () => {
+    void pullRequests.refresh();
+    return pullRequests.getState();
   });
 }

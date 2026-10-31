@@ -103,6 +103,17 @@ describe('pollForToken', () => {
 });
 
 describe('GitHubAuth', () => {
+  it('hands out the stored token only while connected', async () => {
+    const connected = await setup({}, { token: 'gho_token', user });
+    expect(await connected.auth.getToken()).toBe('gho_token');
+
+    connected.auth.disconnect();
+    expect(await connected.auth.getToken()).toBeUndefined();
+
+    const signedOut = await setup({});
+    expect(await signedOut.auth.getToken()).toBeUndefined();
+  });
+
   it('connects through the device flow and stores the token', async () => {
     const { auth, store, deps } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],

@@ -50,6 +50,12 @@ export class GitHubAuth {
     return this.state;
   }
 
+  // The stored token, or undefined when GitHub is not connected.
+  async getToken(): Promise<string | undefined> {
+    if (this.state.status !== 'connected') return undefined;
+    return (await this.deps.store.load())?.token;
+  }
+
   // Checks the stored token with GitHub and refreshes the profile. A rejected token is
   // removed. A network failure keeps the connection as it is.
   async verify(): Promise<void> {

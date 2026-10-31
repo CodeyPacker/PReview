@@ -31,6 +31,10 @@ const api: PreviewApi = {
     scan: () => invoke('repositories.scan', undefined),
     updateSettings: (id, patch) => invoke('repositories.updateSettings', { id, patch }),
   },
+  pullRequests: {
+    list: () => invoke('pullRequests.list', undefined),
+    refresh: () => invoke('pullRequests.refresh', undefined),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);

@@ -1,5 +1,6 @@
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
+import type { PullRequestsState } from './pull-requests.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
 
@@ -32,5 +33,10 @@ export interface PreviewApi {
     // Starts a scan of the watched folders. Resolves without waiting for it to finish.
     scan(): Promise<RepositoriesState>;
     updateSettings(id: number, patch: RepositorySettingsPatch): Promise<RepositoriesState>;
+  };
+  pullRequests: {
+    list(): Promise<PullRequestsState>;
+    // Starts a sync with GitHub. Resolves without waiting for it to finish.
+    refresh(): Promise<PullRequestsState>;
   };
 }

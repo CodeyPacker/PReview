@@ -9,6 +9,9 @@ import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
 import { GitHubAuth } from './services/github/auth.ts';
 import { createCredentialStore, type Encryptor } from './services/github/credential-store.ts';
+import { GitHubClient } from './providers/github/client.ts';
+import { GitHubProvider } from './providers/github/provider.ts';
+import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { runGit } from './services/repositories/git-info.ts';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
@@ -126,9 +129,19 @@ void app.whenReady().then(async () => {
   }
 
   const discovery = new RepositoryDiscovery({ db, git: runGit, log });
-  registerIpcHandlers(db, { github: await createGitHubAuth(), discovery, pickFolder });
+  const github = await createGitHubAuth();
+  const pullRequests = new PullRequestSync({
+    db,
+    provider: new GitHubProvider(new GitHubClient({ fetch, getToken: () => github.getToken() })),
+    log,
+  });
+  registerIpcHandlers(db, { github, discovery, pullRequests, pickFolder });
   void discovery.scan();
-  app.on('will-quit', () => db.close());
+  pullRequests.start();
+  app.on('will-quit', () => {
+    pullRequests.stop();
+    db.close();
+  });
 
   createWindow();
 
