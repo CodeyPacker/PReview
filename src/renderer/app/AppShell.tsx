@@ -34,12 +34,7 @@ export function AppShell() {
             shortcut={[modKey, 'K']}
             className={styles.search}
           />
-          <IconButton
-            icon={<Bell />}
-            label="Notifications"
-            size="lg"
-            className={styles.toolbarEnd}
-          />
+          <IconButton icon={<Bell />} label="Notifications" size="lg" />
         </header>
         <main className={styles.content}>
           <Outlet />
