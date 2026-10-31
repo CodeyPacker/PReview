@@ -29,19 +29,6 @@
   padding-top: 52px;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
-  padding: 0 var(--space-8);
-}
-
-.logo {
-  width: 32px;
-  height: 32px;
-  border-radius: 22%;
-}
-
 .footer {
   padding: 0 var(--space-8);
   -webkit-app-region: no-drag;

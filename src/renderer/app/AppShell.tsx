@@ -1,6 +1,5 @@
 import { Outlet } from '@tanstack/react-router';
 import { Bell, House, Inbox, Plug, Settings, Smile, Trophy } from 'lucide-react';
-import logo from '../assets/logo.png';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { NavItem } from '../components/NavItem/NavItem.tsx';
 import { SearchField } from '../components/SearchField/SearchField.tsx';
@@ -13,9 +12,6 @@ export function AppShell() {
   return (
     <div className={cx(styles.shell, isMac && styles.mac)}>
       <aside className={styles.sidebar}>
-        <div className={styles.brand}>
-          <img src={logo} alt="PReview" className={styles.logo} />
-        </div>
         <nav aria-label="Main" className={styles.nav}>
           <NavItem to="/dashboard" icon={<House />} label="Dashboard" />
           <NavItem to="/inbox" icon={<Inbox />} label="Inbox" />
