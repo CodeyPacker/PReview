@@ -42,13 +42,15 @@
   border-radius: 22%;
 }
 
-.wordmark {
-  font: 700 var(--text-lg) / 1 var(--font-display);
-  letter-spacing: -0.01em;
+.footer {
+  padding: 0 var(--space-8);
+  -webkit-app-region: no-drag;
 }
 
 .nav {
   display: grid;
+  flex: 1;
+  align-content: start;
   gap: var(--space-4);
   -webkit-app-region: no-drag;
 }
@@ -63,6 +65,7 @@
 .toolbar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-16);
   user-select: none;
   -webkit-app-region: drag;
@@ -74,10 +77,6 @@
 
 .search {
   max-width: 480px;
-}
-
-.toolbarEnd {
-  margin-left: auto;
 }
 
 .content {

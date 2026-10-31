@@ -14,8 +14,7 @@ export function AppShell() {
     <div className={cx(styles.shell, isMac && styles.mac)}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <img src={logo} alt="" className={styles.logo} />
-          <span className={styles.wordmark}>PReview</span>
+          <img src={logo} alt="PReview" className={styles.logo} />
         </div>
         <nav aria-label="Main" className={styles.nav}>
           <NavItem to="/dashboard" icon={<House />} label="Dashboard" />
@@ -25,6 +24,9 @@ export function AppShell() {
           <NavItem to="/integrations" icon={<Plug />} label="Integrations" />
           <NavItem to="/settings" icon={<Settings />} label="Settings" />
         </nav>
+        <div className={styles.footer}>
+          <IconButton icon={<Bell />} label="Notifications" size="lg" />
+        </div>
       </aside>
 
       <div className={styles.main}>
@@ -34,12 +36,6 @@ export function AppShell() {
             placeholder="Search pull requests, files, or repositories…"
             shortcut={[modKey, 'K']}
             className={styles.search}
-          />
-          <IconButton
-            icon={<Bell />}
-            label="Notifications"
-            size="lg"
-            className={styles.toolbarEnd}
           />
         </header>
         <main className={styles.content}>
