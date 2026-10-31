@@ -204,3 +204,13 @@ test('discovers repositories in a watched folder', async () => {
     rmSync(code, { recursive: true, force: true });
   }
 });
+
+test('shows the Inbox empty state until GitHub is connected', async () => {
+  const app = await launch();
+  const page = await app.firstWindow();
+  await dismissGitHubPrompt(page);
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Inbox' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Inbox' })).toBeVisible();
+  await expect(page.getByText('Connect GitHub on the Integrations page')).toBeVisible();
+  await app.close();
+});

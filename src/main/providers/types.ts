@@ -27,7 +27,8 @@ export interface ProviderPullRequest {
   title: string;
   draft: boolean;
   url: string;
-  author: { login: string; avatarUrl: string } | null;
+  // bot is true for GitHub Apps and other automated accounts.
+  author: { login: string; avatarUrl: string; bot: boolean } | null;
   headBranch: string;
   headSha: string;
   baseBranch: string;

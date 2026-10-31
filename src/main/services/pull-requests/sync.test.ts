@@ -52,7 +52,7 @@ function pull(number: number, overrides: Partial<ProviderPullRequest> = {}): Pro
     title: `PR ${number}`,
     draft: false,
     url: `https://github.com/octo/app/pull/${number}`,
-    author: { login: 'hubot', avatarUrl: 'https://avatars.example/hubot' },
+    author: { login: 'hubot', avatarUrl: 'https://avatars.example/hubot', bot: false },
     headBranch: `feature-${number}`,
     headSha: 'abc',
     baseBranch: 'main',
@@ -85,6 +85,7 @@ describe('PullRequestSync', () => {
     expect(state.pullRequests[0]?.author).toEqual({
       login: 'hubot',
       avatarUrl: 'https://avatars.example/hubot',
+      bot: false,
     });
   });
 
@@ -102,6 +103,22 @@ describe('PullRequestSync', () => {
     expect(sync.getState().pullRequests.map((p) => [p.number, p.title, p.draft])).toEqual([
       [2, 'Renamed', true],
     ]);
+  });
+
+  it('leaves out drafts and automated pull requests where the repository excludes them', async () => {
+    const id = addRepository('app');
+    const bot = { login: 'dependabot[bot]', avatarUrl: 'https://avatars.example/bot', bot: true };
+    const { sync } = setup(
+      vi.fn().mockResolvedValue([pull(1), pull(2, { draft: true }), pull(3, { author: bot })]),
+    );
+    await sync.refresh();
+    expect(sync.getState().pullRequests).toHaveLength(3);
+
+    updateRepositorySettings(db, id, { includeDrafts: false });
+    expect(sync.getState().pullRequests.map((p) => p.number)).toEqual([3, 1]);
+
+    updateRepositorySettings(db, id, { includeAutomated: false });
+    expect(sync.getState().pullRequests.map((p) => p.number)).toEqual([1]);
   });
 
   it('keeps pull requests that have no author', async () => {

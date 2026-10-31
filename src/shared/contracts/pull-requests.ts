@@ -7,7 +7,7 @@ export const pullRequestSchema = z.object({
   title: z.string(),
   draft: z.boolean(),
   url: z.string(),
-  author: z.object({ login: z.string(), avatarUrl: z.string() }).nullable(),
+  author: z.object({ login: z.string(), avatarUrl: z.string(), bot: z.boolean() }).nullable(),
   headBranch: z.string(),
   headSha: z.string(),
   baseBranch: z.string(),
