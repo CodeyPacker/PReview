@@ -12,7 +12,6 @@ import { IconTile } from '../components/IconTile/IconTile.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { useDisconnectGitHub, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
-import { cx } from '../lib/cx.ts';
 import styles from './integrations.module.css';
 
 export const Route = createFileRoute('/integrations')({ component: IntegrationsPage });
@@ -63,11 +62,8 @@ function GitHubPanel() {
           <IconTile icon={<GitPullRequest />} size="md" tone="neutral" />
         )}
         <div className={styles.text}>
-          <p className={cx('headline', styles.name)}>
+          <p className="headline">
             {connected ? (connected.user.name ?? connected.user.login) : 'Not connected'}
-            {connected && (
-              <span className={styles.connectedDot} role="img" aria-label="Connected" />
-            )}
           </p>
           <p className={styles.detail}>
             {connected

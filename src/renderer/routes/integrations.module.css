@@ -25,21 +25,6 @@
   gap: var(--space-16);
 }
 
-.name {
-  display: flex;
-  align-items: center;
-  gap: var(--space-8);
-}
-
-.connectedDot {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: var(--radius-full);
-  background: var(--success-fill);
-  box-shadow: 0 0 8px 2px var(--success-fill);
-}
-
 .row {
   display: flex;
   align-items: center;
