@@ -24,11 +24,6 @@
   -webkit-app-region: drag;
 }
 
-/* macOS draws its window buttons over the sidebar's top-left corner. */
-.mac .sidebar {
-  padding-top: 52px;
-}
-
 .brand {
   display: flex;
   align-items: center;

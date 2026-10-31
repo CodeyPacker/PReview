@@ -4,14 +4,13 @@ import logo from '../assets/logo.png';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { NavItem } from '../components/NavItem/NavItem.tsx';
 import { SearchField } from '../components/SearchField/SearchField.tsx';
-import { cx } from '../lib/cx.ts';
-import { isMac, modKey } from '../lib/platform.ts';
+import { modKey } from '../lib/platform.ts';
 import styles from './AppShell.module.css';
 import { GitHubPrompt } from './GitHubPrompt.tsx';
 
 export function AppShell() {
   return (
-    <div className={cx(styles.shell, isMac && styles.mac)}>
+    <div className={styles.shell}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
           <img src={logo} alt="" className={styles.logo} />
