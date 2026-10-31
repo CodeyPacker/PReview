@@ -190,7 +190,8 @@ test('discovers repositories in a watched folder', async () => {
 
     const monitor = page.getByRole('switch', { name: /Monitor pull requests/ });
     await expect(monitor).toBeChecked();
-    await monitor.click();
+    await monitor.focus();
+    await page.keyboard.press('Space');
     await expect(monitor).not.toBeChecked();
     await expect(page.getByText('Paused', { exact: true })).toBeVisible();
     await expect(page.getByRole('switch', { name: /Include drafts/ })).toBeChecked();

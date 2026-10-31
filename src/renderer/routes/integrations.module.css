@@ -6,30 +6,49 @@
   max-width: 1080px;
 }
 
-.connections {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  align-items: start;
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: var(--space-16);
 }
 
-.repositories {
+.workspace {
   display: grid;
   grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   align-items: start;
   gap: var(--space-16);
 }
 
+.folders {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.connectedDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--success-fill);
+  box-shadow: 0 0 8px 2px var(--success-fill);
+}
+
 .row {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-16);
 }
 
 .text {
   display: grid;
-  flex: 1 1 140px;
+  flex: 1;
   gap: var(--space-2);
   min-width: 0;
 }
