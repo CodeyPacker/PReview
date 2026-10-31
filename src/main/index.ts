@@ -14,6 +14,7 @@ import { GitHubProvider } from './providers/github/provider.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { runGit } from './services/repositories/git-info.ts';
+import icon from '../../build/icon.png?asset';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
 
 initLogging();
@@ -33,6 +34,7 @@ function createWindow(): void {
     minWidth: 1024,
     minHeight: 680,
     show: false,
+    icon,
     // macOS: no title bar; the window buttons sit inside the sidebar's top-left corner.
     ...(process.platform === 'darwin' && {
       titleBarStyle: 'hiddenInset' as const,
@@ -115,6 +117,9 @@ function openAppDatabase(): DatabaseSync {
 }
 
 void app.whenReady().then(async () => {
+  // Windows and Linux take the icon from the window. macOS shows the app's own icon in the
+  // Dock, which is Electron's until the app is packaged.
+  app.dock?.setIcon(icon);
   let db: DatabaseSync;
   try {
     db = openAppDatabase();
