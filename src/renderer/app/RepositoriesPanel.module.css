@@ -8,6 +8,7 @@
 
 .list {
   display: grid;
+  align-content: start;
   gap: var(--space-8);
   margin: 0;
   padding: 0;
