@@ -76,7 +76,7 @@ export function Select<V extends string = string>({
       <BaseSelect.Portal>
         <BaseSelect.Positioner className={styles.positioner} sideOffset={4}>
           <BaseSelect.Popup className={styles.popup}>
-            <BaseSelect.List className={styles.list}>
+            <BaseSelect.List className={styles.list} {...aria}>
               {items.map((item) => (
                 <BaseSelect.Item
                   key={item.value}
