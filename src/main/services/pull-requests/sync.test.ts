@@ -66,6 +66,7 @@ function setup(getPullRequests: Mock<GitProvider['getPullRequests']>) {
   const provider: GitProvider = {
     getRepositories: vi.fn(),
     getPullRequests,
+    getPullRequestRefs: vi.fn(),
     getPullRequestFiles: vi.fn(),
     getMergeBase: vi.fn(),
     getFileContent: vi.fn(),

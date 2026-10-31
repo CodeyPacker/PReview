@@ -6,7 +6,11 @@ import {
   scanDepthSchema,
   watchedFolderSchema,
 } from './repositories.ts';
-import { pullRequestFileDiffSchema, pullRequestFileSchema } from './pull-request-files.ts';
+import {
+  commitShaSchema,
+  pullRequestChangesSchema,
+  pullRequestFileDiffSchema,
+} from './pull-request-files.ts';
 import { pullRequestsStateSchema } from './pull-requests.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
@@ -49,15 +53,17 @@ export const ipcContract = {
   'pullRequests.list': { input: z.undefined(), output: pullRequestsStateSchema },
   // Starts a sync and returns without waiting for it.
   'pullRequests.refresh': { input: z.undefined(), output: pullRequestsStateSchema },
-  // The files a pull request changes, read from the provider.
+  // The files a pull request changes, read from the provider, with the commits they are at.
   'pullRequestFiles.list': {
     input: z.object({ pullRequestId: z.number().int() }),
-    output: z.array(pullRequestFileSchema),
+    output: pullRequestChangesSchema,
   },
-  // One file before and after the pull request.
+  // One file at the commits that list returned.
   'pullRequestFiles.getDiff': {
     input: z.object({
       pullRequestId: z.number().int(),
+      headSha: commitShaSchema,
+      mergeBase: commitShaSchema,
       path: z.string(),
       previousPath: z.string().nullable(),
     }),

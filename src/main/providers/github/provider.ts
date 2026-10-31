@@ -3,6 +3,7 @@ import type {
   GitProvider,
   ProviderChangedFile,
   ProviderPullRequest,
+  ProviderPullRequestRefs,
   ProviderRepository,
 } from '../types.ts';
 import type { GitHubClient } from './client.ts';
@@ -44,6 +45,11 @@ const changedFileSchema = z.object({
   status: z.enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed', 'unchanged']),
   additions: z.number(),
   deletions: z.number(),
+});
+
+const pullRequestRefsSchema = z.object({
+  head: z.object({ sha: z.string() }),
+  base: z.object({ ref: z.string() }),
 });
 
 const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
@@ -98,6 +104,16 @@ export class GitHubProvider implements GitProvider {
         createdAt: pull.created_at,
         updatedAt: pull.updated_at,
       }));
+  }
+
+  async getPullRequestRefs(
+    repositoryFullName: string,
+    number: number,
+  ): Promise<ProviderPullRequestRefs> {
+    const pull = pullRequestRefsSchema.parse(
+      await this.client.getJson(`/repos/${repositoryFullName}/pulls/${number}`),
+    );
+    return { headSha: pull.head.sha, baseBranch: pull.base.ref };
   }
 
   async getPullRequestFiles(

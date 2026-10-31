@@ -29,12 +29,18 @@ beforeEach(() => {
   pullRequestId = (db.prepare('SELECT id FROM pull_requests').get() as { id: number }).id;
 });
 
+const HEAD = 'a'.repeat(40);
+const BASE = 'b'.repeat(40);
+
 function setup(contents: Record<string, string | undefined> = {}) {
   const provider = {
     getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
+    getPullRequestRefs: vi
+      .fn<GitProvider['getPullRequestRefs']>()
+      .mockResolvedValue({ headSha: HEAD, baseBranch: 'main' }),
     getPullRequestFiles: vi.fn<GitProvider['getPullRequestFiles']>().mockResolvedValue([]),
-    getMergeBase: vi.fn<GitProvider['getMergeBase']>().mockResolvedValue('basesha'),
+    getMergeBase: vi.fn<GitProvider['getMergeBase']>().mockResolvedValue(BASE),
     getFileContent: vi.fn<GitProvider['getFileContent']>((_repository, path, ref) =>
       Promise.resolve(contents[`${ref}:${path}`]),
     ),
@@ -42,60 +48,100 @@ function setup(contents: Record<string, string | undefined> = {}) {
   return { provider, files: new PullRequestFiles({ db, provider }) };
 }
 
-describe('PullRequestFiles', () => {
-  it('lists the files of the pull request in its repository', async () => {
-    const { provider, files } = setup();
-    provider.getPullRequestFiles.mockResolvedValue([
-      { path: 'a.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
-    ]);
+const file = {
+  path: 'a.ts',
+  previousPath: null,
+  status: 'added',
+  additions: 1,
+  deletions: 0,
+} as const;
 
-    await expect(files.list(pullRequestId)).resolves.toHaveLength(1);
+describe('PullRequestFiles list', () => {
+  it('returns the files with the commits they are at', async () => {
+    const { provider, files } = setup();
+    provider.getPullRequestFiles.mockResolvedValue([file]);
+
+    await expect(files.list(pullRequestId)).resolves.toEqual({
+      headSha: HEAD,
+      mergeBase: BASE,
+      files: [file],
+    });
     expect(provider.getPullRequestFiles).toHaveBeenCalledWith('octo/app', 7);
+    expect(provider.getMergeBase).toHaveBeenCalledWith('octo/app', 'main', HEAD);
   });
 
-  it('reads the file at the merge base and at the head commit', async () => {
-    const { provider, files } = setup({ 'basesha:a.ts': 'old', 'headsha:a.ts': 'new' });
+  it('uses the base branch the pull request has now, not the synced one', async () => {
+    const { provider, files } = setup();
+    provider.getPullRequestRefs.mockResolvedValue({ headSha: HEAD, baseBranch: 'release/1' });
 
-    await expect(files.getDiff(pullRequestId, 'a.ts', null)).resolves.toEqual({
+    await files.list(pullRequestId);
+
+    expect(provider.getMergeBase).toHaveBeenCalledWith('octo/app', 'release/1', HEAD);
+  });
+
+  it('reads again when the pull request changes during the reads', async () => {
+    const { provider, files } = setup();
+    const moved = 'c'.repeat(40);
+    provider.getPullRequestRefs
+      .mockResolvedValueOnce({ headSha: HEAD, baseBranch: 'main' })
+      .mockResolvedValueOnce({ headSha: moved, baseBranch: 'main' })
+      .mockResolvedValue({ headSha: moved, baseBranch: 'main' });
+
+    await expect(files.list(pullRequestId)).resolves.toMatchObject({ headSha: moved });
+    expect(provider.getPullRequestFiles).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up when the pull request keeps changing', async () => {
+    const { provider, files } = setup();
+    let count = 0;
+    provider.getPullRequestRefs.mockImplementation(() =>
+      Promise.resolve({ headSha: String(count++).padStart(40, '0'), baseBranch: 'main' }),
+    );
+
+    await expect(files.list(pullRequestId)).rejects.toThrow('kept changing');
+  });
+
+  it('rejects an unknown pull request', async () => {
+    const { files } = setup();
+
+    await expect(files.list(999)).rejects.toThrow('Pull request not found.');
+  });
+});
+
+describe('PullRequestFiles getDiff', () => {
+  it('reads the file at the merge base and at the head commit it is given', async () => {
+    const { provider, files } = setup({ [`${BASE}:a.ts`]: 'old', [`${HEAD}:a.ts`]: 'new' });
+
+    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'a.ts', null)).resolves.toEqual({
       original: 'old',
       modified: 'new',
       unavailable: null,
     });
-    expect(provider.getMergeBase).toHaveBeenCalledWith('octo/app', 'main', 'headsha');
+    expect(provider.getPullRequestRefs).not.toHaveBeenCalled();
   });
 
   it('reads the old side of a renamed file from its previous path', async () => {
-    const { files } = setup({ 'basesha:old.ts': 'old', 'headsha:new.ts': 'new' });
+    const { files } = setup({ [`${BASE}:old.ts`]: 'old', [`${HEAD}:new.ts`]: 'new' });
 
-    await expect(files.getDiff(pullRequestId, 'new.ts', 'old.ts')).resolves.toMatchObject({
-      original: 'old',
-      modified: 'new',
-    });
+    await expect(
+      files.getDiff(pullRequestId, HEAD, BASE, 'new.ts', 'old.ts'),
+    ).resolves.toMatchObject({ original: 'old', modified: 'new' });
   });
 
   it('treats a side that does not exist as empty', async () => {
-    const { files } = setup({ 'headsha:a.ts': 'new' });
+    const { files } = setup({ [`${HEAD}:a.ts`]: 'new' });
 
-    await expect(files.getDiff(pullRequestId, 'a.ts', null)).resolves.toEqual({
+    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'a.ts', null)).resolves.toEqual({
       original: '',
       modified: 'new',
       unavailable: null,
     });
   });
 
-  it('looks up the merge base once per head commit', async () => {
-    const { provider, files } = setup();
-
-    await files.getDiff(pullRequestId, 'a.ts', null);
-    await files.getDiff(pullRequestId, 'b.ts', null);
-
-    expect(provider.getMergeBase).toHaveBeenCalledTimes(1);
-  });
-
   it('does not return binary files', async () => {
-    const { files } = setup({ 'headsha:a.png': 'PNG\0data' });
+    const { files } = setup({ [`${HEAD}:a.png`]: 'PNG\0data' });
 
-    await expect(files.getDiff(pullRequestId, 'a.png', null)).resolves.toEqual({
+    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'a.png', null)).resolves.toEqual({
       original: '',
       modified: '',
       unavailable: 'binary',
@@ -103,16 +149,10 @@ describe('PullRequestFiles', () => {
   });
 
   it('does not return files that are too large', async () => {
-    const { files } = setup({ 'headsha:big.txt': 'x'.repeat(MAX_FILE_LENGTH + 1) });
+    const { files } = setup({ [`${HEAD}:big.txt`]: 'x'.repeat(MAX_FILE_LENGTH + 1) });
 
-    await expect(files.getDiff(pullRequestId, 'big.txt', null)).resolves.toMatchObject({
+    await expect(files.getDiff(pullRequestId, HEAD, BASE, 'big.txt', null)).resolves.toMatchObject({
       unavailable: 'too-large',
     });
-  });
-
-  it('rejects an unknown pull request', async () => {
-    const { files } = setup();
-
-    await expect(files.list(999)).rejects.toThrow('Pull request not found.');
   });
 });

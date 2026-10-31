@@ -37,8 +37,8 @@ const api: PreviewApi = {
   },
   pullRequestFiles: {
     list: (pullRequestId) => invoke('pullRequestFiles.list', { pullRequestId }),
-    getDiff: (pullRequestId, path, previousPath) =>
-      invoke('pullRequestFiles.getDiff', { pullRequestId, path, previousPath }),
+    getDiff: (pullRequestId, headSha, mergeBase, path, previousPath) =>
+      invoke('pullRequestFiles.getDiff', { pullRequestId, headSha, mergeBase, path, previousPath }),
   },
 };
 

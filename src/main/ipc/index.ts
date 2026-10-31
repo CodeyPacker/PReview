@@ -80,7 +80,7 @@ export function registerIpcHandlers(
   });
 
   handle('pullRequestFiles.list', ({ pullRequestId }) => pullRequestFiles.list(pullRequestId));
-  handle('pullRequestFiles.getDiff', ({ pullRequestId, path, previousPath }) =>
-    pullRequestFiles.getDiff(pullRequestId, path, previousPath),
+  handle('pullRequestFiles.getDiff', ({ pullRequestId, headSha, mergeBase, path, previousPath }) =>
+    pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
   );
 }

@@ -210,6 +210,18 @@ describe('GitHubClient errors', () => {
 });
 
 describe('GitHubProvider changed files', () => {
+  it('reads where a pull request is now', async () => {
+    const { fetch, provider } = setup([
+      json({ head: { sha: 'headsha' }, base: { ref: 'release/1' } }),
+    ]);
+
+    await expect(provider.getPullRequestRefs('octo/app', 7)).resolves.toEqual({
+      headSha: 'headsha',
+      baseBranch: 'release/1',
+    });
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7');
+  });
+
   it('lists the files of a pull request', async () => {
     const { fetch, provider } = setup([
       json([

@@ -32,13 +32,14 @@ function ReviewPage() {
     (item) => item.id === pullRequest?.repositoryId,
   );
 
-  const files = usePullRequestFiles(pullRequestId, pullRequest?.headSha);
+  const files = usePullRequestFiles(pullRequestId, pullRequest?.headSha, pullRequest?.baseBranch);
+  const changedFiles = files.data?.files;
   const [chosenPath, setChosenPath] = useState<string>();
   const [mode, setMode] = useState<DiffMode>('split');
-  const selected = files.data?.find((file) => file.path === chosenPath) ?? files.data?.[0];
+  const selected = changedFiles?.find((file) => file.path === chosenPath) ?? changedFiles?.[0];
   const diff = usePullRequestFileDiff(
     pullRequestId,
-    pullRequest?.headSha,
+    files.data,
     selected?.path,
     selected?.previousPath ?? null,
   );
@@ -97,7 +98,7 @@ function ReviewPage() {
       <div className={styles.workspace}>
         <ChangedFiles
           className={styles.files}
-          files={files.data}
+          files={changedFiles}
           loading={files.isPending}
           error={files.isError}
           selectedPath={selected?.path}
