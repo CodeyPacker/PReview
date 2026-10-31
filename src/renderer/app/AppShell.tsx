@@ -14,8 +14,8 @@ export function AppShell() {
     <div className={cx(styles.shell, isMac && styles.mac)}>
       <aside className={styles.sidebar}>
         <div className={styles.brand}>
-          <img src={logo} alt="" className={styles.logo} />
-          <span className={styles.wordmark}>PReview</span>
+          <img src={logo} alt="PReview" className={styles.logo} />
+          <IconButton icon={<Bell />} label="Notifications" size="lg" />
         </div>
         <nav aria-label="Main" className={styles.nav}>
           <NavItem to="/dashboard" icon={<House />} label="Dashboard" />
@@ -35,7 +35,6 @@ export function AppShell() {
             shortcut={[modKey, 'K']}
             className={styles.search}
           />
-          <IconButton icon={<Bell />} label="Notifications" size="lg" />
         </header>
         <main className={styles.content}>
           <Outlet />

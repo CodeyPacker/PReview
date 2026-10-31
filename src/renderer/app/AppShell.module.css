@@ -34,17 +34,13 @@
   align-items: center;
   gap: var(--space-12);
   padding: 0 var(--space-8);
+  -webkit-app-region: no-drag;
 }
 
 .logo {
   width: 32px;
   height: 32px;
   border-radius: 22%;
-}
-
-.wordmark {
-  font: 700 var(--text-lg) / 1 var(--font-display);
-  letter-spacing: -0.01em;
 }
 
 .nav {
