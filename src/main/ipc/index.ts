@@ -3,6 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { AppInfo } from '../../shared/contracts/ipc.ts';
 import type { GitHubAuth } from '../services/github/auth.ts';
 import type { RepositoryDiscovery } from '../services/repositories/discovery.ts';
+import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
 import { updateRepositorySettings } from '../services/repositories/registry.ts';
 import {
@@ -18,13 +19,14 @@ export interface IpcServices {
   github: GitHubAuth;
   discovery: RepositoryDiscovery;
   pullRequests: PullRequestSync;
+  pullRequestFiles: PullRequestFiles;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
 
 export function registerIpcHandlers(
   db: DatabaseSync,
-  { github, discovery, pullRequests, pickFolder }: IpcServices,
+  { github, discovery, pullRequests, pullRequestFiles, pickFolder }: IpcServices,
 ): void {
   handle('app.getInfo', () => ({
     name: app.getName(),
@@ -76,4 +78,9 @@ export function registerIpcHandlers(
     void pullRequests.refresh();
     return pullRequests.getState();
   });
+
+  handle('pullRequestFiles.list', ({ pullRequestId }) => pullRequestFiles.list(pullRequestId));
+  handle('pullRequestFiles.getDiff', ({ pullRequestId, headSha, mergeBase, path, previousPath }) =>
+    pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
+  );
 }

@@ -11,6 +11,7 @@ import { GitHubAuth } from './services/github/auth.ts';
 import { createCredentialStore, type Encryptor } from './services/github/credential-store.ts';
 import { GitHubClient } from './providers/github/client.ts';
 import { GitHubProvider } from './providers/github/provider.ts';
+import { PullRequestFiles } from './services/pull-requests/files.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { runGit } from './services/repositories/git-info.ts';
@@ -135,12 +136,12 @@ void app.whenReady().then(async () => {
 
   const discovery = new RepositoryDiscovery({ db, git: runGit, log });
   const github = await createGitHubAuth();
-  const pullRequests = new PullRequestSync({
-    db,
-    provider: new GitHubProvider(new GitHubClient({ fetch, getToken: () => github.getToken() })),
-    log,
-  });
-  registerIpcHandlers(db, { github, discovery, pullRequests, pickFolder });
+  const provider = new GitHubProvider(
+    new GitHubClient({ fetch, getToken: () => github.getToken() }),
+  );
+  const pullRequests = new PullRequestSync({ db, provider, log });
+  const pullRequestFiles = new PullRequestFiles({ db, provider });
+  registerIpcHandlers(db, { github, discovery, pullRequests, pullRequestFiles, pickFolder });
   void discovery.scan();
   pullRequests.start();
   app.on('will-quit', () => {
