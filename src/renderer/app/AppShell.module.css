@@ -10,9 +10,6 @@
 
 .sidebar {
   display: flex;
-  /* Starts below the window buttons, with the same space above and below them. */
-  align-self: end;
-  height: calc(100% - var(--space-8));
   flex-direction: column;
   gap: var(--space-24);
   min-height: 0;
@@ -25,6 +22,11 @@
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   user-select: none;
   -webkit-app-region: drag;
+}
+
+/* macOS draws its window buttons over the sidebar's top-left corner. */
+.mac .sidebar {
+  padding-top: 52px;
 }
 
 .brand {
