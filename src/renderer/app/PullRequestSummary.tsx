@@ -1,4 +1,5 @@
 import type { PullRequest } from '../../shared/contracts/pull-requests.ts';
+import { Button } from '../components/Button/Button.tsx';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
@@ -8,9 +9,14 @@ import { relativeTime } from './relativeTime.ts';
 export interface PullRequestSummaryProps {
   pullRequest: PullRequest | undefined;
   repositoryName: string | undefined;
+  onOpenReview: () => void;
 }
 
-export function PullRequestSummary({ pullRequest, repositoryName }: PullRequestSummaryProps) {
+export function PullRequestSummary({
+  pullRequest,
+  repositoryName,
+  onOpenReview,
+}: PullRequestSummaryProps) {
   if (!pullRequest) {
     return (
       <Panel title="Summary">
@@ -41,6 +47,9 @@ export function PullRequestSummary({ pullRequest, repositoryName }: PullRequestS
         <dt>Updated</dt>
         <dd>{relativeTime(pullRequest.updatedAt)}</dd>
       </dl>
+      <Button variant="primary" onClick={onOpenReview}>
+        Open review
+      </Button>
     </Panel>
   );
 }

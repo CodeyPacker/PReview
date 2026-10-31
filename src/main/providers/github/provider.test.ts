@@ -208,3 +208,73 @@ describe('GitHubClient errors', () => {
     await expect(provider.getPullRequests('octo/gone')).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe('GitHubProvider changed files', () => {
+  it('reads where a pull request is now', async () => {
+    const { fetch, provider } = setup([
+      json({ head: { sha: 'headsha' }, base: { ref: 'release/1' } }),
+    ]);
+
+    await expect(provider.getPullRequestRefs('octo/app', 7)).resolves.toEqual({
+      headSha: 'headsha',
+      baseBranch: 'release/1',
+    });
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7');
+  });
+
+  it('lists the files of a pull request', async () => {
+    const { fetch, provider } = setup([
+      json([
+        { filename: 'src/a.ts', status: 'modified', additions: 3, deletions: 1 },
+        {
+          filename: 'src/b.ts',
+          previous_filename: 'src/old.ts',
+          status: 'renamed',
+          additions: 0,
+          deletions: 0,
+        },
+        { filename: 'src/c.ts', status: 'unchanged', additions: 0, deletions: 0 },
+      ]),
+    ]);
+
+    await expect(provider.getPullRequestFiles('octo/app', 7)).resolves.toEqual([
+      { path: 'src/a.ts', previousPath: null, status: 'modified', additions: 3, deletions: 1 },
+      {
+        path: 'src/b.ts',
+        previousPath: 'src/old.ts',
+        status: 'renamed',
+        additions: 0,
+        deletions: 0,
+      },
+      { path: 'src/c.ts', previousPath: null, status: 'changed', additions: 0, deletions: 0 },
+    ]);
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/files');
+  });
+
+  it('finds the merge base of a pull request', async () => {
+    const { fetch, provider } = setup([json({ merge_base_commit: { sha: 'abc123' } })]);
+
+    await expect(provider.getMergeBase('octo/app', 'release/1', 'headsha')).resolves.toBe('abc123');
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/compare/release%2F1...headsha');
+  });
+
+  it('reads a file at a commit as raw text', async () => {
+    const { fetch, provider } = setup([new Response('const a = 1;\n')]);
+
+    await expect(provider.getFileContent('octo/app', 'src/my file.ts', 'abc')).resolves.toBe(
+      'const a = 1;\n',
+    );
+    const url = urlOf(fetch, 0);
+    expect(url.pathname).toBe('/repos/octo/app/contents/src/my%20file.ts');
+    expect(url.searchParams.get('ref')).toBe('abc');
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('accept')).toBe(
+      'application/vnd.github.raw+json',
+    );
+  });
+
+  it('returns undefined for a file that does not exist at the commit', async () => {
+    const { provider } = setup([new Response('', { status: 404 })]);
+
+    await expect(provider.getFileContent('octo/app', 'gone.ts', 'abc')).resolves.toBeUndefined();
+  });
+});

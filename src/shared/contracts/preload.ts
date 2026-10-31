@@ -1,5 +1,6 @@
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
+import type { PullRequestChanges, PullRequestFileDiff } from './pull-request-files.ts';
 import type { PullRequestsState } from './pull-requests.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
@@ -38,5 +39,15 @@ export interface PreviewApi {
     list(): Promise<PullRequestsState>;
     // Starts a sync with GitHub. Resolves without waiting for it to finish.
     refresh(): Promise<PullRequestsState>;
+  };
+  pullRequestFiles: {
+    list(pullRequestId: number): Promise<PullRequestChanges>;
+    getDiff(
+      pullRequestId: number,
+      headSha: string,
+      mergeBase: string,
+      path: string,
+      previousPath: string | null,
+    ): Promise<PullRequestFileDiff>;
   };
 }

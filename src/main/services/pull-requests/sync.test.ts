@@ -63,7 +63,14 @@ function pull(number: number, overrides: Partial<ProviderPullRequest> = {}): Pro
 }
 
 function setup(getPullRequests: Mock<GitProvider['getPullRequests']>) {
-  const provider: GitProvider = { getRepositories: vi.fn(), getPullRequests };
+  const provider: GitProvider = {
+    getRepositories: vi.fn(),
+    getPullRequests,
+    getPullRequestRefs: vi.fn(),
+    getPullRequestFiles: vi.fn(),
+    getMergeBase: vi.fn(),
+    getFileContent: vi.fn(),
+  };
   const log = { info: vi.fn(), warn: vi.fn() };
   return { sync: new PullRequestSync({ db, provider, log }), getPullRequests };
 }

@@ -1,1 +1,37 @@
 /* DiffStat styles. Read values from tokens.css custom properties only. */
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  font: 500 var(--text-md) / 1 var(--font-mono);
+  white-space: nowrap;
+}
+
+.additions {
+  color: var(--success);
+}
+
+.deletions {
+  color: var(--danger);
+}
+
+.bar {
+  display: inline-flex;
+  gap: var(--space-2);
+}
+
+.block {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--chart-track);
+}
+
+.added {
+  background: var(--success-fill);
+}
+
+.removed {
+  background: var(--danger-fill);
+}
