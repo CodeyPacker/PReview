@@ -1,0 +1,67 @@
+/* Pull request list. Read values from tokens.css custom properties only. */
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-8);
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--surface-sunken);
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--surface-raised);
+}
+
+.item[aria-current='true'] {
+  border-color: var(--accent-border);
+  background: var(--surface-raised);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.text {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.repository,
+.meta {
+  overflow: hidden;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

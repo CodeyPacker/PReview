@@ -118,4 +118,12 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 6,
+    name: 'pull_request_author_bot',
+    // Rows from before this column read as written by a person until the next sync.
+    sql: `
+      ALTER TABLE pull_requests ADD COLUMN author_is_bot INTEGER NOT NULL DEFAULT 0;
+    `,
+  },
 ];

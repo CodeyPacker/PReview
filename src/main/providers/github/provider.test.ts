@@ -120,7 +120,7 @@ describe('GitHubProvider.getPullRequests', () => {
         title: 'Add search',
         draft: false,
         url: 'https://github.com/octo/app/pull/7',
-        author: { login: 'hubot', avatarUrl: 'https://avatars.example/hubot' },
+        author: { login: 'hubot', avatarUrl: 'https://avatars.example/hubot', bot: false },
         headBranch: 'feat/search',
         headSha: 'abc123',
         baseBranch: 'main',
@@ -143,6 +143,17 @@ describe('GitHubProvider.getPullRequests', () => {
     ]);
     const result = await provider.getPullRequests('octo/app');
     expect(result.map((p) => p.number)).toEqual([1]);
+  });
+
+  it('flags pull requests opened by bots', async () => {
+    const bot = {
+      login: 'dependabot[bot]',
+      avatar_url: 'https://avatars.example/bot',
+      type: 'Bot',
+    };
+    const { provider } = setup([json([pull({ user: bot }), pull({ number: 8 })])]);
+    const result = await provider.getPullRequests('octo/app');
+    expect(result.map((p) => p.author?.bot)).toEqual([true, false]);
   });
 
   it('keeps pull requests from deleted users', async () => {

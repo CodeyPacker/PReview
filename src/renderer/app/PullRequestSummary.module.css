@@ -1,0 +1,35 @@
+/* Pull request summary. Read values from tokens.css custom properties only. */
+
+.empty,
+.detail {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.author {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-8) var(--space-16);
+  margin: 0;
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.facts dt {
+  color: var(--ink-secondary);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}

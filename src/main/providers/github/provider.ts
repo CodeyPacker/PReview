@@ -21,7 +21,9 @@ const pullRequestSchema = z.object({
   html_url: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
-  user: z.object({ login: z.string(), avatar_url: z.string() }).nullable(),
+  user: z
+    .object({ login: z.string(), avatar_url: z.string(), type: z.string().optional() })
+    .nullable(),
   head: z.object({
     ref: z.string(),
     sha: z.string(),
@@ -70,7 +72,11 @@ export class GitHubProvider implements GitProvider {
         title: pull.title,
         draft: pull.draft ?? false,
         url: pull.html_url,
-        author: pull.user && { login: pull.user.login, avatarUrl: pull.user.avatar_url },
+        author: pull.user && {
+          login: pull.user.login,
+          avatarUrl: pull.user.avatar_url,
+          bot: pull.user.type === 'Bot',
+        },
         headBranch: pull.head.ref,
         headSha: pull.head.sha,
         baseBranch: pull.base.ref,
