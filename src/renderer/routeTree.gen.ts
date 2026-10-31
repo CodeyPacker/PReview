@@ -16,6 +16,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as ReviewPullRequestIdRouteImport } from './routes/review.$pullRequestId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const SettingsRoute = SettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReviewPullRequestIdRoute = ReviewPullRequestIdRouteImport.update({
+  id: '/review/$pullRequestId',
+  path: '/review/$pullRequestId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -61,6 +67,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
   '/settings': typeof SettingsRoute
+  '/review/$pullRequestId': typeof ReviewPullRequestIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
   '/settings': typeof SettingsRoute
+  '/review/$pullRequestId': typeof ReviewPullRequestIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
   '/settings': typeof SettingsRoute
+  '/review/$pullRequestId': typeof ReviewPullRequestIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +100,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/integrations'
     | '/settings'
+    | '/review/$pullRequestId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/integrations'
     | '/settings'
+    | '/review/$pullRequestId'
   id:
     | '__root__'
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/integrations'
     | '/settings'
+    | '/review/$pullRequestId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -119,6 +131,7 @@ export interface RootRouteChildren {
   InboxRoute: typeof InboxRoute
   IntegrationsRoute: typeof IntegrationsRoute
   SettingsRoute: typeof SettingsRoute
+  ReviewPullRequestIdRoute: typeof ReviewPullRequestIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/review/$pullRequestId': {
+      id: '/review/$pullRequestId'
+      path: '/review/$pullRequestId'
+      fullPath: '/review/$pullRequestId'
+      preLoaderRoute: typeof ReviewPullRequestIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -183,6 +203,7 @@ const rootRouteChildren: RootRouteChildren = {
   InboxRoute: InboxRoute,
   IntegrationsRoute: IntegrationsRoute,
   SettingsRoute: SettingsRoute,
+  ReviewPullRequestIdRoute: ReviewPullRequestIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

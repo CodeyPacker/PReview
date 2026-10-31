@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { CircleAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { filterPullRequests } from '../app/filterPullRequests.ts';
@@ -22,6 +22,7 @@ function InboxPage() {
   const { mutate: refresh } = useRefreshPullRequests();
   const [search, setSearch] = useState('');
   const [repositoryValue, setRepositoryValue] = useState(ALL_REPOSITORIES);
+  const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<number>();
 
   // Opening the Inbox syncs right away instead of waiting for the next poll.
@@ -105,6 +106,14 @@ function InboxPage() {
         <PullRequestSummary
           pullRequest={selected}
           repositoryName={selected && repositoryNames.get(selected.repositoryId)}
+          onOpenReview={() => {
+            if (selected) {
+              void navigate({
+                to: '/review/$pullRequestId',
+                params: { pullRequestId: String(selected.id) },
+              });
+            }
+          }}
         />
       </div>
     </div>

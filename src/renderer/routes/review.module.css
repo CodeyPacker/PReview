@@ -1,0 +1,63 @@
+/* Review page. Read values from tokens.css custom properties only. */
+
+.page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-16);
+  height: 100%;
+}
+
+.header {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-8);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-16);
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.branches {
+  font-family: var(--font-mono);
+}
+
+.author {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: var(--space-16);
+  min-height: 0;
+}
+
+.files {
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.diff {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.message {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}

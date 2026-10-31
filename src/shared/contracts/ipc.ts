@@ -6,6 +6,7 @@ import {
   scanDepthSchema,
   watchedFolderSchema,
 } from './repositories.ts';
+import { pullRequestFileDiffSchema, pullRequestFileSchema } from './pull-request-files.ts';
 import { pullRequestsStateSchema } from './pull-requests.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
@@ -48,6 +49,20 @@ export const ipcContract = {
   'pullRequests.list': { input: z.undefined(), output: pullRequestsStateSchema },
   // Starts a sync and returns without waiting for it.
   'pullRequests.refresh': { input: z.undefined(), output: pullRequestsStateSchema },
+  // The files a pull request changes, read from the provider.
+  'pullRequestFiles.list': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.array(pullRequestFileSchema),
+  },
+  // One file before and after the pull request.
+  'pullRequestFiles.getDiff': {
+    input: z.object({
+      pullRequestId: z.number().int(),
+      path: z.string(),
+      previousPath: z.string().nullable(),
+    }),
+    output: pullRequestFileDiffSchema,
+  },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 
 export type IpcChannel = keyof typeof ipcContract;

@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import type { GitProvider, ProviderPullRequest, ProviderRepository } from '../types.ts';
+import type {
+  GitProvider,
+  ProviderChangedFile,
+  ProviderPullRequest,
+  ProviderRepository,
+} from '../types.ts';
 import type { GitHubClient } from './client.ts';
 
 const repositorySchema = z.object({
@@ -32,6 +37,16 @@ const pullRequestSchema = z.object({
   }),
   base: z.object({ ref: z.string(), repo: z.object({ id: z.number() }) }),
 });
+
+const changedFileSchema = z.object({
+  filename: z.string(),
+  previous_filename: z.string().optional(),
+  status: z.enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed', 'unchanged']),
+  additions: z.number(),
+  deletions: z.number(),
+});
+
+const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
 
 export class GitHubProvider implements GitProvider {
   constructor(private readonly client: GitHubClient) {}
@@ -83,5 +98,44 @@ export class GitHubProvider implements GitProvider {
         createdAt: pull.created_at,
         updatedAt: pull.updated_at,
       }));
+  }
+
+  async getPullRequestFiles(
+    repositoryFullName: string,
+    number: number,
+  ): Promise<ProviderChangedFile[]> {
+    const items = await this.client.getAll(`/repos/${repositoryFullName}/pulls/${number}/files`);
+    return items.map((item) => {
+      const file = changedFileSchema.parse(item);
+      return {
+        path: file.filename,
+        previousPath: file.previous_filename ?? null,
+        // A file GitHub calls unchanged has no diff to show, same as a plain edit.
+        status: file.status === 'unchanged' ? 'changed' : file.status,
+        additions: file.additions,
+        deletions: file.deletions,
+      };
+    });
+  }
+
+  async getMergeBase(
+    repositoryFullName: string,
+    baseBranch: string,
+    headSha: string,
+  ): Promise<string> {
+    const comparison = await this.client.getJson(
+      `/repos/${repositoryFullName}/compare/${encodeURIComponent(baseBranch)}...${headSha}`,
+      { per_page: '1' },
+    );
+    return comparisonSchema.parse(comparison).merge_base_commit.sha;
+  }
+
+  getFileContent(
+    repositoryFullName: string,
+    path: string,
+    ref: string,
+  ): Promise<string | undefined> {
+    const encodedPath = path.split('/').map(encodeURIComponent).join('/');
+    return this.client.getText(`/repos/${repositoryFullName}/contents/${encodedPath}`, { ref });
   }
 }

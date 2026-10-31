@@ -35,6 +35,11 @@ const api: PreviewApi = {
     list: () => invoke('pullRequests.list', undefined),
     refresh: () => invoke('pullRequests.refresh', undefined),
   },
+  pullRequestFiles: {
+    list: (pullRequestId) => invoke('pullRequestFiles.list', { pullRequestId }),
+    getDiff: (pullRequestId, path, previousPath) =>
+      invoke('pullRequestFiles.getDiff', { pullRequestId, path, previousPath }),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);

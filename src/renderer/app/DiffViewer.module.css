@@ -1,0 +1,10 @@
+/* Diff viewer. Read values from tokens.css custom properties only. */
+
+.viewer {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--surface-solid);
+}

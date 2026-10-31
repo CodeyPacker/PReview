@@ -36,10 +36,31 @@ export interface ProviderPullRequest {
   updatedAt: string;
 }
 
+export type ChangedFileStatus = 'added' | 'removed' | 'modified' | 'renamed' | 'copied' | 'changed';
+
+export interface ProviderChangedFile {
+  path: string;
+  // The path before a rename or copy.
+  previousPath: string | null;
+  status: ChangedFileStatus;
+  additions: number;
+  deletions: number;
+}
+
 export interface GitProvider {
   // Repositories the signed-in user can read.
   getRepositories(): Promise<ProviderRepository[]>;
   // Open pull requests whose branch is in the same repository. Fork-origin pull requests are
   // left out, because the MVP does not review them.
   getPullRequests(repositoryFullName: string): Promise<ProviderPullRequest[]>;
+  // The files a pull request changes, in the order the provider lists them.
+  getPullRequestFiles(repositoryFullName: string, number: number): Promise<ProviderChangedFile[]>;
+  // The commit the pull request branched from, which its diff is taken against.
+  getMergeBase(repositoryFullName: string, baseBranch: string, headSha: string): Promise<string>;
+  // A file's text at a commit. undefined when the file does not exist there.
+  getFileContent(
+    repositoryFullName: string,
+    path: string,
+    ref: string,
+  ): Promise<string | undefined>;
 }

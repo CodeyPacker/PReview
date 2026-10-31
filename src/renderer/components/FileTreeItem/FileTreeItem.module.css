@@ -1,1 +1,67 @@
 /* FileTreeItem styles. Read values from tokens.css custom properties only. */
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--surface-hover);
+}
+
+.item[aria-current='true'] {
+  background: var(--surface-selected);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.icon {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.added {
+  color: var(--success);
+}
+
+.removed {
+  color: var(--danger);
+}
+
+.modified {
+  color: var(--warning);
+}
+
+.renamed {
+  color: var(--info);
+}
+
+.path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.folder {
+  color: var(--ink-secondary);
+}
+
+.name {
+  font-weight: 500;
+}
