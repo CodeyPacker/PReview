@@ -103,6 +103,16 @@ export class GitHubClient {
     return response.json();
   }
 
+  // Sends a JSON body with PUT and returns the JSON response.
+  async putJson(path: string, body: unknown): Promise<unknown> {
+    const response = await this.request(this.url(path, {}), path, JSON_ACCEPT, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return response.json();
+  }
+
   // Fetches a file's raw text. Resolves undefined when GitHub has no such file.
   async getText(path: string, params: Record<string, string> = {}): Promise<string | undefined> {
     try {

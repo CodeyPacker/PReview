@@ -100,6 +100,7 @@ export function registerIpcHandlers(
   );
 
   handle('pullRequestReviews.submit', (review) => pullRequestReviews.submit(review));
+  handle('pullRequestReviews.merge', (merge) => pullRequestReviews.merge(merge));
 
   handle('reviewDrafts.list', ({ pullRequestId }) => listReviewDrafts(db, pullRequestId));
   handle('reviewDrafts.create', (draft) => createReviewDraft(db, draft));

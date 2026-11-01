@@ -5,6 +5,7 @@ import type {
   ProviderPullRequest,
   ProviderPullRequestRefs,
   ProviderReview,
+  MergeMethod,
   ReviewVerdict,
   ProviderRepository,
 } from '../types.ts';
@@ -204,6 +205,18 @@ export class GitHubProvider implements GitProvider {
           ...(comment.startLine !== null && { start_line: comment.startLine, start_side: side }),
         };
       }),
+    });
+  }
+
+  async mergePullRequest(
+    repositoryFullName: string,
+    number: number,
+    headSha: string,
+    method: MergeMethod,
+  ): Promise<void> {
+    await this.client.putJson(`/repos/${repositoryFullName}/pulls/${number}/merge`, {
+      sha: headSha,
+      merge_method: method,
     });
   }
 }
