@@ -1,7 +1,7 @@
 // Select stories (Storybook, CSF 3).
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Calendar, FolderGit2 } from 'lucide-react';
-import { expect, fn, screen, userEvent } from 'storybook/test';
+import { expect, fn, screen, userEvent, waitFor } from 'storybook/test';
 import { Select } from './Select.tsx';
 
 const meta = {
@@ -62,5 +62,8 @@ export const Chooses: Story = {
     await userEvent.click(await screen.findByRole('option', { name: 'Oldest' }));
     await expect(args.onValueChange).toHaveBeenCalledWith('Oldest');
     await expect(canvas.getByRole('combobox', { name: 'Sort' })).toHaveTextContent('Oldest');
+    // The popup unmounts after its exit transition. Until then its focus guards are in the DOM,
+    // so wait for it before the a11y check runs.
+    await waitFor(() => expect(screen.queryByRole('listbox')).toBeNull());
   },
 };
