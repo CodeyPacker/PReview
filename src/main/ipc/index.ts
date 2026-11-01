@@ -102,6 +102,10 @@ export function registerIpcHandlers(
   handle('pullRequestReviews.listThreads', ({ pullRequestId }) =>
     pullRequestReviews.listThreads(pullRequestId),
   );
+  handle('pullRequestReviews.replyToThread', (reply) => pullRequestReviews.reply(reply));
+  handle('pullRequestReviews.setThreadResolved', (change) =>
+    pullRequestReviews.setThreadResolved(change),
+  );
   handle('pullRequestReviews.submit', (review) => pullRequestReviews.submit(review));
   handle('pullRequestReviews.merge', (merge) => pullRequestReviews.merge(merge));
   handle('pullRequestReviews.deleteBranch', (branch) => pullRequestReviews.deleteBranch(branch));

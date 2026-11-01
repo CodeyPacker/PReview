@@ -117,6 +117,26 @@ const reviewThreadsSchema = z.object({
   }),
 });
 
+const REPLY_MUTATION = `
+  mutation ($threadId: ID!, $body: String!) {
+    addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $threadId, body: $body }) {
+      comment { id }
+    }
+  }
+`;
+
+const RESOLVE_MUTATION = `
+  mutation ($threadId: ID!) {
+    resolveReviewThread(input: { threadId: $threadId }) { thread { id } }
+  }
+`;
+
+const UNRESOLVE_MUTATION = `
+  mutation ($threadId: ID!) {
+    unresolveReviewThread(input: { threadId: $threadId }) { thread { id } }
+  }
+`;
+
 // Stops a runaway listing, like the REST client's page limit.
 const MAX_THREAD_PAGES = 20;
 
@@ -273,6 +293,14 @@ export class GitHubProvider implements GitProvider {
       cursor = pageInfo.endCursor;
     }
     return threads;
+  }
+
+  async replyToThread(threadId: string, body: string): Promise<void> {
+    await this.client.graphql(REPLY_MUTATION, { threadId, body });
+  }
+
+  async setThreadResolved(threadId: string, resolved: boolean): Promise<void> {
+    await this.client.graphql(resolved ? RESOLVE_MUTATION : UNRESOLVE_MUTATION, { threadId });
   }
 
   async submitReview(

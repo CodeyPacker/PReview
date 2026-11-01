@@ -6,9 +6,12 @@ import type {
   DeleteBranchResult,
   MergePullRequestInput,
   MergePullRequestResult,
+  ReplyToThreadInput,
   ReviewThread,
+  SetThreadResolvedInput,
   SubmitReviewInput,
   SubmitReviewResult,
+  ThreadActionResult,
 } from './pull-request-reviews.ts';
 import type { PullRequestsState } from './pull-requests.ts';
 import type {
@@ -66,6 +69,8 @@ export interface PreviewApi {
   };
   pullRequestReviews: {
     listThreads(pullRequestId: number): Promise<ReviewThread[]>;
+    replyToThread(reply: ReplyToThreadInput): Promise<ThreadActionResult>;
+    setThreadResolved(change: SetThreadResolvedInput): Promise<ThreadActionResult>;
     submit(review: SubmitReviewInput): Promise<SubmitReviewResult>;
     merge(merge: MergePullRequestInput): Promise<MergePullRequestResult>;
     deleteBranch(branch: DeleteBranchInput): Promise<DeleteBranchResult>;

@@ -51,31 +51,42 @@ const comment = (id: string, login: string, body: string) => ({
 
 export const WithThreads: Story = {
   args: {
-    threads: [
-      {
-        id: 'T1',
-        path: 'src/total.ts',
-        side: 'modified',
-        startLine: null,
-        line: 2,
-        resolved: false,
-        outdated: false,
-        comments: [
-          comment('C1', 'hubot', 'Does reduce read better than the loop here?'),
-          comment('C2', 'octocat', 'Yes, and it drops the mutable sum.'),
-        ],
+    threads: {
+      items: [
+        {
+          id: 'T1',
+          path: 'src/total.ts',
+          side: 'modified',
+          startLine: null,
+          line: 2,
+          resolved: false,
+          outdated: false,
+          comments: [
+            comment('C1', 'hubot', 'Does reduce read better than the loop here?'),
+            comment('C2', 'octocat', 'Yes, and it drops the mutable sum.'),
+          ],
+        },
+        {
+          id: 'T2',
+          path: 'src/total.ts',
+          side: 'original',
+          startLine: 2,
+          line: 3,
+          resolved: true,
+          outdated: false,
+          comments: [comment('C3', 'hubot', 'Remove the loop.'), comment('C4', 'octocat', 'Done.')],
+        },
+      ],
+      actions: {
+        onReply: () => Promise.resolve({ status: 'saved' }),
+        // Shows how a refusal reads.
+        onSetResolved: () =>
+          Promise.resolve({
+            status: 'rejected',
+            message: 'Resource not accessible by integration',
+          }),
       },
-      {
-        id: 'T2',
-        path: 'src/total.ts',
-        side: 'original',
-        startLine: 2,
-        line: 3,
-        resolved: true,
-        outdated: false,
-        comments: [comment('C3', 'hubot', 'Remove the loop.'), comment('C4', 'octocat', 'Done.')],
-      },
-    ],
+    },
   },
   decorators: [
     (Story) => (

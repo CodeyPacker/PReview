@@ -78,3 +78,23 @@ export const reviewThreadSchema = z.object({
   comments: z.array(reviewThreadCommentSchema),
 });
 export type ReviewThread = z.infer<typeof reviewThreadSchema>;
+
+export const replyToThreadInputSchema = z.object({
+  threadId: z.string(),
+  body: z.string().trim().min(1).max(65_536),
+});
+export type ReplyToThreadInput = z.infer<typeof replyToThreadInputSchema>;
+
+export const setThreadResolvedInputSchema = z.object({
+  threadId: z.string(),
+  resolved: z.boolean(),
+});
+export type SetThreadResolvedInput = z.infer<typeof setThreadResolvedInputSchema>;
+
+// rejected: the provider refused the change to the thread. The message says why and is safe
+// to show.
+export const threadActionResultSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('saved') }),
+  z.object({ status: z.literal('rejected'), message: z.string() }),
+]);
+export type ThreadActionResult = z.infer<typeof threadActionResultSchema>;

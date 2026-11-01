@@ -47,6 +47,8 @@ function setup(contents: Record<string, string | undefined> = {}) {
     ),
     getFileBytes: vi.fn<GitProvider['getFileBytes']>().mockResolvedValue(undefined),
     getReviewThreads: vi.fn<GitProvider['getReviewThreads']>(),
+    replyToThread: vi.fn<GitProvider['replyToThread']>(),
+    setThreadResolved: vi.fn<GitProvider['setThreadResolved']>(),
     submitReview: vi.fn<GitProvider['submitReview']>(),
     mergePullRequest: vi.fn<GitProvider['mergePullRequest']>(),
     deleteBranch: vi.fn<GitProvider['deleteBranch']>(),

@@ -39,6 +39,7 @@ import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import type { DraftComposerState } from '../app/DraftComments.tsx';
 import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
 import { useReviewThreads } from '../hooks/useReviewThreads.ts';
+import { useThreadActions } from '../hooks/useThreadActions.ts';
 import { inOneHunk } from '../lib/diffComments.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
@@ -81,6 +82,12 @@ function ReviewPage() {
   );
   const reviewDrafts = useReviewDrafts(pullRequestId);
   const reviewThreads = useReviewThreads(pullRequestId, files.data?.headSha);
+  const threadActions = useThreadActions(pullRequestId);
+  // A failure to reach GitHub reads like a refusal, so the thread shows it in place.
+  const unreachable = {
+    status: 'rejected',
+    message: 'Could not reach GitHub. Try again.',
+  } as const;
   const [composer, setComposer] = useState<DraftComposerState>();
   // Drafts written on other commits stay stored, but only these line up with the diff on show.
   const currentDrafts = reviewDrafts.drafts.data?.filter(
@@ -424,7 +431,18 @@ function ReviewPage() {
                 onLineNumberOffsetChange={setLineNumberOffset}
                 searchQuery={fileSearch.trim()}
                 searchMatch={selected ? search.matches.get(selected.path) : undefined}
-                threads={reviewThreads.data?.filter((thread) => thread.path === selected.path)}
+                threads={{
+                  items:
+                    reviewThreads.data?.filter((thread) => thread.path === selected.path) ?? [],
+                  actions: {
+                    onReply: (threadId, body) =>
+                      threadActions.reply.mutateAsync({ threadId, body }).catch(() => unreachable),
+                    onSetResolved: (threadId, resolved) =>
+                      threadActions.setResolved
+                        .mutateAsync({ threadId, resolved })
+                        .catch(() => unreachable),
+                  },
+                }}
                 drafts={{
                   items: currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],
                   hunks: selected.hunks,

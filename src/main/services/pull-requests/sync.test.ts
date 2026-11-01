@@ -72,6 +72,8 @@ function setup(getPullRequests: Mock<GitProvider['getPullRequests']>) {
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),
     getReviewThreads: vi.fn(),
+    replyToThread: vi.fn(),
+    setThreadResolved: vi.fn(),
     submitReview: vi.fn(),
     mergePullRequest: vi.fn(),
     deleteBranch: vi.fn(),

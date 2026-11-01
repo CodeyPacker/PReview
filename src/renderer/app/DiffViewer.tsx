@@ -21,7 +21,7 @@ import {
   type DraftAuthor,
   type DraftComposerState,
 } from './DraftComments.tsx';
-import { ThreadCard } from './ReviewThreads.tsx';
+import { ThreadCard, type ThreadActions } from './ReviewThreads.tsx';
 import { useThemeVersion } from './useThemeVersion.ts';
 import { useViewZones, type ViewZone } from './useViewZones.ts';
 import {
@@ -72,8 +72,15 @@ export interface DiffViewerProps {
   searchQuery?: string;
   searchMatch?: FileSearchMatch;
   drafts?: DiffViewerDrafts;
-  // This file's published threads. Threads with no line in the diff are left out.
-  threads?: readonly ReviewThread[];
+  threads?: DiffViewerThreads;
+}
+
+// Published threads shown in the diff.
+export interface DiffViewerThreads {
+  // This file's threads. Threads with no line in the diff are left out.
+  items: readonly ReviewThread[];
+  // Leave it out to show the threads without replying or resolving.
+  actions?: ThreadActions;
 }
 
 interface Models {
@@ -445,12 +452,13 @@ export function DiffViewer({
   }, [commentsOn]);
 
   const draftItems = drafts?.items;
+  const threadList = threads?.items;
   const threadItems = useMemo(
     () =>
-      (threads ?? []).flatMap((thread) =>
+      (threadList ?? []).flatMap((thread) =>
         thread.line === null ? [] : [{ ...thread, line: thread.line }],
       ),
-    [threads],
+    [threadList],
   );
   const composer = drafts?.composer;
   const newComposer =
@@ -551,7 +559,7 @@ export function DiffViewer({
     if (thread) {
       content = (
         <div {...hoverProps(zone.key)}>
-          <ThreadCard thread={thread} />
+          <ThreadCard thread={thread} actions={threads?.actions} />
         </div>
       );
     } else if (!drafts || !draft || composer?.draftId === draft.id) {

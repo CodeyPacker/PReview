@@ -508,3 +508,31 @@ describe('GitHubProvider getReviewThreads', () => {
     });
   });
 });
+
+describe('GitHubProvider thread changes', () => {
+  it('posts a reply to the thread', async () => {
+    const { fetch, provider } = setup([json({ data: { addPullRequestReviewThreadReply: {} } })]);
+
+    await provider.replyToThread('T1', 'Fixed.');
+
+    expect(urlOf(fetch, 0).pathname).toBe('/graphql');
+    expect(sentBody(fetch)).toMatchObject({
+      query: expect.stringContaining('addPullRequestReviewThreadReply') as unknown,
+      variables: { threadId: 'T1', body: 'Fixed.' },
+    });
+  });
+
+  it.each([
+    [true, 'resolveReviewThread'],
+    [false, 'unresolveReviewThread'],
+  ] as const)('resolved %s uses %s', async (resolved, mutation) => {
+    const { fetch, provider } = setup([json({ data: {} })]);
+
+    await provider.setThreadResolved('T1', resolved);
+
+    const { query } = sentBody(fetch);
+    // \b keeps resolveReviewThread from matching inside unresolveReviewThread.
+    expect(query).toMatch(new RegExp(`\\b${mutation}\\(`));
+    expect(sentBody(fetch).variables).toEqual({ threadId: 'T1' });
+  });
+});
