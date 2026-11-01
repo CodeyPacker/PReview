@@ -1,6 +1,7 @@
 /* FileTreeItem styles. Read values from tokens.css custom properties only. */
 
 .item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-8);
@@ -8,7 +9,11 @@
   padding: var(--space-8) var(--space-12);
   border: 0;
   border-radius: var(--radius-sm);
-  background: transparent;
+  background-color: transparent;
+  background-image: linear-gradient(
+    var(--review-tint, transparent),
+    var(--review-tint, transparent)
+  );
   color: var(--ink);
   font: 400 var(--text-md) / 18px var(--font-sans);
   text-align: start;
@@ -16,11 +21,16 @@
 }
 
 .item:hover {
-  background: var(--surface-hover);
+  background-color: var(--surface-hover);
 }
 
 .item[aria-current='true'] {
-  background: var(--surface-selected);
+  background-color: var(--surface-selected);
+}
+
+/* Shared indicators draw selection behind list rows. */
+[data-has-active] .item[aria-current='true'] {
+  background-color: transparent;
 }
 
 .item:focus-visible {
@@ -53,6 +63,13 @@
 .path {
   flex: 1;
   min-width: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.pathText,
+.snippet {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -64,4 +81,17 @@
 
 .name {
   font-weight: 500;
+}
+
+.item[data-review-state='approved'] {
+  --review-tint: color-mix(in srgb, var(--success) 8%, transparent);
+}
+
+.item[data-review-state='flagged'] {
+  --review-tint: color-mix(in srgb, var(--warning-fill) 10%, transparent);
+}
+
+.snippet {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-mono);
 }

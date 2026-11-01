@@ -1,5 +1,7 @@
 // Runs Monaco from the app's own files, so it needs no network.
 import * as monaco from 'monaco-editor/editor/editor.api';
+// Monaco's export map exposes JavaScript only. Load the icon font's stylesheet by file path.
+import '../../../node_modules/monaco-editor/esm/vs/base/browser/ui/codicons/codicon/codicon.css';
 // Syntax highlighting for every language. The language servers are left out, so there is no
 // completion or type checking, which a read-only diff doesn't need.
 import 'monaco-editor/basic-languages/monaco.contribution';

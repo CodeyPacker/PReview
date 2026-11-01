@@ -52,6 +52,7 @@ test('keeps a saved setting after a restart', async () => {
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
     theme: 'system',
     githubPromptDismissed: false,
+    reviewLeader: 'Control',
   });
   await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
   await app.close();
@@ -61,6 +62,7 @@ test('keeps a saved setting after a restart', async () => {
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
     theme: 'dark',
     githubPromptDismissed: false,
+    reviewLeader: 'Control',
   });
   await app.close();
 });
@@ -77,6 +79,7 @@ test('rejects an invalid setting', async () => {
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
     theme: 'system',
     githubPromptDismissed: false,
+    reviewLeader: 'Control',
   });
 
   await app.close();
@@ -213,4 +216,590 @@ test('shows the Inbox empty state until GitHub is connected', async () => {
   await expect(page.getByRole('heading', { level: 1, name: 'Inbox' })).toBeVisible();
   await expect(page.getByText('Connect GitHub on the Integrations page')).toBeVisible();
   await app.close();
+});
+
+test('keeps split view at window size and toggles review panels independently', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain, BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(1100, 800);
+      const responses: Record<string, unknown> = {
+        'pullRequests.list': {
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Review layout',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        },
+        'pullRequestFiles.list': {
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [
+            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+            { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+          ],
+        },
+        'pullRequestFiles.getDiff': {
+          original: '// Context\nconst a = 1;\n// End\n',
+          modified: '// Context\nconst a = 2;\n// End\n',
+          unavailable: null,
+        },
+      };
+      for (const [channel, response] of Object.entries(responses)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input: { path?: string } | undefined) =>
+          channel === 'pullRequestFiles.getDiff' && input?.path === 'new.ts'
+            ? { original: '', modified: 'export const added = true;\n', unavailable: null }
+            : response,
+        );
+      }
+    });
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    await expect(page.getByRole('heading', { name: 'Repository #7' })).toBeVisible();
+    const files = page.locator('#review-files');
+    const nav = page.locator('#main-sidebar');
+    const original = page.locator('.original-in-monaco-diff-editor');
+    const modified = page.locator('.modified-in-monaco-diff-editor');
+    await expect(page.getByRole('button', { name: 'Expand navigation' })).toBeVisible();
+    await expect(files).toBeHidden();
+    await expect
+      .poll(async () => {
+        const tab = await page.getByRole('button', { name: 'Expand changed files' }).boundingBox();
+        const panel = await page.getByRole('region', { name: 'a.ts', exact: true }).boundingBox();
+        return tab && panel ? Math.abs(tab.x - (panel.x + 1)) : 999;
+      })
+      .toBeLessThan(1);
+    await expect
+      .poll(async () => {
+        const before = await original.boundingBox();
+        const after = await modified.boundingBox();
+        return (
+          !!before &&
+          !!after &&
+          before.width > 100 &&
+          after.width > 100 &&
+          after.x >= before.x + before.width - 1
+        );
+      })
+      .toBe(true);
+
+    await page.getByRole('button', { name: 'Expand navigation' }).click();
+    await expect(nav).toBeVisible();
+    await expect
+      .poll(async () => {
+        const tab = await page.getByRole('button', { name: 'Collapse navigation' }).boundingBox();
+        const panel = await nav.boundingBox();
+        return tab && panel ? Math.abs(tab.x + tab.width - (panel.x + panel.width - 1)) : 999;
+      })
+      .toBeLessThan(1);
+    // A sibling tab cannot exclude a native drag region covering the whole sidebar.
+    expect(
+      await nav.evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region')),
+    ).not.toBe('drag');
+    await page.screenshot({ path: test.info().outputPath('navigation-expanded.png') });
+    await expect(files).toBeHidden();
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+    await expect(files).toBeVisible();
+    await page.getByRole('button', { name: 'Collapse navigation' }).click();
+    await expect(nav).toBeHidden();
+    await expect
+      .poll(
+        async () =>
+          (await page.getByRole('button', { name: 'Expand navigation' }).boundingBox())?.x,
+      )
+      .toBe(0);
+    await page.screenshot({ path: test.info().outputPath('navigation-collapsed.png') });
+    await expect(files).toBeVisible();
+
+    await page.getByRole('radio', { name: 'Unified', exact: true }).click();
+    await expect(nav).toBeVisible();
+    await expect(files).toBeVisible();
+    await expect
+      .poll(async () => (await original.locator('.line-numbers').allTextContents()).filter(Boolean))
+      .toEqual(['2']);
+    await expect
+      .poll(async () => (await modified.locator('.line-numbers').allTextContents()).filter(Boolean))
+      .toEqual(['1', '2', '3', '4']);
+    expect(
+      await page.evaluate(async () => {
+        const fonts = await document.fonts.load('16px codicon');
+        return fonts.length > 0 && fonts.every((font) => font.status === 'loaded');
+      }),
+    ).toBe(true);
+    await expect(modified.locator('.line-numbers').first()).toBeVisible();
+
+    await page.getByRole('radio', { name: 'Split', exact: true }).click();
+    await expect(nav).toBeHidden();
+    await expect(files).toBeHidden();
+    await expect(original.locator('.line-numbers').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+    await files.getByRole('button', { name: /new.ts/ }).click();
+    const fileIndicator = files.locator('ul > [data-active-indicator]');
+    await expect
+      .poll(() =>
+        fileIndicator.evaluate((el) =>
+          el
+            .getAnimations()
+            .some(
+              (animation) =>
+                animation instanceof CSSTransition && animation.transitionProperty === 'translate',
+            ),
+        ),
+      )
+      .toBe(true);
+    const indicatorAlignment = async () => {
+      const highlight = await fileIndicator.boundingBox();
+      const row = await files.locator('button[aria-current="true"]').boundingBox();
+      return highlight && row
+        ? Math.abs(highlight.y - row.y) + Math.abs(highlight.height - row.height)
+        : 999;
+    };
+    await expect.poll(indicatorAlignment).toBeLessThan(1);
+    // The highlight follows the selected row in scroll content coordinates.
+    await files.locator('ul').evaluate((el) => {
+      el.style.maxHeight = '36px';
+      el.scrollTop = el.scrollHeight;
+    });
+    await expect.poll(indicatorAlignment).toBeLessThan(1);
+    await files.locator('ul').evaluate((el) => {
+      el.style.removeProperty('max-height');
+      el.scrollTop = 0;
+    });
+    const split = page.getByRole('radio', { name: 'Split', exact: true });
+    const unified = page.getByRole('radio', { name: 'Unified', exact: true });
+    await expect(unified).toBeChecked();
+    await expect(split).toBeDisabled();
+    await expect
+      .poll(() => original.evaluate((el) => el.getBoundingClientRect().width))
+      .toBeLessThan(10);
+    await expect(modified).toContainText('export const added');
+    await files.getByRole('button', { name: /a.ts/ }).click();
+    await expect(split).toBeChecked();
+    await expect(split).toBeEnabled();
+    await expect
+      .poll(() => original.evaluate((el) => el.getBoundingClientRect().width))
+      .toBeGreaterThan(100);
+
+    // The heading stays aligned and the tab stays on the diff panel in both states.
+    await expect
+      .poll(async () => {
+        const heading = await page.locator('#review-file-title').boundingBox();
+        const numberX = await original
+          .locator('.line-numbers')
+          .first()
+          .evaluate((el) => {
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            return range.getBoundingClientRect().x;
+          });
+        return Math.abs((heading?.x ?? 0) - numberX);
+      })
+      .toBeLessThan(1);
+    await expect
+      .poll(async () => {
+        const tab = await page
+          .getByRole('button', { name: 'Collapse changed files' })
+          .boundingBox();
+        const panel = await page.getByRole('region', { name: 'a.ts', exact: true }).boundingBox();
+        return tab && panel ? Math.abs(tab.x - (panel.x + 1)) : 999;
+      })
+      .toBeLessThan(1);
+    await expect.poll(indicatorAlignment).toBeLessThan(1);
+    await page.screenshot({ path: test.info().outputPath('review-header.png') });
+
+    await unified.click();
+    await files.getByRole('button', { name: /new.ts/ }).click();
+    await expect(unified).toBeChecked();
+    await files.getByRole('button', { name: /a.ts/ }).click();
+    await expect(unified).toBeChecked();
+    const title = page.locator('#review-file-title');
+    const previousFile = page.getByRole('button', { name: 'Previous file', exact: true });
+    const nextFile = page.getByRole('button', { name: 'Next file', exact: true });
+    const approve = page.getByRole('button', { name: 'Approve file', exact: true });
+    const removeApproval = page.getByRole('button', { name: 'Remove file approval', exact: true });
+    const flag = page.getByRole('button', { name: 'Flag file', exact: true });
+    const removeFlag = page.getByRole('button', { name: 'Remove file flag', exact: true });
+    const allFiles = files.getByRole('radio', { name: 'All', exact: true });
+    const flaggedFiles = files.getByRole('radio', { name: 'Flagged', exact: true });
+    const notApproved = files.getByRole('radio', { name: 'Unapproved', exact: true });
+    const aRow = files.getByRole('button', { name: /a.ts/ });
+    const newRow = files.getByTitle('new.ts', { exact: true });
+    await expect(previousFile).toBeDisabled();
+    await expect(allFiles).toBeChecked();
+    await approve.click();
+    await expect(title).toHaveText('new.ts');
+    await expect(aRow).toHaveAttribute('data-review-state', 'approved');
+    await expect(nextFile).toBeDisabled();
+    await flag.click();
+    await expect(title).toHaveText('new.ts');
+    await expect(removeFlag).toHaveAttribute('aria-pressed', 'true');
+    await expect(newRow).toHaveAttribute('data-review-state', 'flagged');
+    await expect.poll(indicatorAlignment).toBeLessThan(1);
+    await page.screenshot({ path: test.info().outputPath('subtle-file-statuses.png') });
+    // The header shows the current file state even without the tree.
+    await page.getByRole('button', { name: 'Collapse changed files' }).click();
+    await expect(files).toBeHidden();
+    await expect(removeFlag.locator('svg')).not.toHaveCSS('fill', 'none');
+    await expect(approve).toHaveAttribute('aria-pressed', 'false');
+    await page.screenshot({ path: test.info().outputPath('active-file-flag.png') });
+    await approve.click();
+    await expect(title).toHaveText('new.ts');
+    await expect(newRow).toHaveAttribute('data-review-state', 'approved');
+    await expect(removeApproval).toHaveAttribute('aria-pressed', 'true');
+    await expect(flag).toHaveAttribute('aria-pressed', 'false');
+    await expect(flag.locator('svg')).toHaveCSS('fill', 'none');
+    await page.screenshot({ path: test.info().outputPath('active-file-approval.png') });
+    await flag.click();
+    await expect(newRow).toHaveAttribute('data-review-state', 'flagged');
+    await expect(approve).toHaveAttribute('aria-pressed', 'false');
+    await expect(removeFlag).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+
+    await previousFile.click();
+    await expect(removeApproval).toHaveAttribute('aria-pressed', 'true');
+    await flag.click();
+    await expect(title).toHaveText('new.ts');
+    await expect(aRow).not.toHaveAttribute('data-review-state', 'approved');
+    await expect(aRow).toHaveAttribute('data-review-state', 'flagged');
+
+    await flaggedFiles.click();
+    await expect(aRow).toBeVisible();
+    await expect(newRow).toBeVisible();
+    await aRow.click();
+    await approve.click();
+    await expect(title).toHaveText('new.ts');
+    await expect(aRow).toHaveCount(0);
+    await expect(newRow).toBeVisible();
+    await expect(previousFile).toBeDisabled();
+    await expect(nextFile).toBeDisabled();
+    await notApproved.click();
+    await expect(aRow).toHaveCount(0);
+    await expect(newRow).toBeVisible();
+    await approve.click();
+    await expect(files.getByText('No files match this filter.')).toBeVisible();
+    await expect(approve).toBeDisabled();
+    await expect(flag).toBeDisabled();
+    await allFiles.click();
+    await expect(aRow).toHaveAttribute('data-review-state', 'approved');
+    await expect(newRow).toHaveAttribute('data-review-state', 'approved');
+    await previousFile.click();
+    await removeApproval.click();
+    await expect(title).toHaveText('a.ts');
+    await expect(aRow).not.toHaveAttribute('data-review-state', 'approved');
+    await notApproved.click();
+    await expect(aRow).toBeVisible();
+    await expect(newRow).toHaveCount(0);
+    await flaggedFiles.click();
+    await expect(files.getByText('No files match this filter.')).toBeVisible();
+    await allFiles.click();
+    await flag.click();
+    await expect(title).toHaveText('new.ts');
+    await page.reload();
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+    await expect(allFiles).toBeChecked();
+    await expect(title).toHaveText('a.ts');
+    await expect(removeFlag).toHaveAttribute('aria-pressed', 'true');
+    await expect(aRow).toHaveAttribute('data-review-state', 'flagged');
+    await expect(newRow).toHaveAttribute('data-review-state', 'approved');
+    await removeFlag.click();
+    await expect(title).toHaveText('a.ts');
+    await expect(aRow).not.toHaveAttribute('data-review-state', 'flagged');
+    await flag.click();
+    await expect(title).toHaveText('new.ts');
+
+    // A new commit pair starts without approval or flag decisions.
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('pullRequestFiles.list');
+      ipcMain.handle('pullRequestFiles.list', () => ({
+        headSha: 'abcdef2',
+        mergeBase: 'abcdef0',
+        files: [
+          { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+          { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+        ],
+      }));
+    });
+    await page.reload();
+    await nextFile.click();
+    await expect(title).toHaveText('new.ts');
+    await expect(approve).toHaveAttribute('aria-pressed', 'false');
+    await expect(flag).toHaveAttribute('aria-pressed', 'false');
+    await page.screenshot({ path: test.info().outputPath('file-review-controls.png') });
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    expect(
+      await fileIndicator.evaluate((el) =>
+        getComputedStyle(el)
+          .transitionDuration.split(',')
+          .every((duration) => parseFloat(duration) === 0),
+      ),
+    ).toBe(true);
+    expect(
+      await page
+        .locator('main > div > div')
+        .last()
+        .evaluate((el) => getComputedStyle(el).transitionDuration),
+    ).toBe('0s');
+  } finally {
+    await app.close();
+  }
+});
+
+test('configures review shortcuts and scrolls without focusing the code', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain, BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(1100, 800);
+      const responses: Record<string, unknown> = {
+        'pullRequests.list': {
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Review layout',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        },
+        'pullRequestFiles.list': {
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [
+            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+            { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+          ],
+        },
+        'pullRequestFiles.getDiff': {
+          original: Array.from({ length: 180 }, (_, i) => `const line${i} = 1;`).join('\n'),
+          modified: Array.from({ length: 180 }, (_, i) => `const line${i} = 2;`).join('\n'),
+          unavailable: null,
+        },
+      };
+      for (const [channel, response] of Object.entries(responses)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input: { path?: string } | undefined) =>
+          channel === 'pullRequestFiles.getDiff' && input?.path === 'new.ts'
+            ? { original: '', modified: 'export const added = true;\n', unavailable: null }
+            : response,
+        );
+      }
+    });
+
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    const title = page.locator('#review-file-title');
+    const files = page.locator('#review-files');
+    const nav = page.locator('#main-sidebar');
+    const globalSearch = page.getByPlaceholder('Search pull requests, files, or repositories…');
+    const search = page.getByPlaceholder('Search files or text…');
+    const modified = page.locator('.modified-in-monaco-diff-editor');
+    const thumb = modified.locator('.scrollbar.vertical .slider');
+    await expect(title).toHaveText('a.ts');
+    // The review has its own file search, so the global one is hidden.
+    await expect(globalSearch).toBeHidden();
+    await expect(thumb).toBeVisible();
+    await page.getByRole('heading', { name: 'Repository #7' }).click();
+    const thumbTop = () => thumb.evaluate((el) => parseFloat((el as HTMLElement).style.top));
+    const startTop = await thumbTop();
+    await page.keyboard.press('j');
+    await page.keyboard.press('j');
+    await page.keyboard.press('j');
+    await expect.poll(thumbTop).toBeGreaterThan(startTop);
+    await page.keyboard.press('k');
+    await page.keyboard.press('k');
+    await page.keyboard.press('k');
+    await expect.poll(thumbTop).toBe(startTop);
+
+    // Holding J advances smoothly without waiting for OS key-repeat events.
+    await page.keyboard.down('j');
+    await page.waitForTimeout(250);
+    await expect.poll(thumbTop).toBeGreaterThan(startTop);
+    await page.keyboard.up('j');
+    await page.waitForTimeout(300);
+    const releasedTop = await thumbTop();
+    await page.waitForTimeout(120);
+    expect(await thumbTop()).toBe(releasedTop);
+    await page.keyboard.down('k');
+    await expect.poll(thumbTop).toBe(startTop);
+    await page.keyboard.up('k');
+    // Blur cancels the frame loop even if the key-up event is missed.
+    await page.keyboard.down('j');
+    await page.waitForTimeout(180);
+    await page.evaluate(async () => {
+      window.dispatchEvent(new Event('blur'));
+      // Let Monaco paint the scroll position already committed before cancellation.
+      await new Promise(requestAnimationFrame);
+      await new Promise(requestAnimationFrame);
+    });
+    const blurredTop = await thumbTop();
+    await page.waitForTimeout(120);
+    expect(await thumbTop()).toBe(blurredTop);
+    await page.keyboard.up('j');
+    await page.keyboard.down('k');
+    await expect.poll(thumbTop).toBe(startTop);
+    await page.keyboard.up('k');
+
+    // The file search lives in the files panel, which starts collapsed here.
+    await page.keyboard.press('Control+t');
+    await expect(files).toBeVisible();
+    await search.fill('');
+    await search.press('j');
+    await expect(search).toHaveValue('j');
+    await search.press('Control+n');
+    // Typing filtered the list. Once it is cleared, the diff must not have moved.
+    await search.fill('');
+    await expect(title).toHaveText('a.ts');
+    await expect.poll(thumbTop).toBe(startTop);
+    await page.getByRole('heading', { name: 'Repository #7' }).click();
+    await page.keyboard.press('Control+t');
+    await expect(files).toBeHidden();
+    // A comment input and an open dialog both suppress all review shortcuts.
+    await page.evaluate(() => {
+      const input = document.createElement('textarea');
+      input.setAttribute('aria-label', 'Comment test input');
+      document.body.append(input);
+      input.focus();
+    });
+    await page.keyboard.press('Control+a');
+    await page.keyboard.press('j');
+    await expect(page.getByLabel('Comment test input')).toHaveValue('j');
+    await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await page.evaluate(() => {
+      document.querySelector('[aria-label="Comment test input"]')?.remove();
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.tabIndex = 0;
+      dialog.textContent = 'Shortcut test dialog';
+      document.body.append(dialog);
+      dialog.focus();
+    });
+    await page.keyboard.press('Control+f');
+    await page.keyboard.press('j');
+    await expect(page.getByRole('button', { name: 'Flag file', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
+    await expect.poll(thumbTop).toBe(startTop);
+    await page.evaluate(() => {
+      document.querySelector('[role="dialog"]')?.remove();
+    });
+
+    await page.keyboard.press('Control+n');
+    await expect(title).toHaveText('new.ts');
+    await page.keyboard.press('Control+p');
+    await expect(title).toHaveText('a.ts');
+    await page.keyboard.press('Control+f');
+    await expect(title).toHaveText('new.ts');
+    await page.keyboard.press('Control+p');
+    await expect(page.getByRole('button', { name: 'Remove file flag' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.keyboard.press('Control+a');
+    await expect(title).toHaveText('new.ts');
+    await page.keyboard.press('Control+p');
+    await expect(page.getByRole('button', { name: 'Remove file approval' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.keyboard.press('Control+b');
+    await expect(nav).toBeVisible();
+    await page.keyboard.press('Control+t');
+    await expect(files).toBeVisible();
+    const fullWidth = await modified.evaluate((el) => el.getBoundingClientRect().width);
+    await page.keyboard.press('Control+z');
+    await expect(nav).toBeHidden();
+    await expect(files).toBeHidden();
+    await expect(search).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Exit Zen mode' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect
+      .poll(() => modified.evaluate((el) => el.getBoundingClientRect().width))
+      .toBeGreaterThan(fullWidth);
+    await page.screenshot({ path: test.info().outputPath('review-zen.png') });
+    await page.keyboard.press('Control+z');
+    await expect(nav).toBeVisible();
+    await expect(files).toBeVisible();
+    await expect(search).toBeVisible();
+    await page.getByRole('button', { name: 'Enter Zen mode' }).click();
+    await page.getByRole('button', { name: 'Exit Zen mode' }).click();
+    await expect(nav).toBeVisible();
+    await expect(files).toBeVisible();
+
+    // Reconfigure through Settings, then verify persistence and the new bindings.
+    await nav.getByRole('link', { name: 'Settings', exact: true }).click();
+    const leader = page.getByRole('combobox', { name: 'Leader key' });
+    await expect(leader).toHaveText('Ctrl');
+    await leader.click();
+    await page.getByRole('option', { name: 'Ctrl+Shift', exact: true }).click();
+    await expect(leader).toHaveText('Ctrl+Shift');
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.preview.settings.getAll().then((settings) => settings.reviewLeader),
+        ),
+      )
+      .toBe('Control+Shift');
+    await page.reload();
+    await expect(leader).toHaveText('Ctrl+Shift');
+    await page.keyboard.press('Control+Shift+b');
+    await expect(nav).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('shortcut-settings.png') });
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    await expect(title).toHaveText('a.ts');
+    await expect(page.getByRole('button', { name: 'Next file', exact: true })).toHaveAttribute(
+      'title',
+      'Next file (Ctrl+Shift+N)',
+    );
+    await page.keyboard.press('Control+n');
+    await expect(title).toHaveText('a.ts');
+    await page.keyboard.press('Control+Shift+n');
+    await expect(title).toHaveText('new.ts');
+    await page.keyboard.press('Control+Shift+p');
+    await expect(title).toHaveText('a.ts');
+    // Scrolling also works when Monaco's read-only input has focus.
+    await modified.locator('.native-edit-context').focus();
+    const codeFocusedTop = await thumbTop();
+    await page.keyboard.press('j');
+    await expect.poll(thumbTop).toBeGreaterThan(codeFocusedTop);
+  } finally {
+    await app.close();
+  }
 });

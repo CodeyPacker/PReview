@@ -1,0 +1,47 @@
+/* Image diff. Read values from tokens.css custom properties only. */
+
+.diff {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--space-16);
+  min-height: 0;
+  overflow: auto;
+}
+
+.side {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
+  gap: var(--space-8);
+  min-width: 0;
+  margin: 0;
+}
+
+.caption {
+  color: var(--ink-secondary);
+  font: 500 var(--text-md) / 18px var(--font-sans);
+}
+
+/* A checkerboard shows which parts of the image are transparent. */
+.frame {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: conic-gradient(
+      var(--chart-track) 25%,
+      transparent 0 50%,
+      var(--chart-track) 0 75%,
+      transparent 0
+    )
+    0 0 / 16px 16px;
+  background-color: var(--surface-sunken);
+}
+
+.image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}

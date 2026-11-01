@@ -7,6 +7,7 @@ import { toOption, type OptionInput } from '../../lib/options.ts';
 import { useActiveItemRect } from '../../lib/useActiveItemRect.ts';
 import { useControllableState } from '../../lib/useControllableState.ts';
 import { Count } from '../Count/Count.tsx';
+import { ActiveItemIndicator } from '../ActiveItemIndicator/ActiveItemIndicator.tsx';
 import styles from './ToggleGroup.module.css';
 
 export interface ToggleGroupProps<V extends string = string> {
@@ -61,7 +62,7 @@ export function ToggleGroup<V extends string = string>({
       className={cx(styles.group, styles[variant], styles[size], block && styles.block, className)}
     >
       {/* The selected background. It slides to the checked item in track and pills. */}
-      <span aria-hidden className={styles.indicator} />
+      {variant !== 'chips' && <ActiveItemIndicator className={styles.indicator} />}
       {items.map((item) => (
         <Radio.Root
           key={item.value}

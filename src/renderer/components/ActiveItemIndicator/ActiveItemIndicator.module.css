@@ -1,0 +1,21 @@
+.indicator {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--active-width);
+  height: var(--active-height);
+  translate: var(--active-left) var(--active-top);
+  pointer-events: none;
+}
+
+[data-has-active] > .indicator {
+  display: block;
+}
+
+[data-indicator-ready] > .indicator {
+  transition:
+    translate var(--duration-base) var(--ease-standard),
+    width var(--duration-base) var(--ease-standard),
+    height var(--duration-base) var(--ease-standard);
+}

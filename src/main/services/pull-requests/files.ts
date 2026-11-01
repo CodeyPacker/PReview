@@ -7,6 +7,27 @@ import type { GitProvider } from '../../providers/types.ts';
 
 // Files above this many characters are not sent to the renderer.
 export const MAX_FILE_LENGTH = 1_000_000;
+// Images above this many bytes are not sent either.
+export const MAX_IMAGE_BYTES = 5_000_000;
+
+const imageTypes: Readonly<Record<string, string>> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+};
+
+function imageType(path: string): string | undefined {
+  return imageTypes[path.slice(path.lastIndexOf('.') + 1).toLowerCase()];
+}
+
+function toDataUrl(type: string, bytes: Uint8Array | undefined): string | null {
+  return bytes ? `data:${type};base64,${Buffer.from(bytes).toString('base64')}` : null;
+}
 // How often to read the files again when the pull request changes while they are read.
 const MAX_ATTEMPTS = 3;
 
@@ -49,18 +70,43 @@ export class PullRequestFiles {
     previousPath: string | null,
   ): Promise<PullRequestFileDiff> {
     const { fullName } = this.findRepository(pullRequestId);
+    const type = imageType(path);
+    if (type) return this.getImageDiff(fullName, type, headSha, mergeBase, path, previousPath);
     const [original, modified] = await Promise.all([
       this.deps.provider.getFileContent(fullName, previousPath ?? path, mergeBase),
       this.deps.provider.getFileContent(fullName, path, headSha),
     ]);
     const texts = [original ?? '', modified ?? ''];
     if (texts.some((text) => text.includes('\0'))) {
-      return { original: '', modified: '', unavailable: 'binary' };
+      return { original: '', modified: '', unavailable: 'binary', images: null };
     }
     if (texts.some((text) => text.length > MAX_FILE_LENGTH)) {
-      return { original: '', modified: '', unavailable: 'too-large' };
+      return { original: '', modified: '', unavailable: 'too-large', images: null };
     }
-    return { original: texts[0] ?? '', modified: texts[1] ?? '', unavailable: null };
+    return { original: texts[0] ?? '', modified: texts[1] ?? '', unavailable: null, images: null };
+  }
+
+  private async getImageDiff(
+    fullName: string,
+    type: string,
+    headSha: string,
+    mergeBase: string,
+    path: string,
+    previousPath: string | null,
+  ): Promise<PullRequestFileDiff> {
+    const [original, modified] = await Promise.all([
+      this.deps.provider.getFileBytes(fullName, previousPath ?? path, mergeBase),
+      this.deps.provider.getFileBytes(fullName, path, headSha),
+    ]);
+    if ([original, modified].some((bytes) => (bytes?.length ?? 0) > MAX_IMAGE_BYTES)) {
+      return { original: '', modified: '', unavailable: 'too-large', images: null };
+    }
+    return {
+      original: '',
+      modified: '',
+      unavailable: null,
+      images: { original: toDataUrl(type, original), modified: toDataUrl(type, modified) },
+    };
   }
 
   private findRepository(pullRequestId: number): { fullName: string; number: number } {

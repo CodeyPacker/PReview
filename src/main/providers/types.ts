@@ -71,4 +71,10 @@ export interface GitProvider {
     path: string,
     ref: string,
   ): Promise<string | undefined>;
+  // A file's bytes at a commit, for files that are not text. undefined when it does not exist.
+  getFileBytes(
+    repositoryFullName: string,
+    path: string,
+    ref: string,
+  ): Promise<Uint8Array | undefined>;
 }

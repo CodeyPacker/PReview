@@ -1,14 +1,76 @@
 /* Window layout: a floating glass sidebar beside a toolbar and a scrolling content area. */
 
 .shell {
+  position: relative;
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
   gap: var(--space-16);
   height: 100%;
   padding: var(--space-16);
+  transition:
+    grid-template-columns 200ms ease,
+    gap 200ms ease;
+}
+
+.collapsed {
+  grid-template-columns: 0px minmax(0, 1fr);
+  gap: 0;
+}
+
+.sidebarSlot {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    opacity 200ms ease,
+    visibility 200ms;
+}
+
+.collapsed .sidebarSlot {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.sidebarToggle {
+  position: absolute;
+  z-index: 1;
+  top: var(--space-32);
+  left: calc(var(--space-16) + 232px - 23px);
+  width: 22px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-right: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--ink-secondary);
+  -webkit-app-region: no-drag;
+  transition:
+    left 200ms ease,
+    background 200ms ease;
+}
+
+.sidebarToggle > svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sidebarToggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.collapsed .sidebarToggle {
+  left: 0;
+  border-right: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .sidebar {
+  position: relative;
+  width: 232px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-24);
@@ -21,12 +83,53 @@
   -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   backdrop-filter: blur(var(--blur-glass)) saturate(1.4);
   user-select: none;
+}
+
+/* Native drag regions consume clicks even through sibling buttons above them. Keep the
+   draggable header clear of the tab instead of making the whole sidebar draggable. */
+.sidebar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 22px;
+  height: var(--space-20);
   -webkit-app-region: drag;
 }
 
-/* macOS draws its window buttons over the sidebar's top-left corner. */
-.mac .sidebar {
-  padding-top: 52px;
+.brand {
+  padding: 0 var(--space-8);
+}
+
+/* Two copies of the wordmark, because its text is light for dark themes and dark for light
+   ones. The selectors follow the theme rules in tokens.css. */
+.wordmarkLight,
+.wordmarkDark {
+  display: block;
+  height: 36px;
+  width: auto;
+}
+
+.wordmarkDark {
+  display: none;
+}
+
+:global([data-theme='dark']) .wordmarkLight {
+  display: none;
+}
+
+:global([data-theme='dark']) .wordmarkDark {
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme='light'])) .wordmarkLight {
+    display: none;
+  }
+
+  :global(:root:not([data-theme='light'])) .wordmarkDark {
+    display: block;
+  }
 }
 
 .footer {
@@ -70,4 +173,62 @@
   min-height: 0;
   overflow: auto;
   padding: 0 var(--space-16) var(--space-16);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell,
+  .sidebarSlot,
+  .sidebarToggle {
+    transition: none;
+  }
+}
+
+.review .toolbar,
+.zen .toolbar {
+  display: none;
+}
+
+.review .main,
+.zen .main {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+/* macOS draws its window buttons in a strip across the top. The sidebar and page start 8px
+   below them. A page that is a single panel row, like the review, puts its header in the strip.
+   The strip drags the window, and anything in it that is clickable opts out of dragging. */
+.mac {
+  --titlebar: 44px;
+  /* Centers a header row on the window buttons. */
+  --titlebar-header-offset: 4px;
+  padding-top: 0;
+}
+
+.mac::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--titlebar);
+  pointer-events: none;
+  -webkit-app-region: drag;
+}
+
+.mac .sidebarSlot,
+.mac .main {
+  padding-top: var(--titlebar);
+}
+
+.mac.review .main {
+  padding-top: 0;
+}
+
+.mac .sidebarToggle {
+  top: calc(var(--titlebar) + var(--space-16));
+}
+
+/* With the sidebar closed the window buttons sit on the page, so the header starts after them. */
+.mac.collapsed,
+.mac.zen {
+  --window-controls-inset: 76px;
 }

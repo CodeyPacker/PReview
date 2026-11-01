@@ -92,6 +92,20 @@ export class GitHubClient {
     }
   }
 
+  // Fetches a file's raw bytes. Resolves undefined when GitHub has no such file.
+  async getBytes(
+    path: string,
+    params: Record<string, string> = {},
+  ): Promise<Uint8Array | undefined> {
+    try {
+      const response = await this.request(this.url(path, params), path, RAW_ACCEPT);
+      return new Uint8Array(await response.arrayBuffer());
+    } catch (error) {
+      if (error instanceof GitHubApiError && error.status === 404) return undefined;
+      throw error;
+    }
+  }
+
   private url(path: string, params: Record<string, string>): string {
     const url = new URL(path, API_ORIGIN);
     for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
