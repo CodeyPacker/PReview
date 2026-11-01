@@ -34,6 +34,8 @@ import {
   type FileReviewFilter,
   type FileReviewState,
 } from '../lib/fileReview.ts';
+import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
+import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
@@ -54,6 +56,8 @@ function ReviewPage() {
   const { data: pullRequestState, isPending } = usePullRequests();
   const { data: repositoryState } = useRepositories();
   const pullRequest = pullRequestState?.pullRequests.find((pull) => pull.id === pullRequestId);
+  const { data: auth } = useGitHubAuth();
+  const [reviewOpen, setReviewOpen] = useState(false);
   const repository = repositoryState?.repositories.find(
     (item) => item.id === pullRequest?.repositoryId,
   );
@@ -187,18 +191,40 @@ function ReviewPage() {
   return (
     <div className={cx(styles.page, zen && styles.zen)}>
       <header className={styles.header}>
-        <h1 className={styles.pullRequest} title={pullRequest.title}>
-          {repository ? repositoryName(repository) : 'Repository'} #{pullRequest.number}
-        </h1>
-        <StatusPill status={pullRequest.draft ? 'draft' : 'open'} />
-        <span className={styles.branches}>
-          {pullRequest.headBranch} → {pullRequest.baseBranch}
-        </span>
-        <span className={styles.author}>
-          <Avatar name={author?.login ?? 'Unknown author'} src={author?.avatarUrl} size="xs" />
-          Opened {relativeTime(pullRequest.createdAt)} by {author?.login ?? 'an unknown author'}
-        </span>
+        <div className={styles.summary}>
+          <h1 className={styles.pullRequest} title={pullRequest.title}>
+            {repository ? repositoryName(repository) : 'Repository'} #{pullRequest.number}
+          </h1>
+          <StatusPill status={pullRequest.draft ? 'draft' : 'open'} />
+          <span className={styles.branches}>
+            {pullRequest.headBranch} → {pullRequest.baseBranch}
+          </span>
+          <span className={styles.author}>
+            <Avatar name={author?.login ?? 'Unknown author'} src={author?.avatarUrl} size="xs" />
+            Opened {relativeTime(pullRequest.createdAt)} by {author?.login ?? 'an unknown author'}
+          </span>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={!files.data}
+          onClick={() => setReviewOpen(true)}
+        >
+          Submit review
+        </Button>
       </header>
+      {files.data && (
+        <ReviewDialog
+          open={reviewOpen}
+          onOpenChange={setReviewOpen}
+          pullRequestId={pullRequestId}
+          pullRequestUrl={pullRequest.url}
+          headSha={files.data.headSha}
+          ownPullRequest={
+            auth?.status === 'connected' && auth.user.login === pullRequest.author?.login
+          }
+        />
+      )}
       <div className={cx(styles.workspace, filesCollapsed && styles.filesCollapsed)}>
         <IconButton
           className={styles.treeToggle}

@@ -1,6 +1,7 @@
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type { PullRequestChanges, PullRequestFileDiff } from './pull-request-files.ts';
+import type { SubmitReviewInput, SubmitReviewResult } from './pull-request-reviews.ts';
 import type { PullRequestsState } from './pull-requests.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
@@ -49,5 +50,8 @@ export interface PreviewApi {
       path: string,
       previousPath: string | null,
     ): Promise<PullRequestFileDiff>;
+  };
+  pullRequestReviews: {
+    submit(review: SubmitReviewInput): Promise<SubmitReviewResult>;
   };
 }

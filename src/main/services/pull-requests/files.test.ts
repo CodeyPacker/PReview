@@ -45,6 +45,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
       Promise.resolve(contents[`${ref}:${path}`]),
     ),
     getFileBytes: vi.fn<GitProvider['getFileBytes']>().mockResolvedValue(undefined),
+    submitReview: vi.fn<GitProvider['submitReview']>(),
   } satisfies GitProvider;
   return { provider, files: new PullRequestFiles({ db, provider }) };
 }

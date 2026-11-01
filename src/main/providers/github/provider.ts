@@ -4,6 +4,8 @@ import type {
   ProviderChangedFile,
   ProviderPullRequest,
   ProviderPullRequestRefs,
+  ProviderReview,
+  ReviewVerdict,
   ProviderRepository,
 } from '../types.ts';
 import type { GitHubClient } from './client.ts';
@@ -53,6 +55,12 @@ const pullRequestRefsSchema = z.object({
 });
 
 const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
+
+const reviewEvents: Record<ReviewVerdict, string> = {
+  approve: 'APPROVE',
+  'request-changes': 'REQUEST_CHANGES',
+  comment: 'COMMENT',
+};
 
 function encodeContentPath(path: string): string {
   return path.split('/').map(encodeURIComponent).join('/');
@@ -171,5 +179,17 @@ export class GitHubProvider implements GitProvider {
         ref,
       },
     );
+  }
+
+  async submitReview(
+    repositoryFullName: string,
+    number: number,
+    review: ProviderReview,
+  ): Promise<void> {
+    await this.client.postJson(`/repos/${repositoryFullName}/pulls/${number}/reviews`, {
+      commit_id: review.headSha,
+      body: review.body,
+      event: reviewEvents[review.verdict],
+    });
   }
 }

@@ -53,6 +53,16 @@ export interface ProviderPullRequestRefs {
   baseBranch: string;
 }
 
+export type ReviewVerdict = 'approve' | 'request-changes' | 'comment';
+
+export interface ProviderReview {
+  verdict: ReviewVerdict;
+  // The summary shown with the review. Required for comment and request-changes.
+  body: string;
+  // The commit the reviewer looked at.
+  headSha: string;
+}
+
 export interface GitProvider {
   // Repositories the signed-in user can read.
   getRepositories(): Promise<ProviderRepository[]>;
@@ -77,4 +87,7 @@ export interface GitProvider {
     path: string,
     ref: string,
   ): Promise<Uint8Array | undefined>;
+  // Publishes a review of the pull request. Rejects with the provider's explanation when the
+  // provider refuses it, for example when the author tries to approve their own pull request.
+  submitReview(repositoryFullName: string, number: number, review: ProviderReview): Promise<void>;
 }
