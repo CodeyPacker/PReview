@@ -43,7 +43,8 @@ function plural(count: number, noun: string) {
 }
 
 // Sends a verdict, an optional summary and the line comments to GitHub. Once sent, it offers
-// to merge, because GitHub doesn't let you approve your own pull request.
+// to merge. On your own pull request it offers to merge right away, because GitHub only takes
+// a comment from you there and a comment needs a summary.
 export function ReviewDialog({
   open,
   onOpenChange,
@@ -70,6 +71,7 @@ export function ReviewDialog({
   const result = submit.data;
   const submitted = result?.status === 'submitted';
   const rejection = result?.status === 'rejected' ? result.message : undefined;
+  const done = submitted || merged;
   const sentComments = submit.variables?.draftIds.length ?? 0;
   const draftNote = [
     draftIds.length > 0 && `Publishes ${plural(draftIds.length, 'line comment')} with this review.`,
@@ -82,19 +84,43 @@ export function ReviewDialog({
   const close = (next: boolean) => {
     onOpenChange(next);
     // A finished review starts over the next time the dialog opens.
-    if (!next && submitted) {
+    if (!next && done) {
       submit.reset();
       merge.reset();
       setBody('');
     }
   };
 
+  const mergeMethodPicker = (
+    <ToggleGroup
+      aria-label="Merge method"
+      options={mergeMethodOptions}
+      value={mergeMethod}
+      onValueChange={setMergeMethod}
+    />
+  );
+  const mergeError = (mergeRejection || merge.isError) && (
+    <p className={styles.error} role="alert">
+      <CircleAlert aria-hidden />
+      {mergeRejection ?? 'Could not reach GitHub. Try again.'}
+    </p>
+  );
+  const mergeButton = (
+    <Button
+      type="button"
+      loading={merge.isPending}
+      onClick={() => merge.mutate({ pullRequestId, headSha, method: mergeMethod })}
+    >
+      Merge pull request
+    </Button>
+  );
+
   return (
     <Dialog.Root open={open} onOpenChange={close}>
       <Dialog.Portal>
         <Dialog.Backdrop className={styles.backdrop} />
         <Dialog.Popup className={styles.popup}>
-          {submitted ? (
+          {done ? (
             <>
               <CircleCheck className={styles.done} aria-hidden />
               <Dialog.Title className="title-2">
@@ -107,20 +133,8 @@ export function ReviewDialog({
                     ? 'GitHub has your review.'
                     : `GitHub has your review and ${plural(sentComments, 'line comment')}.`}
               </Dialog.Description>
-              {!merged && (
-                <ToggleGroup
-                  aria-label="Merge method"
-                  options={mergeMethodOptions}
-                  value={mergeMethod}
-                  onValueChange={setMergeMethod}
-                />
-              )}
-              {(mergeRejection || merge.isError) && (
-                <p className={styles.error} role="alert">
-                  <CircleAlert aria-hidden />
-                  {mergeRejection ?? 'Could not reach GitHub. Try again.'}
-                </p>
-              )}
+              {!merged && mergeMethodPicker}
+              {mergeError}
               <div className={styles.actions}>
                 <Button
                   render={<a href={pullRequestUrl} target="_blank" rel="noreferrer" />}
@@ -130,14 +144,7 @@ export function ReviewDialog({
                 >
                   View on GitHub
                 </Button>
-                {!merged && (
-                  <Button
-                    loading={merge.isPending}
-                    onClick={() => merge.mutate({ pullRequestId, headSha, method: mergeMethod })}
-                  >
-                    Merge pull request
-                  </Button>
-                )}
+                {!merged && mergeButton}
                 <Button variant="primary" onClick={() => close(false)}>
                   Done
                 </Button>
@@ -163,9 +170,11 @@ export function ReviewDialog({
               {draftNote && <p className={styles.description}>{draftNote}</p>}
               {ownPullRequest && (
                 <Dialog.Description className={styles.description}>
-                  You opened this pull request, so GitHub only allows a comment.
+                  You opened this pull request, so GitHub only allows a comment. You can merge
+                  without one.
                 </Dialog.Description>
               )}
+              {ownPullRequest && mergeMethodPicker}
               <TextField
                 multiline
                 rows={6}
@@ -179,10 +188,12 @@ export function ReviewDialog({
                   {rejection ?? 'Could not reach GitHub. Try again.'}
                 </p>
               )}
+              {ownPullRequest && mergeError}
               <div className={styles.actions}>
                 <Button variant="plain" type="button" onClick={() => close(false)}>
                   Cancel
                 </Button>
+                {ownPullRequest && mergeButton}
                 <Button
                   variant="primary"
                   type="submit"
