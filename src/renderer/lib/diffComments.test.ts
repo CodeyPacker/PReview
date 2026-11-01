@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { originalLineInModified, type LineChange } from './diffComments.ts';
+import { originalLineInModified, selectedLines, type LineChange } from './diffComments.ts';
 
 // Old lines 10-11 became new lines 10-12.
 const modifiedBlock: LineChange = {
@@ -44,5 +44,28 @@ describe('originalLineInModified', () => {
     // Minus three removed lines.
     expect(originalLineInModified(changes, 49)).toBe(52);
     expect(originalLineInModified(changes, 53)).toBe(53);
+  });
+});
+
+describe('selectedLines', () => {
+  it('covers every line the selection touches', () => {
+    expect(selectedLines({ startLineNumber: 3, endLineNumber: 5, endColumn: 4 })).toEqual({
+      first: 3,
+      last: 5,
+    });
+  });
+
+  it('leaves out a last line the selection only reaches the start of', () => {
+    expect(selectedLines({ startLineNumber: 3, endLineNumber: 6, endColumn: 1 })).toEqual({
+      first: 3,
+      last: 5,
+    });
+  });
+
+  it('is one line for a cursor', () => {
+    expect(selectedLines({ startLineNumber: 4, endLineNumber: 4, endColumn: 1 })).toEqual({
+      first: 4,
+      last: 4,
+    });
   });
 });

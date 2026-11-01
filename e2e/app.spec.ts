@@ -1036,6 +1036,38 @@ test('drafts, edits and deletes line comments in the diff', async () => {
     await page.keyboard.press('Escape');
     await expect(page.getByRole('textbox', { name: 'Comment on new line 2' })).toBeHidden();
 
+    // The shortcut takes every selected line.
+    await modified.locator('.view-line').nth(9).click();
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('Shift+ArrowDown');
+    await page.keyboard.press('Control+i');
+    const selectedRange = page.getByRole('textbox', { name: 'Comment on new lines 10–12' });
+    await expect(selectedRange).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(selectedRange).toBeHidden();
+
+    // Dragging down the gutter comments on several lines.
+    const top = await lineNumber(14).boundingBox();
+    const bottom = await lineNumber(16).boundingBox();
+    await page.mouse.move(top!.x - 8, top!.y + top!.height / 2);
+    await expect(glyph).toHaveCount(1);
+    await page.mouse.down();
+    await page.mouse.move(bottom!.x - 8, bottom!.y + bottom!.height / 2, { steps: 4 });
+    await page.mouse.up();
+    const range = page.getByRole('textbox', { name: 'Comment on new lines 14–16' });
+    await expect(range).toBeFocused();
+    await range.fill('Pull these into a helper.');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    const rangeCard = page.getByRole('article', { name: 'Draft on new lines 14–16' });
+    await expect(rangeCard).toContainText('Pull these into a helper.');
+    await rangeCard.hover();
+    await page.screenshot({ path: test.info().outputPath('draft-range.png') });
+    expect(
+      await app.evaluate(() => (globalThis as { reviewDrafts?: () => unknown }).reviewDrafts?.()),
+    ).toMatchObject([{ line: 3 }, { startLine: 14, line: 16, body: 'Pull these into a helper.' }]);
+    await rangeCard.getByRole('button', { name: 'Delete draft' }).click();
+    await expect(rangeCard).toBeHidden();
+
     await card.getByRole('button', { name: 'Delete draft' }).click();
     await expect(card).toBeHidden();
     expect(

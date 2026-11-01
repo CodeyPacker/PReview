@@ -133,7 +133,7 @@ function ReviewPage() {
     {
       approve: () => toggleReviewState('approved'),
       flag: () => toggleReviewState('flagged'),
-      comment: () => diffViewer.current?.commentOnCursorLine(),
+      comment: () => diffViewer.current?.commentOnSelection(),
       tree: () => setFilesCollapsed((value) => !value),
       next: () => {
         if (nextFile) selectFile(nextFile.path);
@@ -166,6 +166,7 @@ function ReviewPage() {
     const moved =
       next?.path !== composer?.path ||
       next?.side !== composer?.side ||
+      next?.startLine !== composer?.startLine ||
       next?.line !== composer?.line ||
       next?.draftId !== composer?.draftId;
     if (next && moved && composer?.body.trim()) {
@@ -188,6 +189,7 @@ function ReviewPage() {
           mergeBase: files.data.mergeBase,
           path: composer.path,
           side: composer.side,
+          startLine: composer.startLine ?? null,
           line: composer.line,
           body: composer.body,
         },

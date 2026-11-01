@@ -149,4 +149,13 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX review_drafts_pull_request ON review_drafts (pull_request_id);
     `,
   },
+  {
+    version: 8,
+    name: 'review_draft_ranges',
+    // A comment on several lines runs from start_line to line. Null for one line.
+    sql: `
+      ALTER TABLE review_drafts ADD COLUMN start_line INTEGER
+        CHECK (start_line IS NULL OR start_line < line);
+    `,
+  },
 ];

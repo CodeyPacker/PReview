@@ -12,6 +12,7 @@ interface ReviewDraftRow {
   merge_base: string;
   path: string;
   side: ReviewDraft['side'];
+  start_line: number | null;
   line: number;
   body: string;
   created_at: string;
@@ -26,6 +27,7 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
     mergeBase: row.merge_base,
     path: row.path,
     side: row.side,
+    startLine: row.start_line,
     line: row.line,
     body: row.body,
     createdAt: row.created_at,
@@ -37,7 +39,8 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
 export function listReviewDrafts(db: DatabaseSync, pullRequestId: number): ReviewDraft[] {
   const rows = db
     .prepare(
-      `SELECT id, pull_request_id, head_sha, merge_base, path, side, line, body, created_at,
+      `SELECT id, pull_request_id, head_sha, merge_base, path, side, start_line, line, body,
+              created_at,
               updated_at
        FROM review_drafts
        WHERE pull_request_id = ?
@@ -49,14 +52,16 @@ export function listReviewDrafts(db: DatabaseSync, pullRequestId: number): Revie
 
 export function createReviewDraft(db: DatabaseSync, draft: CreateReviewDraftInput): ReviewDraft[] {
   db.prepare(
-    `INSERT INTO review_drafts (pull_request_id, head_sha, merge_base, path, side, line, body)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO review_drafts
+       (pull_request_id, head_sha, merge_base, path, side, start_line, line, body)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     draft.pullRequestId,
     draft.headSha,
     draft.mergeBase,
     draft.path,
     draft.side,
+    draft.startLine,
     draft.line,
     draft.body,
   );

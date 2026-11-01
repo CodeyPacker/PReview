@@ -21,7 +21,7 @@ import {
 } from './DraftComments.tsx';
 import { useThemeVersion } from './useThemeVersion.ts';
 import { useViewZones, type ViewZone } from './useViewZones.ts';
-import { originalLineInModified, type LineChange } from '../lib/diffComments.ts';
+import { originalLineInModified, selectedLines, type LineChange } from '../lib/diffComments.ts';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
 import { createFileScroller } from '../lib/fileScroller.ts';
 
@@ -31,9 +31,8 @@ export interface DiffViewerHandle {
   startScroll: (direction: -1 | 1) => void;
   stopScroll: () => void;
   cancelScroll: () => void;
-  // Opens a comment on the line with the cursor. Does nothing on a line GitHub can't take
-  // a comment on.
-  commentOnCursorLine: () => void;
+  // Opens a comment on the selected lines, or the line with the cursor.
+  commentOnSelection: () => void;
 }
 
 // Line comments shown in the diff. Leave it out for a diff without comments.
@@ -120,24 +119,36 @@ export function DiffViewer({
 
   const openComposer = (next: DraftComposerState) => drafts?.onComposerChange(next);
 
-  const commentOnLine = (side: DiffSide, line: number) => {
-    if (canComment(side)) openComposer({ path, side, line, body: '' });
+  const commentOnLines = (side: DiffSide, first: number, last: number) => {
+    if (!canComment(side)) return;
+    const startLine = Math.min(first, last);
+    const line = Math.max(first, last);
+    openComposer({
+      path,
+      side,
+      ...(startLine < line && { startLine }),
+      line,
+      body: '',
+    });
   };
-  const commentOnGutter = useEffectEvent(commentOnLine);
+  const commentOnGutter = useEffectEvent(commentOnLines);
   const isCommentable = useEffectEvent(canComment);
 
   useImperativeHandle(ref, () => ({
     startScroll: (direction) => scroller.current?.start(direction),
     stopScroll: () => scroller.current?.stop(),
     cancelScroll: () => scroller.current?.cancel(),
-    commentOnCursorLine: () => {
+    commentOnSelection: () => {
       const diffEditor = editor.current;
       if (!diffEditor) return;
       const before = diffEditor.getOriginalEditor();
       const side = !unified && before.hasTextFocus() ? 'original' : 'modified';
-      const line = (side === 'original' ? before : diffEditor.getModifiedEditor()).getPosition()
-        ?.lineNumber;
-      if (line) commentOnLine(side, line);
+      const selection = (
+        side === 'original' ? before : diffEditor.getModifiedEditor()
+      ).getSelection();
+      if (!selection) return;
+      const { first, last } = selectedLines(selection);
+      commentOnLines(side, first, last);
     },
   }));
 
@@ -186,19 +197,38 @@ export function DiffViewer({
     const diffUpdate = diffEditor.onDidUpdateDiff(() =>
       setLineChanges(diffEditor.getLineChanges() ?? []),
     );
-    // A plus in the gutter of a line that can take a comment, under the pointer.
+    // A plus in the gutter of a line that can take a comment, under the pointer. Dragging
+    // from it down or up the gutter picks several lines.
+    let drag: { side: DiffSide; first: number; last: number } | undefined;
     const gutters = (['original', 'modified'] as const).map((side) => {
       const sideEditor =
         side === 'original' ? diffEditor.getOriginalEditor() : diffEditor.getModifiedEditor();
       const hover = sideEditor.createDecorationsCollection();
+      const picked = sideEditor.createDecorationsCollection();
+      const showPicked = (first: number, last: number) =>
+        picked.set([
+          {
+            range: new monaco.Range(Math.min(first, last), 1, Math.max(first, last), 1),
+            options: { isWholeLine: true, className: styles.commentRange },
+          },
+        ]);
       const lineAt = (event: monaco.editor.IEditorMouseEvent) => {
-        const line = event.target.position?.lineNumber;
-        return line !== undefined && isCommentable(side) ? line : undefined;
+        const { type, position } = event.target;
+        // Comments sit in view zones, which report the line above them.
+        const inZone =
+          type === monaco.editor.MouseTargetType.CONTENT_VIEW_ZONE ||
+          type === monaco.editor.MouseTargetType.GUTTER_VIEW_ZONE;
+        return position && !inZone && isCommentable(side) ? position.lineNumber : undefined;
       };
       return [
         hover,
+        picked,
         sideEditor.onMouseMove((event) => {
           const line = lineAt(event);
+          if (drag?.side === side && line !== undefined) {
+            drag.last = line;
+            showPicked(drag.first, line);
+          }
           hover.set(
             line === undefined
               ? []
@@ -214,17 +244,31 @@ export function DiffViewer({
         sideEditor.onMouseDown((event) => {
           const line = lineAt(event);
           if (
-            line !== undefined &&
-            event.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN
+            line === undefined ||
+            event.target.type !== monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN
           ) {
-            commentOnGutter(side, line);
+            return;
           }
+          event.event.preventDefault();
+          drag = { side, first: line, last: line };
+          showPicked(line, line);
+          // The pointer can be released outside the editor.
+          window.addEventListener(
+            'mouseup',
+            () => {
+              if (drag) commentOnGutter(drag.side, drag.first, drag.last);
+              drag = undefined;
+              picked.clear();
+            },
+            { once: true },
+          );
         }),
       ] as const;
     });
     return () => {
-      for (const [hover, ...subscriptions] of gutters) {
+      for (const [hover, picked, ...subscriptions] of gutters) {
         hover.clear();
+        picked.clear();
         subscriptions.forEach((subscription) => subscription.dispose());
       }
       modelChange.dispose();
@@ -399,6 +443,30 @@ export function DiffViewer({
   }, []);
   const zoneTargets = useViewZones(zones, editorFor, modelVersion, styles.zone);
 
+  // The lines of the comment being written, or of the draft under the pointer, are shaded.
+  const [hoveredDraftId, setHoveredDraftId] = useState<number>();
+  const shaded = composer ?? draftItems?.find((draft) => draft.id === hoveredDraftId);
+  const shadedSide = shaded?.side;
+  const shadedFirst = shaded && (shaded.startLine ?? shaded.line);
+  const shadedLast = shaded?.line;
+  useEffect(() => {
+    const diffEditor = editor.current;
+    if (!diffEditor || !shadedSide || !shadedFirst || !shadedLast) return;
+    const moved = unified && shadedSide === 'original';
+    const place = (line: number) => (moved ? originalLineInModified(lineChanges, line) : line);
+    const target =
+      shadedSide === 'original' && !unified
+        ? diffEditor.getOriginalEditor()
+        : diffEditor.getModifiedEditor();
+    const shading = target.createDecorationsCollection([
+      {
+        range: new monaco.Range(place(shadedFirst), 1, place(shadedLast), 1),
+        options: { isWholeLine: true, className: styles.commentRange },
+      },
+    ]);
+    return () => shading.clear();
+  }, [shadedSide, shadedFirst, shadedLast, unified, lineChanges, modelVersion]);
+
   let portals: ReactNode = null;
   if (drafts) {
     const composerView = composer && (
@@ -420,21 +488,27 @@ export function DiffViewer({
       ) : composer?.draftId === draft.id ? (
         composerView
       ) : (
-        <DraftCard
-          draft={draft}
-          author={drafts.author}
-          deleting={drafts.deletingId === draft.id}
-          onEdit={() =>
-            openComposer({
-              path,
-              side: draft.side,
-              line: draft.line,
-              draftId: draft.id,
-              body: draft.body,
-            })
-          }
-          onDelete={() => drafts.onDelete(draft.id)}
-        />
+        <div
+          onMouseEnter={() => setHoveredDraftId(draft.id)}
+          onMouseLeave={() => setHoveredDraftId(undefined)}
+        >
+          <DraftCard
+            draft={draft}
+            author={drafts.author}
+            deleting={drafts.deletingId === draft.id}
+            onEdit={() =>
+              openComposer({
+                path,
+                side: draft.side,
+                ...(draft.startLine !== null && { startLine: draft.startLine }),
+                line: draft.line,
+                draftId: draft.id,
+                body: draft.body,
+              })
+            }
+            onDelete={() => drafts.onDelete(draft.id)}
+          />
+        </div>
       );
       return createPortal(content, target, zone.key);
     });

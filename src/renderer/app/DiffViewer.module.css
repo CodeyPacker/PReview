@@ -36,3 +36,8 @@
   content: '+';
   font: 600 var(--text-md) / 1 var(--font-sans);
 }
+
+/* The lines a comment covers. */
+.commentRange {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}

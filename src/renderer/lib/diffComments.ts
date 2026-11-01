@@ -33,3 +33,15 @@ export function originalLineInModified(changes: readonly LineChange[], line: num
   }
   return line + shift;
 }
+
+// The lines a selection covers. A selection that ends at the start of a line, as a whole-line
+// selection does, leaves that line out.
+export function selectedLines(selection: {
+  startLineNumber: number;
+  endLineNumber: number;
+  endColumn: number;
+}): { first: number; last: number } {
+  const { startLineNumber: first, endLineNumber, endColumn } = selection;
+  const last = endLineNumber > first && endColumn === 1 ? endLineNumber - 1 : endLineNumber;
+  return { first, last };
+}

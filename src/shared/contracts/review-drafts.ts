@@ -7,7 +7,7 @@ export type DiffSide = z.infer<typeof diffSideSchema>;
 
 const draftBodySchema = z.string().trim().min(1).max(65_536);
 
-// A comment on one diff line that has not been sent. It belongs to the commits of the diff it
+// A comment on diff lines that has not been sent. It belongs to the commits of the diff it
 // was written on.
 export const reviewDraftSchema = z.object({
   id: z.number().int(),
@@ -16,6 +16,8 @@ export const reviewDraftSchema = z.object({
   mergeBase: commitShaSchema,
   path: z.string(),
   side: diffSideSchema,
+  // Set when the comment covers several lines. It runs from startLine to line.
+  startLine: z.number().int().positive().nullable(),
   line: z.number().int().positive(),
   body: z.string(),
   createdAt: z.string(),
@@ -23,15 +25,20 @@ export const reviewDraftSchema = z.object({
 });
 export type ReviewDraft = z.infer<typeof reviewDraftSchema>;
 
-export const createReviewDraftInputSchema = z.object({
-  pullRequestId: z.number().int(),
-  headSha: commitShaSchema,
-  mergeBase: commitShaSchema,
-  path: z.string().min(1),
-  side: diffSideSchema,
-  line: z.number().int().positive(),
-  body: draftBodySchema,
-});
+export const createReviewDraftInputSchema = z
+  .object({
+    pullRequestId: z.number().int(),
+    headSha: commitShaSchema,
+    mergeBase: commitShaSchema,
+    path: z.string().min(1),
+    side: diffSideSchema,
+    startLine: z.number().int().positive().nullable(),
+    line: z.number().int().positive(),
+    body: draftBodySchema,
+  })
+  .refine((draft) => draft.startLine === null || draft.startLine < draft.line, {
+    message: 'startLine must come before line.',
+  });
 export type CreateReviewDraftInput = z.infer<typeof createReviewDraftInputSchema>;
 
 export const updateReviewDraftInputSchema = z.object({

@@ -15,6 +15,8 @@ import { relativeTime } from './relativeTime.ts';
 export interface DraftComposerState {
   path: string;
   side: DiffSide;
+  // Set when the comment covers several lines. It runs from startLine to line.
+  startLine?: number;
   line: number;
   draftId?: number;
   body: string;
@@ -25,8 +27,10 @@ export interface DraftAuthor {
   avatarUrl?: string;
 }
 
-function sideName(side: DiffSide) {
-  return side === 'original' ? 'old' : 'new';
+// "new line 3" or "old lines 3–5".
+function linesName(side: DiffSide, startLine: number | null | undefined, line: number) {
+  const name = side === 'original' ? 'old' : 'new';
+  return startLine ? `${name} lines ${startLine}–${line}` : `${name} line ${line}`;
 }
 
 export interface DraftComposerProps {
@@ -70,7 +74,7 @@ export function DraftComposer({
         multiline
         rows={3}
         autoFocus
-        aria-label={`Comment on ${sideName(composer.side)} line ${composer.line}`}
+        aria-label={`Comment on ${linesName(composer.side, composer.startLine, composer.line)}`}
         placeholder="Leave a comment"
         value={composer.body}
         onChange={(event) => onChange(event.target.value)}
@@ -104,7 +108,7 @@ export interface DraftCardProps {
 export function DraftCard({ draft, author, onEdit, onDelete, deleting }: DraftCardProps) {
   return (
     <Comment
-      aria-label={`Draft on ${sideName(draft.side)} line ${draft.line}`}
+      aria-label={`Draft on ${linesName(draft.side, draft.startLine, draft.line)}`}
       author={author.name}
       avatar={<Avatar name={author.name} src={author.avatarUrl} size="md" />}
       time={relativeTime(draft.updatedAt)}

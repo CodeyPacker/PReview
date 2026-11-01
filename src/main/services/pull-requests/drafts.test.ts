@@ -43,13 +43,19 @@ beforeEach(() => {
 const HEAD = 'a'.repeat(40);
 const BASE = 'b'.repeat(40);
 
-function draft(pullRequestId: number, line: number, body = 'Check this.') {
+function draft(
+  pullRequestId: number,
+  line: number,
+  body = 'Check this.',
+  startLine: number | null = null,
+) {
   return {
     pullRequestId,
     headSha: HEAD,
     mergeBase: BASE,
     path: 'src/app.ts',
     side: 'modified' as const,
+    startLine,
     line,
     body,
   };
@@ -68,11 +74,20 @@ describe('review drafts', () => {
         mergeBase: BASE,
         path: 'src/app.ts',
         side: 'modified',
+        startLine: null,
         line: 3,
         body: 'Check this.',
       },
     ]);
     expect(listReviewDrafts(db, second)).toMatchObject([{ line: 9 }]);
+  });
+
+  it('keeps the first line of a comment on several lines', () => {
+    const [first] = pullRequestIds as [number];
+
+    expect(createReviewDraft(db, draft(first, 8, 'Split this.', 5))).toMatchObject([
+      { startLine: 5, line: 8 },
+    ]);
   });
 
   it('edits a draft', () => {
@@ -116,6 +131,8 @@ describe('review drafts', () => {
 
     expect(create.safeParse(draft(1, 3, '   ')).success).toBe(false);
     expect(create.safeParse(draft(1, 0)).success).toBe(false);
+    expect(create.safeParse(draft(1, 5, 'Backwards.', 5)).success).toBe(false);
+    expect(create.safeParse(draft(1, 5, 'Backwards.', 7)).success).toBe(false);
     expect(create.parse(draft(1, 3, '  Trim me.  ')).body).toBe('Trim me.');
   });
 });
