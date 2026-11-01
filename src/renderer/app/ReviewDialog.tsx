@@ -5,6 +5,7 @@ import type { MergeMethod, ReviewVerdict } from '../../shared/contracts/pull-req
 import { Button } from '../components/Button/Button.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
+import { useDeleteBranch } from '../hooks/useDeleteBranch.ts';
 import { useMergePullRequest } from '../hooks/useMergePullRequest.ts';
 import { useSubmitReview } from '../hooks/useSubmitReview.ts';
 import styles from './ReviewDialog.module.css';
@@ -65,6 +66,10 @@ export function ReviewDialog({
   const [mergeMethod, setMergeMethod] = useState<MergeMethod>('merge');
   const merged = merge.data?.status === 'merged';
   const mergeRejection = merge.data?.status === 'rejected' ? merge.data.message : undefined;
+  const deleteBranch = useDeleteBranch();
+  const branchDeleted = deleteBranch.data?.status === 'deleted';
+  const deleteRejection =
+    deleteBranch.data?.status === 'rejected' ? deleteBranch.data.message : undefined;
 
   const needsSummary = verdict !== 'approve';
   const canSubmit = !submit.isPending && (!needsSummary || body.trim() !== '');
@@ -87,6 +92,7 @@ export function ReviewDialog({
     if (!next && done) {
       submit.reset();
       merge.reset();
+      deleteBranch.reset();
       setBody('');
     }
   };
@@ -128,13 +134,21 @@ export function ReviewDialog({
               </Dialog.Title>
               <Dialog.Description className={styles.description}>
                 {merged
-                  ? 'GitHub merged this pull request.'
+                  ? branchDeleted
+                    ? 'GitHub merged this pull request and deleted its branch.'
+                    : 'GitHub merged this pull request.'
                   : sentComments === 0
                     ? 'GitHub has your review.'
                     : `GitHub has your review and ${plural(sentComments, 'line comment')}.`}
               </Dialog.Description>
               {!merged && mergeMethodPicker}
               {mergeError}
+              {(deleteRejection || deleteBranch.isError) && (
+                <p className={styles.error} role="alert">
+                  <CircleAlert aria-hidden />
+                  {deleteRejection ?? 'Could not reach GitHub. Try again.'}
+                </p>
+              )}
               <div className={styles.actions}>
                 <Button
                   render={<a href={pullRequestUrl} target="_blank" rel="noreferrer" />}
@@ -145,6 +159,14 @@ export function ReviewDialog({
                   View on GitHub
                 </Button>
                 {!merged && mergeButton}
+                {merged && !branchDeleted && (
+                  <Button
+                    loading={deleteBranch.isPending}
+                    onClick={() => deleteBranch.mutate({ pullRequestId })}
+                  >
+                    Delete branch
+                  </Button>
+                )}
                 <Button variant="primary" onClick={() => close(false)}>
                   Done
                 </Button>

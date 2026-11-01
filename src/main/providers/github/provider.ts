@@ -219,4 +219,10 @@ export class GitHubProvider implements GitProvider {
       merge_method: method,
     });
   }
+
+  async deleteBranch(repositoryFullName: string, branch: string): Promise<void> {
+    // The branch name keeps its slashes, because the ref is a path.
+    const ref = branch.split('/').map(encodeURIComponent).join('/');
+    await this.client.delete(`/repos/${repositoryFullName}/git/refs/heads/${ref}`);
+  }
 }
