@@ -20,7 +20,6 @@
 
 .field:focus-within {
   border-color: var(--accent-border);
-  background: var(--surface-raised);
 }
 
 .fieldSm {
