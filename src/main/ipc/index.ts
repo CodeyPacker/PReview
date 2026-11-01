@@ -4,6 +4,7 @@ import type { AppInfo } from '../../shared/contracts/ipc.ts';
 import type { GitHubAuth } from '../services/github/auth.ts';
 import type { RepositoryDiscovery } from '../services/repositories/discovery.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
+import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
 import { updateRepositorySettings } from '../services/repositories/registry.ts';
 import {
@@ -20,13 +21,21 @@ export interface IpcServices {
   discovery: RepositoryDiscovery;
   pullRequests: PullRequestSync;
   pullRequestFiles: PullRequestFiles;
+  pullRequestReviews: PullRequestReviews;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
 
 export function registerIpcHandlers(
   db: DatabaseSync,
-  { github, discovery, pullRequests, pullRequestFiles, pickFolder }: IpcServices,
+  {
+    github,
+    discovery,
+    pullRequests,
+    pullRequestFiles,
+    pullRequestReviews,
+    pickFolder,
+  }: IpcServices,
 ): void {
   handle('app.getInfo', () => ({
     name: app.getName(),
@@ -83,4 +92,6 @@ export function registerIpcHandlers(
   handle('pullRequestFiles.getDiff', ({ pullRequestId, headSha, mergeBase, path, previousPath }) =>
     pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
   );
+
+  handle('pullRequestReviews.submit', (review) => pullRequestReviews.submit(review));
 }

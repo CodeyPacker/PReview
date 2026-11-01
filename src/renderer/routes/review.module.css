@@ -9,21 +9,29 @@
 
 .header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
   /* On macOS the header sits in the strip with the window buttons. */
   /* Plus the gap below it, the header is as tall as the strip, so the panels start level with
      the sidebar. */
   min-height: calc(var(--titlebar, var(--space-8)) - var(--space-8));
   padding-top: var(--titlebar-header-offset, 0px);
   padding-left: var(--window-controls-inset, 0px);
-  gap: var(--space-4) var(--space-16);
   color: var(--ink-secondary);
   font: 400 var(--text-md) / 18px var(--font-sans);
 }
 
 .header > * {
   -webkit-app-region: no-drag;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-16);
+  min-width: 0;
 }
 
 .pullRequest {

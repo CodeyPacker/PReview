@@ -803,3 +803,102 @@ test('configures review shortcuts and scrolls without focusing the code', async 
     await app.close();
   }
 });
+
+test('submits a review, and only allows a comment on your own pull request', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain, BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(1100, 800);
+      const submitted: unknown[] = [];
+      Object.assign(globalThis, { submittedReviews: submitted });
+      const pull = (id: number, login: string) => ({
+        id,
+        repositoryId: 1,
+        number: id,
+        title: `Pull ${id}`,
+        draft: false,
+        url: `https://github.com/octo/app/pull/${id}`,
+        author: { login, avatarUrl: 'https://avatars.githubusercontent.com/u/1', bot: false },
+        headBranch: 'feature',
+        headSha: 'abcdef1',
+        baseBranch: 'main',
+        createdAt: '2026-10-31T12:00:00Z',
+        updatedAt: '2026-10-31T12:00:00Z',
+      });
+      const handlers: Record<string, (input: never) => unknown> = {
+        'github.getAuth': () => ({
+          status: 'connected',
+          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+        }),
+        'pullRequests.list': () => ({
+          pullRequests: [pull(1, 'me'), pull(2, 'someone-else')],
+          errors: [],
+          syncing: false,
+        }),
+        'pullRequestFiles.list': () => ({
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [
+            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+          ],
+        }),
+        'pullRequestFiles.getDiff': () => ({
+          original: 'const a = 1;\n',
+          modified: 'const a = 2;\n',
+          unavailable: null,
+          images: null,
+        }),
+        'pullRequestReviews.submit': (input) => {
+          submitted.push(input);
+          const { verdict } = input as { verdict: string };
+          return verdict === 'request-changes'
+            ? { status: 'rejected', message: 'Pull request is locked.' }
+            : { status: 'submitted' };
+        },
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+
+    // Your own pull request: only a comment, and it needs a summary.
+    await page.reload();
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('radio', { name: 'Approve' })).toBeDisabled();
+    await expect(dialog.getByRole('radio', { name: 'Request changes' })).toBeDisabled();
+    await expect(dialog.getByRole('radio', { name: 'Comment' })).toBeChecked();
+    const send = dialog.getByRole('button', { name: 'Submit review' });
+    await expect(send).toBeDisabled();
+    await dialog.getByLabel('Summary').fill('Nice work.');
+    await page.screenshot({ path: test.info().outputPath('review-dialog.png') });
+    await send.click();
+    await expect(dialog.getByRole('heading', { name: 'Review submitted' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Done' }).click();
+    await expect(dialog).toBeHidden();
+    expect(
+      await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
+    ).toEqual([{ pullRequestId: 1, headSha: 'abcdef1', verdict: 'comment', body: 'Nice work.' }]);
+
+    // Someone else's pull request: approving needs no summary, and a refusal is shown.
+    await page.evaluate(() => {
+      location.hash = '/review/2';
+    });
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(dialog.getByRole('radio', { name: 'Approve' })).toBeEnabled();
+    await expect(dialog.getByRole('radio', { name: 'Approve' })).toBeChecked();
+    await dialog.getByRole('radio', { name: 'Request changes' }).click();
+    await dialog.getByLabel('Summary').fill('Needs work.');
+    await dialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(dialog.getByRole('alert')).toHaveText('Pull request is locked.');
+    await expect(dialog.getByRole('button', { name: 'Submit review' })).toBeEnabled();
+  } finally {
+    await app.close();
+  }
+});

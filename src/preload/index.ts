@@ -35,6 +35,9 @@ const api: PreviewApi = {
     list: () => invoke('pullRequests.list', undefined),
     refresh: () => invoke('pullRequests.refresh', undefined),
   },
+  pullRequestReviews: {
+    submit: (review) => invoke('pullRequestReviews.submit', review),
+  },
   pullRequestFiles: {
     list: (pullRequestId) => invoke('pullRequestFiles.list', { pullRequestId }),
     getDiff: (pullRequestId, headSha, mergeBase, path, previousPath) =>

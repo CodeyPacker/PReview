@@ -21,6 +21,8 @@ export class GitHubApiError extends Error {
   constructor(
     readonly status: number,
     path: string,
+    // GitHub's own explanation, when the response has one. Safe to show the user.
+    readonly detail?: string,
   ) {
     super(`GitHub returned ${status} for ${path}.`);
   }
@@ -44,6 +46,16 @@ function isRateLimited(response: Response): boolean {
     response.status === 403 &&
     (response.headers.has('retry-after') || response.headers.get('x-ratelimit-remaining') === '0')
   );
+}
+
+// The message GitHub gives with an error, such as why a review was refused.
+async function errorDetail(response: Response): Promise<string | undefined> {
+  try {
+    const body = (await response.json()) as { message?: unknown };
+    return typeof body.message === 'string' ? body.message : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function nextPageUrl(response: Response): string | undefined {
@@ -81,6 +93,16 @@ export class GitHubClient {
     return response.json();
   }
 
+  // Sends a JSON body and returns the JSON response.
+  async postJson(path: string, body: unknown): Promise<unknown> {
+    const response = await this.request(this.url(path, {}), path, JSON_ACCEPT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return response.json();
+  }
+
   // Fetches a file's raw text. Resolves undefined when GitHub has no such file.
   async getText(path: string, params: Record<string, string> = {}): Promise<string | undefined> {
     try {
@@ -112,11 +134,19 @@ export class GitHubClient {
     return url.toString();
   }
 
-  private async request(url: string, path: string, accept: string): Promise<Response> {
+  private async request(
+    url: string,
+    path: string,
+    accept: string,
+    init: { method?: string; headers?: Record<string, string>; body?: string } = {},
+  ): Promise<Response> {
     const token = await this.deps.getToken();
     if (!token) throw new GitHubNotConnectedError('GitHub is not connected.');
     const response = await this.deps.fetch(url, {
+      method: init.method,
+      body: init.body,
       headers: {
+        ...init.headers,
         Accept: accept,
         Authorization: `Bearer ${token}`,
         'X-GitHub-Api-Version': '2022-11-28',
@@ -124,7 +154,7 @@ export class GitHubClient {
     });
     if (response.status === 401) throw new GitHubUnauthorizedError('GitHub rejected the token.');
     if (isRateLimited(response)) throw new GitHubRateLimitError(rateLimitReset(response));
-    if (!response.ok) throw new GitHubApiError(response.status, path);
+    if (!response.ok) throw new GitHubApiError(response.status, path, await errorDetail(response));
     return response;
   }
 }

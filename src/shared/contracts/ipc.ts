@@ -11,6 +11,7 @@ import {
   pullRequestChangesSchema,
   pullRequestFileDiffSchema,
 } from './pull-request-files.ts';
+import { submitReviewInputSchema, submitReviewResultSchema } from './pull-request-reviews.ts';
 import { pullRequestsStateSchema } from './pull-requests.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
@@ -68,6 +69,11 @@ export const ipcContract = {
       previousPath: z.string().nullable(),
     }),
     output: pullRequestFileDiffSchema,
+  },
+  // Publishes a review to the provider.
+  'pullRequestReviews.submit': {
+    input: submitReviewInputSchema,
+    output: submitReviewResultSchema,
   },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 

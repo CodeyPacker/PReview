@@ -278,3 +278,50 @@ describe('GitHubProvider changed files', () => {
     await expect(provider.getFileContent('octo/app', 'gone.ts', 'abc')).resolves.toBeUndefined();
   });
 });
+
+function sentBody(fetch: ReturnType<typeof vi.fn<Fetch>>): Record<string, unknown> {
+  const body = fetch.mock.calls[0]?.[1]?.body;
+  if (typeof body !== 'string') throw new Error('Expected a JSON body');
+  return JSON.parse(body) as Record<string, unknown>;
+}
+
+describe('GitHubProvider submitReview', () => {
+  it('posts the review against the commit that was reviewed', async () => {
+    const { fetch, provider } = setup([json({ id: 1 })]);
+
+    await provider.submitReview('octo/app', 7, {
+      verdict: 'request-changes',
+      body: 'Please fix the tests.',
+      headSha: 'abc123',
+    });
+
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/reviews');
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('POST');
+    expect(sentBody(fetch)).toEqual({
+      commit_id: 'abc123',
+      body: 'Please fix the tests.',
+      event: 'REQUEST_CHANGES',
+    });
+  });
+
+  it.each([
+    ['approve', 'APPROVE'],
+    ['comment', 'COMMENT'],
+  ] as const)('sends %s as %s', async (verdict, event) => {
+    const { fetch, provider } = setup([json({ id: 1 })]);
+
+    await provider.submitReview('octo/app', 7, { verdict, body: '', headSha: 'abc' });
+
+    expect(sentBody(fetch).event).toBe(event);
+  });
+
+  it("keeps GitHub's explanation when it refuses the review", async () => {
+    const { provider } = setup([
+      json({ message: 'Can not approve your own pull request' }, { status: 422 }),
+    ]);
+
+    await expect(
+      provider.submitReview('octo/app', 7, { verdict: 'approve', body: '', headSha: 'abc' }),
+    ).rejects.toMatchObject({ status: 422, detail: 'Can not approve your own pull request' });
+  });
+});
