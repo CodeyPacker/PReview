@@ -113,6 +113,11 @@ export class GitHubClient {
     return response.json();
   }
 
+  // Sends a DELETE. GitHub answers these with no body.
+  async delete(path: string): Promise<void> {
+    await this.request(this.url(path, {}), path, JSON_ACCEPT, { method: 'DELETE' });
+  }
+
   // Fetches a file's raw text. Resolves undefined when GitHub has no such file.
   async getText(path: string, params: Record<string, string> = {}): Promise<string | undefined> {
     try {

@@ -318,6 +318,17 @@ describe('GitHubProvider mergePullRequest', () => {
   });
 });
 
+describe('GitHubProvider deleteBranch', () => {
+  it('deletes the branch ref and keeps the slashes in its name', async () => {
+    const { fetch, provider } = setup([new Response(null, { status: 204 })]);
+
+    await provider.deleteBranch('octo/app', 'feat/new-thing');
+
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/git/refs/heads/feat/new-thing');
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('DELETE');
+  });
+});
+
 describe('GitHubProvider submitReview', () => {
   it('posts the review against the commit that was reviewed', async () => {
     const { fetch, provider } = setup([json({ id: 1 })]);

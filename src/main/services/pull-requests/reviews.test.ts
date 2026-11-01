@@ -37,6 +37,7 @@ const BASE = 'b'.repeat(40);
 function setup() {
   const submitReview = vi.fn<GitProvider['submitReview']>().mockResolvedValue(undefined);
   const mergePullRequest = vi.fn<GitProvider['mergePullRequest']>().mockResolvedValue(undefined);
+  const deleteBranch = vi.fn<GitProvider['deleteBranch']>().mockResolvedValue(undefined);
   const provider = {
     getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
@@ -47,8 +48,14 @@ function setup() {
     getFileBytes: vi.fn(),
     submitReview,
     mergePullRequest,
+    deleteBranch,
   } satisfies GitProvider;
-  return { submitReview, mergePullRequest, reviews: new PullRequestReviews({ db, provider }) };
+  return {
+    submitReview,
+    mergePullRequest,
+    deleteBranch,
+    reviews: new PullRequestReviews({ db, provider }),
+  };
 }
 
 describe('PullRequestReviews', () => {
@@ -300,5 +307,33 @@ describe('PullRequestReviews merge', () => {
     await expect(
       reviews.merge({ pullRequestId, headSha: HEAD, method: 'merge' }),
     ).rejects.toThrow();
+  });
+});
+
+describe('PullRequestReviews deleteBranch', () => {
+  it("deletes the pull request's branch", async () => {
+    const { deleteBranch, reviews } = setup();
+
+    await expect(reviews.deleteBranch({ pullRequestId })).resolves.toEqual({ status: 'deleted' });
+    expect(deleteBranch).toHaveBeenCalledWith('octo/app', 'feature');
+  });
+
+  it("passes on GitHub's reason when it refuses", async () => {
+    const { deleteBranch, reviews } = setup();
+    deleteBranch.mockRejectedValue(
+      new GitHubApiError(422, '/git/refs', 'Reference does not exist'),
+    );
+
+    await expect(reviews.deleteBranch({ pullRequestId })).resolves.toEqual({
+      status: 'rejected',
+      message: 'Reference does not exist',
+    });
+  });
+
+  it('throws when GitHub cannot be reached', async () => {
+    const { deleteBranch, reviews } = setup();
+    deleteBranch.mockRejectedValue(new GitHubApiError(502, '/git/refs'));
+
+    await expect(reviews.deleteBranch({ pullRequestId })).rejects.toThrow();
   });
 });

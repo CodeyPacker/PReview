@@ -115,4 +115,6 @@ export interface GitProvider {
     headSha: string,
     method: MergeMethod,
   ): Promise<void>;
+  // Deletes a branch of the repository.
+  deleteBranch(repositoryFullName: string, branch: string): Promise<void>;
 }

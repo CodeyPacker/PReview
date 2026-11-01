@@ -48,6 +48,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
     getFileBytes: vi.fn<GitProvider['getFileBytes']>().mockResolvedValue(undefined),
     submitReview: vi.fn<GitProvider['submitReview']>(),
     mergePullRequest: vi.fn<GitProvider['mergePullRequest']>(),
+    deleteBranch: vi.fn<GitProvider['deleteBranch']>(),
   } satisfies GitProvider;
   return { provider, files: new PullRequestFiles({ db, provider }) };
 }
