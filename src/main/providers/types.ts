@@ -77,6 +77,8 @@ export interface ProviderReview {
   comments: ProviderReviewComment[];
 }
 
+export type MergeMethod = 'merge' | 'squash' | 'rebase';
+
 export interface GitProvider {
   // Repositories the signed-in user can read.
   getRepositories(): Promise<ProviderRepository[]>;
@@ -104,4 +106,13 @@ export interface GitProvider {
   // Publishes a review of the pull request. Rejects with the provider's explanation when the
   // provider refuses it, for example when the author tries to approve their own pull request.
   submitReview(repositoryFullName: string, number: number, review: ProviderReview): Promise<void>;
+  // Merges the pull request if its head is still headSha. Rejects with the provider's
+  // explanation when the provider refuses, for example when checks are required or the head
+  // moved.
+  mergePullRequest(
+    repositoryFullName: string,
+    number: number,
+    headSha: string,
+    method: MergeMethod,
+  ): Promise<void>;
 }

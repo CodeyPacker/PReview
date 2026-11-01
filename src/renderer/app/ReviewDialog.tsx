@@ -1,10 +1,11 @@
 import { Dialog } from '@base-ui/react/dialog';
 import { CircleAlert, CircleCheck, ExternalLink } from 'lucide-react';
 import { useState } from 'react';
-import type { ReviewVerdict } from '../../shared/contracts/pull-request-reviews.ts';
+import type { MergeMethod, ReviewVerdict } from '../../shared/contracts/pull-request-reviews.ts';
 import { Button } from '../components/Button/Button.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
+import { useMergePullRequest } from '../hooks/useMergePullRequest.ts';
 import { useSubmitReview } from '../hooks/useSubmitReview.ts';
 import styles from './ReviewDialog.module.css';
 
@@ -31,11 +32,18 @@ const verdictOptions = (ownPullRequest: boolean) =>
     { value: 'comment', label: 'Comment' },
   ] satisfies { value: ReviewVerdict; label: string; disabled?: boolean }[];
 
+const mergeMethodOptions = [
+  { value: 'merge', label: 'Merge commit' },
+  { value: 'squash', label: 'Squash' },
+  { value: 'rebase', label: 'Rebase' },
+] satisfies { value: MergeMethod; label: string }[];
+
 function plural(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? '' : 's'}`;
 }
 
-// Sends a verdict, an optional summary and the line comments to GitHub.
+// Sends a verdict, an optional summary and the line comments to GitHub. Once sent, it offers
+// to merge, because GitHub doesn't let you approve your own pull request.
 export function ReviewDialog({
   open,
   onOpenChange,
@@ -52,6 +60,10 @@ export function ReviewDialog({
   // The sign-in can finish after this opens, so the choice is checked against it every time.
   const verdict = ownPullRequest && chosen !== 'comment' ? 'comment' : chosen;
   const [body, setBody] = useState('');
+  const merge = useMergePullRequest();
+  const [mergeMethod, setMergeMethod] = useState<MergeMethod>('merge');
+  const merged = merge.data?.status === 'merged';
+  const mergeRejection = merge.data?.status === 'rejected' ? merge.data.message : undefined;
 
   const needsSummary = verdict !== 'approve';
   const canSubmit = !submit.isPending && (!needsSummary || body.trim() !== '');
@@ -72,6 +84,7 @@ export function ReviewDialog({
     // A finished review starts over the next time the dialog opens.
     if (!next && submitted) {
       submit.reset();
+      merge.reset();
       setBody('');
     }
   };
@@ -84,12 +97,30 @@ export function ReviewDialog({
           {submitted ? (
             <>
               <CircleCheck className={styles.done} aria-hidden />
-              <Dialog.Title className="title-2">Review submitted</Dialog.Title>
+              <Dialog.Title className="title-2">
+                {merged ? 'Pull request merged' : 'Review submitted'}
+              </Dialog.Title>
               <Dialog.Description className={styles.description}>
-                {sentComments === 0
-                  ? 'GitHub has your review.'
-                  : `GitHub has your review and ${plural(sentComments, 'line comment')}.`}
+                {merged
+                  ? 'GitHub merged this pull request.'
+                  : sentComments === 0
+                    ? 'GitHub has your review.'
+                    : `GitHub has your review and ${plural(sentComments, 'line comment')}.`}
               </Dialog.Description>
+              {!merged && (
+                <ToggleGroup
+                  aria-label="Merge method"
+                  options={mergeMethodOptions}
+                  value={mergeMethod}
+                  onValueChange={setMergeMethod}
+                />
+              )}
+              {(mergeRejection || merge.isError) && (
+                <p className={styles.error} role="alert">
+                  <CircleAlert aria-hidden />
+                  {mergeRejection ?? 'Could not reach GitHub. Try again.'}
+                </p>
+              )}
               <div className={styles.actions}>
                 <Button
                   render={<a href={pullRequestUrl} target="_blank" rel="noreferrer" />}
@@ -99,6 +130,14 @@ export function ReviewDialog({
                 >
                   View on GitHub
                 </Button>
+                {!merged && (
+                  <Button
+                    loading={merge.isPending}
+                    onClick={() => merge.mutate({ pullRequestId, headSha, method: mergeMethod })}
+                  >
+                    Merge pull request
+                  </Button>
+                )}
                 <Button variant="primary" onClick={() => close(false)}>
                   Done
                 </Button>

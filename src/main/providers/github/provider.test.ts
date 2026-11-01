@@ -306,6 +306,18 @@ function sentBody(fetch: ReturnType<typeof vi.fn<Fetch>>): Record<string, unknow
   return JSON.parse(body) as Record<string, unknown>;
 }
 
+describe('GitHubProvider mergePullRequest', () => {
+  it('merges only if the head is still the reviewed commit', async () => {
+    const { fetch, provider } = setup([json({ merged: true })]);
+
+    await provider.mergePullRequest('octo/app', 7, 'abc123', 'squash');
+
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/merge');
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('PUT');
+    expect(sentBody(fetch)).toEqual({ sha: 'abc123', merge_method: 'squash' });
+  });
+});
+
 describe('GitHubProvider submitReview', () => {
   it('posts the review against the commit that was reviewed', async () => {
     const { fetch, provider } = setup([json({ id: 1 })]);

@@ -906,6 +906,14 @@ test('submits a review, and only allows a comment on your own pull request', asy
             ? { status: 'rejected', message: 'Pull request is locked.' }
             : { status: 'submitted' };
         },
+        'pullRequestReviews.merge': (input) => {
+          const { method } = input as { method: string };
+          if (method === 'rebase') {
+            return { status: 'rejected', message: 'Rebase merges are not allowed.' };
+          }
+          (globalThis as { merged?: unknown }).merged = input;
+          return { status: 'merged' };
+        },
       };
       for (const [channel, handler] of Object.entries(handlers)) {
         ipcMain.removeHandler(channel);
@@ -929,6 +937,21 @@ test('submits a review, and only allows a comment on your own pull request', asy
     await page.screenshot({ path: test.info().outputPath('review-dialog.png') });
     await send.click();
     await expect(dialog.getByRole('heading', { name: 'Review submitted' })).toBeVisible();
+
+    // GitHub won't take an approval from the author, so the dialog offers to merge instead.
+    const mergeButton = dialog.getByRole('button', { name: 'Merge pull request' });
+    await dialog.getByRole('radio', { name: 'Rebase' }).click();
+    await mergeButton.click();
+    await expect(dialog.getByRole('alert')).toHaveText('Rebase merges are not allowed.');
+    await dialog.getByRole('radio', { name: 'Squash' }).click();
+    await mergeButton.click();
+    await expect(dialog.getByRole('heading', { name: 'Pull request merged' })).toBeVisible();
+    await expect(mergeButton).toBeHidden();
+    expect(await app.evaluate(() => (globalThis as { merged?: unknown }).merged)).toEqual({
+      pullRequestId: 1,
+      headSha: 'abcdef1',
+      method: 'squash',
+    });
     await dialog.getByRole('button', { name: 'Done' }).click();
     await expect(dialog).toBeHidden();
     expect(
