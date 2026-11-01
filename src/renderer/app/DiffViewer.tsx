@@ -220,7 +220,11 @@ export function DiffViewer({
         picked.set([
           {
             range: new monaco.Range(Math.min(first, last), 1, Math.max(first, last), 1),
-            options: { isWholeLine: true, className: styles.commentRange },
+            options: {
+              isWholeLine: true,
+              className: styles.commentRange,
+              linesDecorationsClassName: styles.commentRangeBar,
+            },
           },
         ]);
       const lineAt = ({ type, position }: monaco.editor.IMouseTarget) => {
@@ -492,7 +496,11 @@ export function DiffViewer({
     const shading = target.createDecorationsCollection([
       {
         range: new monaco.Range(place(shadedFirst), 1, place(shadedLast), 1),
-        options: { isWholeLine: true, className: styles.commentRange },
+        options: {
+          isWholeLine: true,
+          className: styles.commentRange,
+          linesDecorationsClassName: styles.commentRangeBar,
+        },
       },
     ]);
     return () => shading.clear();
