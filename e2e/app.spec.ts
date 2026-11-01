@@ -250,8 +250,22 @@ test('keeps split view at window size and toggles review panels independently', 
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
-            { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
+            {
+              path: 'new.ts',
+              previousPath: null,
+              status: 'added',
+              additions: 1,
+              deletions: 0,
+              hunks: null,
+            },
           ],
         },
         'pullRequestFiles.getDiff': {
@@ -531,8 +545,22 @@ test('keeps split view at window size and toggles review panels independently', 
         headSha: 'abcdef2',
         mergeBase: 'abcdef0',
         files: [
-          { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
-          { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+          {
+            path: 'a.ts',
+            previousPath: null,
+            status: 'modified',
+            additions: 1,
+            deletions: 1,
+            hunks: null,
+          },
+          {
+            path: 'new.ts',
+            previousPath: null,
+            status: 'added',
+            additions: 1,
+            deletions: 0,
+            hunks: null,
+          },
         ],
       }));
     });
@@ -594,8 +622,22 @@ test('configures review shortcuts and scrolls without focusing the code', async 
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
-            { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
+            {
+              path: 'new.ts',
+              previousPath: null,
+              status: 'added',
+              additions: 1,
+              deletions: 0,
+              hunks: null,
+            },
           ],
         },
         'pullRequestFiles.getDiff': {
@@ -841,7 +883,14 @@ test('submits a review, and only allows a comment on your own pull request', asy
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
           ],
         }),
         'pullRequestFiles.getDiff': () => ({
@@ -884,7 +933,16 @@ test('submits a review, and only allows a comment on your own pull request', asy
     await expect(dialog).toBeHidden();
     expect(
       await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
-    ).toEqual([{ pullRequestId: 1, headSha: 'abcdef1', verdict: 'comment', body: 'Nice work.' }]);
+    ).toEqual([
+      {
+        pullRequestId: 1,
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        draftIds: [],
+        verdict: 'comment',
+        body: 'Nice work.',
+      },
+    ]);
 
     // Someone else's pull request: approving needs no summary, and a refusal is shown.
     await page.evaluate(() => {
@@ -903,7 +961,7 @@ test('submits a review, and only allows a comment on your own pull request', asy
   }
 });
 
-test('drafts, edits and deletes line comments in the diff', async () => {
+test('drafts, edits, deletes and publishes line comments in the diff', async () => {
   const app = await launch();
   try {
     const page = await app.firstWindow();
@@ -913,6 +971,8 @@ test('drafts, edits and deletes line comments in the diff', async () => {
       type Draft = { id: number; body: string } & Record<string, unknown>;
       let drafts: Draft[] = [];
       let nextId = 1;
+      const submitted: unknown[] = [];
+      Object.assign(globalThis, { submittedReviews: submitted });
       const handlers: Record<string, (input: never) => unknown> = {
         'pullRequests.list': () => ({
           pullRequests: [
@@ -938,18 +998,37 @@ test('drafts, edits and deletes line comments in the diff', async () => {
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 2,
+              deletions: 2,
+              // Lines 2 and 13 changed, with 3 lines of context around each.
+              hunks: [
+                { originalStart: 1, originalCount: 5, modifiedStart: 1, modifiedCount: 5 },
+                { originalStart: 10, originalCount: 7, modifiedStart: 10, modifiedCount: 7 },
+              ],
+            },
           ],
         }),
         'pullRequestFiles.getDiff': () => ({
           original: Array.from({ length: 20 }, (_, i) => `const line${i + 1} = 1;`).join('\n'),
           modified: Array.from({ length: 20 }, (_, i) =>
-            i === 1 ? 'const line2 = 2;' : `const line${i + 1} = 1;`,
+            i === 1 || i === 12
+              ? `const line${i + 1} = 2;`
+              : i === 19
+                ? `const line20 = '${'x'.repeat(300)}';`
+                : `const line${i + 1} = 1;`,
           ).join('\n'),
           unavailable: null,
           images: null,
         }),
         'reviewDrafts.list': () => drafts,
+        'pullRequestReviews.submit': (input: unknown) => {
+          submitted.push(input);
+          return { status: 'submitted' };
+        },
         'reviewDrafts.create': (input: Record<string, unknown>) => {
           const now = new Date().toISOString();
           drafts.push({
@@ -984,19 +1063,40 @@ test('drafts, edits and deletes line comments in the diff', async () => {
     const lineNumber = (line: number) =>
       modified.locator('.line-numbers').getByText(String(line), { exact: true });
     const glyph = modified.locator('[class*="commentGlyph"]');
+    // Monaco reuses line elements as it scrolls, so lines are found by their text, not order.
+    const codeLine = (line: number) =>
+      modified.locator('.view-line').filter({ hasText: new RegExp(`line${line}\\s=`) });
+    // The point just left of a line number, where the plus shows.
+    const gutterPoint = async (line: number) => {
+      // Monaco redraws line numbers after a layout change, so the measure is retried.
+      let box: { x: number; y: number; height: number } | null = null;
+      await expect.poll(async () => (box = await lineNumber(line).boundingBox())).not.toBeNull();
+      return { x: box!.x - 8, y: box!.y + box!.height / 2 };
+    };
 
-    // Lines away from the change can take a comment too.
-    const far = await lineNumber(12).boundingBox();
-    await page.mouse.move(far!.x - 8, far!.y + far!.height / 2);
-    await expect(glyph).toHaveCount(1);
+    // Lines outside the diff's hunks can't take a comment, because GitHub would refuse it.
+    const far = await gutterPoint(7);
+    await page.mouse.move(far.x, far.y);
+    await expect(glyph).toHaveCount(0);
 
-    const near = await lineNumber(3).boundingBox();
-    await page.mouse.move(near!.x - 8, near!.y + near!.height / 2);
+    const near = await gutterPoint(3);
+    await page.mouse.move(near.x, near.y);
     await expect(glyph).toHaveCount(1);
     await glyph.click();
 
     const field = page.getByRole('textbox', { name: 'Comment on new line 3' });
     await expect(field).toBeFocused();
+    // The box stays in view when the code scrolls sideways.
+    const codeLeft = async () => (await modified.locator('.editor-scrollable').boundingBox())!.x;
+    const fieldLeft = async () => (await field.boundingBox())!.x;
+    const before = await fieldLeft();
+    await page.mouse.move(near.x + 200, near.y);
+    await page.mouse.wheel(400, 0);
+    await expect
+      .poll(async () => (await modified.locator('.view-lines').boundingBox())!.x)
+      .toBeLessThan(await codeLeft());
+    await expect.poll(fieldLeft).toBe(before);
+    await page.mouse.wheel(-400, 0);
     // Review shortcuts stay off while typing.
     await field.fill('Name this better.');
     await page.screenshot({ path: test.info().outputPath('draft-composer.png') });
@@ -1031,14 +1131,14 @@ test('drafts, edits and deletes line comments in the diff', async () => {
 
     // The shortcut comments on the line with the cursor.
     await lineNumber(2).click();
-    await modified.locator('.view-line').nth(1).click();
+    await codeLine(2).click();
     await page.keyboard.press('Control+i');
     await expect(page.getByRole('textbox', { name: 'Comment on new line 2' })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('textbox', { name: 'Comment on new line 2' })).toBeHidden();
 
     // The shortcut takes every selected line.
-    await modified.locator('.view-line').nth(9).click();
+    await codeLine(10).click();
     await page.keyboard.press('Shift+ArrowDown');
     await page.keyboard.press('Shift+ArrowDown');
     await page.keyboard.press('Control+i');
@@ -1047,13 +1147,24 @@ test('drafts, edits and deletes line comments in the diff', async () => {
     await page.keyboard.press('Escape');
     await expect(selectedRange).toBeHidden();
 
-    // Dragging down the gutter comments on several lines.
-    const top = await lineNumber(14).boundingBox();
-    const bottom = await lineNumber(16).boundingBox();
-    await page.mouse.move(top!.x - 8, top!.y + top!.height / 2);
+    // The plus on a line inside a selection comments on every selected line.
+    await codeLine(11).click();
+    await page.keyboard.press('Shift+ArrowDown');
+    const inside = await gutterPoint(12);
+    await page.mouse.move(inside.x, inside.y);
+    await glyph.click();
+    const selectedByPlus = page.getByRole('textbox', { name: 'Comment on new lines 11–12' });
+    await expect(selectedByPlus).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(selectedByPlus).toBeHidden();
+
+    // Dragging down the gutter comments on several lines, and stops at the end of the hunk.
+    const top = await gutterPoint(14);
+    const bottom = await gutterPoint(18);
+    await page.mouse.move(top.x, top.y);
     await expect(glyph).toHaveCount(1);
     await page.mouse.down();
-    await page.mouse.move(bottom!.x - 8, bottom!.y + bottom!.height / 2, { steps: 4 });
+    await page.mouse.move(bottom.x, bottom.y, { steps: 4 });
     await page.mouse.up();
     const range = page.getByRole('textbox', { name: 'Comment on new lines 14–16' });
     await expect(range).toBeFocused();
@@ -1066,6 +1177,28 @@ test('drafts, edits and deletes line comments in the diff', async () => {
     expect(
       await app.evaluate(() => (globalThis as { reviewDrafts?: () => unknown }).reviewDrafts?.()),
     ).toMatchObject([{ line: 3 }, { startLine: 14, line: 16, body: 'Pull these into a helper.' }]);
+
+    // Both drafts are published with the review.
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Publishes 2 line comments with this review.');
+    await dialog.getByRole('radio', { name: 'Comment' }).click();
+    await dialog.getByLabel('Summary').fill('A few notes.');
+    await dialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(dialog).toContainText('GitHub has your review and 2 line comments.');
+    await dialog.getByRole('button', { name: 'Done' }).click();
+    expect(
+      await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
+    ).toEqual([
+      {
+        pullRequestId: 1,
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        draftIds: [1, 2],
+        verdict: 'comment',
+        body: 'A few notes.',
+      },
+    ]);
     await rangeCard.getByRole('button', { name: 'Delete draft' }).click();
     await expect(rangeCard).toBeHidden();
 

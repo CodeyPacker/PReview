@@ -51,5 +51,10 @@
 
 /* The lines a comment covers. */
 .commentRange {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* A bar beside the line numbers, so the lines stand out on added and removed lines too. */
+.commentRangeBar {
+  background: var(--accent);
 }

@@ -32,10 +32,12 @@ function removeZone(entry: Placed) {
   }
 }
 
-// Zones span the code area, so they follow the editor's width.
+// Zones fill the visible code area. Monaco scrolls zones sideways with the code, so they are
+// moved back by the same amount to stay in view.
 function fitWidth(entry: Placed) {
   const layout = entry.editor.getLayoutInfo();
   entry.content.style.width = `${Math.max(0, layout.contentWidth - layout.verticalScrollbarWidth)}px`;
+  entry.content.style.transform = `translateX(${entry.editor.getScrollLeft()}px)`;
 }
 
 // Opens space between editor lines for each zone and returns an element per zone key to
@@ -114,13 +116,19 @@ export function useViewZones(
     );
 
     const editors = new Set([...current.values()].map((entry) => entry.editor));
-    const subscriptions = [...editors].map((editor) =>
-      editor.onDidLayoutChange(() => {
+    const subscriptions = [...editors].flatMap((editor) => {
+      const fit = () => {
         for (const entry of current.values()) {
           if (entry.editor === editor) fitWidth(entry);
         }
-      }),
-    );
+      };
+      return [
+        editor.onDidLayoutChange(fit),
+        editor.onDidScrollChange((event) => {
+          if (event.scrollLeftChanged) fit();
+        }),
+      ];
+    });
     return () => subscriptions.forEach((subscription) => subscription.dispose());
   }, [zones, editorFor, modelVersion, className]);
 

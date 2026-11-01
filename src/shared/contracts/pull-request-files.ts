@@ -1,5 +1,15 @@
 import { z } from 'zod';
 
+// One part of a file's diff as the provider shows it: changed lines and the context around
+// them. A side with a count of 0 has no lines in the hunk.
+export const diffHunkSchema = z.object({
+  originalStart: z.number().int().nonnegative(),
+  originalCount: z.number().int().nonnegative(),
+  modifiedStart: z.number().int().nonnegative(),
+  modifiedCount: z.number().int().nonnegative(),
+});
+export type DiffHunk = z.infer<typeof diffHunkSchema>;
+
 export const pullRequestFileSchema = z.object({
   path: z.string(),
   // The path before a rename or copy.
@@ -7,6 +17,9 @@ export const pullRequestFileSchema = z.object({
   status: z.enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed']),
   additions: z.number().int(),
   deletions: z.number().int(),
+  // Line comments go inside these. null when the provider shows no diff for the file, for
+  // example when it is too large.
+  hunks: z.array(diffHunkSchema).nullable(),
 });
 export type PullRequestFile = z.infer<typeof pullRequestFileSchema>;
 

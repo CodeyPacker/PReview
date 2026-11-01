@@ -9,6 +9,7 @@ import type {
   ProviderRepository,
 } from '../types.ts';
 import type { GitHubClient } from './client.ts';
+import { parseHunks } from './patch.ts';
 
 const repositorySchema = z.object({
   id: z.number(),
@@ -47,6 +48,8 @@ const changedFileSchema = z.object({
   status: z.enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed', 'unchanged']),
   additions: z.number(),
   deletions: z.number(),
+  // Left out for files too large or binary for GitHub to diff.
+  patch: z.string().optional(),
 });
 
 const pullRequestRefsSchema = z.object({
@@ -142,6 +145,7 @@ export class GitHubProvider implements GitProvider {
         status: file.status === 'unchanged' ? 'changed' : file.status,
         additions: file.additions,
         deletions: file.deletions,
+        hunks: file.patch === undefined ? null : parseHunks(file.patch),
       };
     });
   }
@@ -190,6 +194,16 @@ export class GitHubProvider implements GitProvider {
       commit_id: review.headSha,
       body: review.body,
       event: reviewEvents[review.verdict],
+      comments: review.comments.map((comment) => {
+        const side = comment.side === 'original' ? 'LEFT' : 'RIGHT';
+        return {
+          path: comment.path,
+          body: comment.body,
+          line: comment.line,
+          side,
+          ...(comment.startLine !== null && { start_line: comment.startLine, start_side: side }),
+        };
+      }),
     });
   }
 }
