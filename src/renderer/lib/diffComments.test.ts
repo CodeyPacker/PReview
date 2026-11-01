@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isCommentableLine, originalLineInModified, type LineChange } from './diffComments.ts';
+import { originalLineInModified, type LineChange } from './diffComments.ts';
 
 // Old lines 10-11 became new lines 10-12.
 const modifiedBlock: LineChange = {
@@ -22,33 +22,6 @@ const deletion: LineChange = {
   modifiedStartLineNumber: 52,
   modifiedEndLineNumber: 0,
 };
-
-describe('isCommentableLine', () => {
-  it('takes changed lines and 3 lines of context around them', () => {
-    const changes = [modifiedBlock];
-    expect(isCommentableLine(changes, 'modified', 6)).toBe(false);
-    expect(isCommentableLine(changes, 'modified', 7)).toBe(true);
-    expect(isCommentableLine(changes, 'modified', 12)).toBe(true);
-    expect(isCommentableLine(changes, 'modified', 15)).toBe(true);
-    expect(isCommentableLine(changes, 'modified', 16)).toBe(false);
-    expect(isCommentableLine(changes, 'original', 14)).toBe(true);
-    expect(isCommentableLine(changes, 'original', 15)).toBe(false);
-  });
-
-  it('takes the context around a side with no lines in the change', () => {
-    expect(isCommentableLine([insertion], 'original', 27)).toBe(false);
-    expect(isCommentableLine([insertion], 'original', 28)).toBe(true);
-    expect(isCommentableLine([insertion], 'original', 33)).toBe(true);
-    expect(isCommentableLine([insertion], 'original', 34)).toBe(false);
-    expect(isCommentableLine([deletion], 'modified', 49)).toBe(false);
-    expect(isCommentableLine([deletion], 'modified', 50)).toBe(true);
-    expect(isCommentableLine([deletion], 'modified', 55)).toBe(true);
-  });
-
-  it('takes nothing when there are no changes', () => {
-    expect(isCommentableLine([], 'modified', 1)).toBe(false);
-  });
-});
 
 describe('originalLineInModified', () => {
   const changes = [modifiedBlock, insertion, deletion];

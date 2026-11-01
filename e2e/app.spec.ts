@@ -985,10 +985,10 @@ test('drafts, edits and deletes line comments in the diff', async () => {
       modified.locator('.line-numbers').getByText(String(line), { exact: true });
     const glyph = modified.locator('[class*="commentGlyph"]');
 
-    // Lines far from the change can't take a comment, because GitHub would refuse it.
+    // Lines away from the change can take a comment too.
     const far = await lineNumber(12).boundingBox();
     await page.mouse.move(far!.x - 8, far!.y + far!.height / 2);
-    await expect(glyph).toHaveCount(0);
+    await expect(glyph).toHaveCount(1);
 
     const near = await lineNumber(3).boundingBox();
     await page.mouse.move(near!.x - 8, near!.y + near!.height / 2);

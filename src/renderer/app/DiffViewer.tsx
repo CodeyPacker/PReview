@@ -21,7 +21,7 @@ import {
 } from './DraftComments.tsx';
 import { useThemeVersion } from './useThemeVersion.ts';
 import { useViewZones, type ViewZone } from './useViewZones.ts';
-import { isCommentableLine, originalLineInModified, type LineChange } from '../lib/diffComments.ts';
+import { originalLineInModified, type LineChange } from '../lib/diffComments.ts';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
 import { createFileScroller } from '../lib/fileScroller.ts';
 
@@ -115,15 +115,13 @@ export function DiffViewer({
   const [lineChanges, setLineChanges] = useState<readonly LineChange[]>([]);
 
   const unified = mode === 'unified';
-  const canComment = (side: DiffSide, line: number) =>
-    drafts !== undefined &&
-    !(unified && side === 'original') &&
-    isCommentableLine(lineChanges, side, line);
+  // Any line can take a comment. The unified view only shows the new file's lines.
+  const canComment = (side: DiffSide) => drafts !== undefined && !(unified && side === 'original');
 
   const openComposer = (next: DraftComposerState) => drafts?.onComposerChange(next);
 
   const commentOnLine = (side: DiffSide, line: number) => {
-    if (canComment(side, line)) openComposer({ path, side, line, body: '' });
+    if (canComment(side)) openComposer({ path, side, line, body: '' });
   };
   const commentOnGutter = useEffectEvent(commentOnLine);
   const isCommentable = useEffectEvent(canComment);
@@ -195,7 +193,7 @@ export function DiffViewer({
       const hover = sideEditor.createDecorationsCollection();
       const lineAt = (event: monaco.editor.IEditorMouseEvent) => {
         const line = event.target.position?.lineNumber;
-        return line !== undefined && isCommentable(side, line) ? line : undefined;
+        return line !== undefined && isCommentable(side) ? line : undefined;
       };
       return [
         hover,

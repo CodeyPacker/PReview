@@ -1,5 +1,3 @@
-import type { DiffSide } from '../../shared/contracts/review-drafts.ts';
-
 // One changed region, as Monaco reports it. An end of 0 means the side has no lines in the
 // region, and its start is then the line the other side's lines come after.
 export interface LineChange {
@@ -7,30 +5,6 @@ export interface LineChange {
   originalEndLineNumber: number;
   modifiedStartLineNumber: number;
   modifiedEndLineNumber: number;
-}
-
-// GitHub only takes line comments inside a diff hunk: the changed lines plus 3 lines of
-// context on each side.
-const CONTEXT = 3;
-
-function range(change: LineChange, side: DiffSide): [number, number] {
-  const start =
-    side === 'original' ? change.originalStartLineNumber : change.modifiedStartLineNumber;
-  const end = side === 'original' ? change.originalEndLineNumber : change.modifiedEndLineNumber;
-  // With no lines on this side, the hunk's context is the lines around the gap.
-  return end === 0 ? [start - CONTEXT + 1, start + CONTEXT] : [start - CONTEXT, end + CONTEXT];
-}
-
-// Whether a line on one side of the diff can take a comment.
-export function isCommentableLine(
-  changes: readonly LineChange[],
-  side: DiffSide,
-  line: number,
-): boolean {
-  return changes.some((change) => {
-    const [start, end] = range(change, side);
-    return line >= start && line <= end;
-  });
 }
 
 // Where an old-file line sits in the new file, for showing old-side comments in the
