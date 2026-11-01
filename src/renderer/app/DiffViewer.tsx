@@ -210,8 +210,7 @@ export function DiffViewer({
       setLineChanges(diffEditor.getLineChanges() ?? []),
     );
     // A plus in the gutter of a line that can take a comment, under the pointer. Dragging
-    // from it down or up the gutter picks several lines.
-    let drag: { side: DiffSide; first: number; last: number } | undefined;
+    // from it up or down picks several lines.
     const gutters = (['original', 'modified'] as const).map((side) => {
       const sideEditor =
         side === 'original' ? diffEditor.getOriginalEditor() : diffEditor.getModifiedEditor();
@@ -224,8 +223,7 @@ export function DiffViewer({
             options: { isWholeLine: true, className: styles.commentRange },
           },
         ]);
-      const lineAt = (event: monaco.editor.IEditorMouseEvent) => {
-        const { type, position } = event.target;
+      const lineAt = ({ type, position }: monaco.editor.IMouseTarget) => {
         // Comments sit in view zones, which report the line above them.
         const inZone =
           type === monaco.editor.MouseTargetType.CONTENT_VIEW_ZONE ||
@@ -236,12 +234,7 @@ export function DiffViewer({
         hover,
         picked,
         sideEditor.onMouseMove((event) => {
-          const line = lineAt(event);
-          // A range stops at the edge of the hunk it started in.
-          if (drag?.side === side && line !== undefined && isCommentable(side, drag.first, line)) {
-            drag.last = line;
-            showPicked(drag.first, line);
-          }
+          const line = lineAt(event.target);
           hover.set(
             line === undefined || !isCommentable(side, line)
               ? []
@@ -255,7 +248,7 @@ export function DiffViewer({
         }),
         sideEditor.onMouseLeave(() => hover.clear()),
         sideEditor.onMouseDown((event) => {
-          const line = lineAt(event);
+          const line = lineAt(event.target);
           if (
             line === undefined ||
             event.target.type !== monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
@@ -267,7 +260,7 @@ export function DiffViewer({
           // The plus on a line inside a selection of several lines comments on all of them.
           const selection = sideEditor.getSelection();
           const selected = selection && selectedLines(selection);
-          drag =
+          const drag =
             selected &&
             selected.first < selected.last &&
             line >= selected.first &&
@@ -276,16 +269,30 @@ export function DiffViewer({
               ? { side, ...selected }
               : { side, first: line, last: line };
           showPicked(drag.first, drag.last);
-          // The pointer can be released outside the editor.
-          window.addEventListener(
-            'mouseup',
-            () => {
-              if (drag) commentOnGutter(drag.side, drag.first, drag.last);
-              drag = undefined;
-              picked.clear();
-            },
-            { once: true },
-          );
+          // The drag is followed on the window, because Monaco doesn't report every pointer move
+          // while a button is held, and the pointer can leave the editor. A range stops at the
+          // edge of the hunk it started in.
+          const follow = (move: MouseEvent) => {
+            const target = sideEditor.getTargetAtClientPoint(move.clientX, move.clientY);
+            const over = target ? lineAt(target) : undefined;
+            if (over !== undefined && isCommentable(side, drag.first, over)) {
+              drag.last = over;
+              showPicked(drag.first, over);
+            }
+          };
+          // Holding the button would otherwise select text or start a native drag.
+          const block = (other: Event) => other.preventDefault();
+          const finish = () => {
+            window.removeEventListener('mousemove', follow, true);
+            window.removeEventListener('selectstart', block, true);
+            window.removeEventListener('dragstart', block, true);
+            picked.clear();
+            commentOnGutter(drag.side, drag.first, drag.last);
+          };
+          window.addEventListener('mousemove', follow, true);
+          window.addEventListener('selectstart', block, true);
+          window.addEventListener('dragstart', block, true);
+          window.addEventListener('mouseup', finish, { capture: true, once: true });
         }),
       ] as const;
     });
