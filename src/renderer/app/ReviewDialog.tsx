@@ -22,6 +22,8 @@ export interface ReviewDialogProps {
   draftIds: number[];
   // Drafts on this diff that GitHub can't take, because their lines are outside it.
   draftsOutsideDiff: number;
+  // Unpublished findings to add to the review's body.
+  findingIds: number[];
   // GitHub refuses approvals and change requests from a pull request's own author.
   ownPullRequest: boolean;
 }
@@ -55,6 +57,7 @@ export function ReviewDialog({
   mergeBase,
   draftIds,
   draftsOutsideDiff,
+  findingIds,
   ownPullRequest,
 }: ReviewDialogProps) {
   const submit = useSubmitReview();
@@ -71,15 +74,24 @@ export function ReviewDialog({
   const deleteRejection =
     deleteBranch.data?.status === 'rejected' ? deleteBranch.data.message : undefined;
 
-  const needsSummary = verdict !== 'approve';
+  // The findings fill the body when there are some, so no summary is needed then.
+  const needsSummary = verdict !== 'approve' && findingIds.length === 0;
   const canSubmit = !submit.isPending && (!needsSummary || body.trim() !== '');
   const result = submit.data;
   const submitted = result?.status === 'submitted';
   const rejection = result?.status === 'rejected' ? result.message : undefined;
   const done = submitted || merged;
   const sentComments = submit.variables?.draftIds.length ?? 0;
+  const sentFindings = submit.variables?.findingIds.length ?? 0;
+  const sent = [
+    sentComments > 0 && plural(sentComments, 'line comment'),
+    sentFindings > 0 && plural(sentFindings, 'finding'),
+  ]
+    .filter(Boolean)
+    .join(' and ');
   const draftNote = [
     draftIds.length > 0 && `Publishes ${plural(draftIds.length, 'line comment')} with this review.`,
+    findingIds.length > 0 && `Adds ${plural(findingIds.length, 'finding')} after the summary.`,
     draftsOutsideDiff > 0 &&
       `Drafts outside the diff stay here: ${draftsOutsideDiff}. GitHub only takes comments on changed lines and the lines around them.`,
   ]
@@ -137,9 +149,9 @@ export function ReviewDialog({
                   ? branchDeleted
                     ? 'GitHub merged this pull request and deleted its branch.'
                     : 'GitHub merged this pull request.'
-                  : sentComments === 0
-                    ? 'GitHub has your review.'
-                    : `GitHub has your review and ${plural(sentComments, 'line comment')}.`}
+                  : sent
+                    ? `GitHub has your review and ${sent}.`
+                    : 'GitHub has your review.'}
               </Dialog.Description>
               {!merged && mergeMethodPicker}
               {mergeError}
@@ -178,7 +190,15 @@ export function ReviewDialog({
               onSubmit={(event) => {
                 event.preventDefault();
                 if (canSubmit) {
-                  submit.mutate({ pullRequestId, headSha, mergeBase, draftIds, verdict, body });
+                  submit.mutate({
+                    pullRequestId,
+                    headSha,
+                    mergeBase,
+                    draftIds,
+                    findingIds,
+                    verdict,
+                    body,
+                  });
                 }
               }}
             >

@@ -1,0 +1,115 @@
+/* Findings dialog. Read values from tokens.css custom properties only. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  transition: opacity var(--duration-base) var(--ease-standard);
+}
+
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  gap: var(--space-16);
+  width: min(640px, calc(100vw - 2 * var(--space-32)));
+  padding: var(--space-24);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow-lg);
+  translate: -50% -50%;
+  transition:
+    opacity var(--duration-base) var(--ease-standard),
+    scale var(--duration-base) var(--ease-spring);
+}
+
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  scale: 0.96;
+}
+
+.form {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.popup h2 {
+  margin: 0;
+}
+
+.description {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin: 0;
+  color: var(--danger);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.error svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-4);
+  max-height: 50vh;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+.steps {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.heading {
+  margin: 0;
+  color: var(--ink);
+  font: 600 var(--text-md) / 18px var(--font-sans);
+}
+
+.text {
+  margin: 0;
+  color: var(--ink);
+  font: 400 var(--text-base) / 20px var(--font-sans);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* Delete sits on its own at the start, the other actions at the end. */
+.splitActions {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}

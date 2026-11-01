@@ -158,4 +158,29 @@ export const migrations: readonly Migration[] = [
         CHECK (start_line IS NULL OR start_line < line);
     `,
   },
+  {
+    version: 9,
+    name: 'review_findings',
+    // Problems with a pull request that aren't tied to a code line. steps is empty when there
+    // are none. published_at is null until the finding goes out with a review. Findings go
+    // with their pull request when it closes.
+    sql: `
+      CREATE TABLE review_findings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pull_request_id INTEGER NOT NULL REFERENCES pull_requests (id) ON DELETE CASCADE,
+        category TEXT NOT NULL
+          CHECK (category IN ('bug', 'ui-bug', 'security', 'improvement', 'test')),
+        description TEXT NOT NULL,
+        steps TEXT NOT NULL DEFAULT '',
+        validation TEXT NOT NULL DEFAULT 'pending'
+          CHECK (validation IN ('pending', 'validated', 'rejected')),
+        resolution TEXT NOT NULL DEFAULT 'open' CHECK (resolution IN ('open', 'resolved')),
+        published_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+
+      CREATE INDEX review_findings_pull_request ON review_findings (pull_request_id);
+    `,
+  },
 ];

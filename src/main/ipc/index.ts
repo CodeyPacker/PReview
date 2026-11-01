@@ -9,6 +9,13 @@ import {
   listReviewDrafts,
   updateReviewDraft,
 } from '../services/pull-requests/drafts.ts';
+import {
+  createReviewFinding,
+  deleteReviewFinding,
+  listReviewFindings,
+  setReviewFindingResolution,
+  updateReviewFinding,
+} from '../services/pull-requests/findings.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
@@ -115,5 +122,13 @@ export function registerIpcHandlers(
   handle('reviewDrafts.update', (draft) => updateReviewDraft(db, draft));
   handle('reviewDrafts.delete', ({ pullRequestId, id }) =>
     deleteReviewDraft(db, pullRequestId, id),
+  );
+
+  handle('reviewFindings.list', ({ pullRequestId }) => listReviewFindings(db, pullRequestId));
+  handle('reviewFindings.create', (finding) => createReviewFinding(db, finding));
+  handle('reviewFindings.update', (finding) => updateReviewFinding(db, finding));
+  handle('reviewFindings.setResolution', (change) => setReviewFindingResolution(db, change));
+  handle('reviewFindings.delete', ({ pullRequestId, id }) =>
+    deleteReviewFinding(db, pullRequestId, id),
   );
 }
