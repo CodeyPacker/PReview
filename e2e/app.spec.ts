@@ -250,8 +250,22 @@ test('keeps split view at window size and toggles review panels independently', 
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
-            { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
+            {
+              path: 'new.ts',
+              previousPath: null,
+              status: 'added',
+              additions: 1,
+              deletions: 0,
+              hunks: null,
+            },
           ],
         },
         'pullRequestFiles.getDiff': {
@@ -531,8 +545,22 @@ test('keeps split view at window size and toggles review panels independently', 
         headSha: 'abcdef2',
         mergeBase: 'abcdef0',
         files: [
-          { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
-          { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+          {
+            path: 'a.ts',
+            previousPath: null,
+            status: 'modified',
+            additions: 1,
+            deletions: 1,
+            hunks: null,
+          },
+          {
+            path: 'new.ts',
+            previousPath: null,
+            status: 'added',
+            additions: 1,
+            deletions: 0,
+            hunks: null,
+          },
         ],
       }));
     });
@@ -594,8 +622,22 @@ test('configures review shortcuts and scrolls without focusing the code', async 
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
-            { path: 'new.ts', previousPath: null, status: 'added', additions: 1, deletions: 0 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
+            {
+              path: 'new.ts',
+              previousPath: null,
+              status: 'added',
+              additions: 1,
+              deletions: 0,
+              hunks: null,
+            },
           ],
         },
         'pullRequestFiles.getDiff': {
@@ -841,7 +883,14 @@ test('submits a review, and only allows a comment on your own pull request', asy
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
           ],
         }),
         'pullRequestFiles.getDiff': () => ({
@@ -884,7 +933,16 @@ test('submits a review, and only allows a comment on your own pull request', asy
     await expect(dialog).toBeHidden();
     expect(
       await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
-    ).toEqual([{ pullRequestId: 1, headSha: 'abcdef1', verdict: 'comment', body: 'Nice work.' }]);
+    ).toEqual([
+      {
+        pullRequestId: 1,
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        draftIds: [],
+        verdict: 'comment',
+        body: 'Nice work.',
+      },
+    ]);
 
     // Someone else's pull request: approving needs no summary, and a refusal is shown.
     await page.evaluate(() => {
@@ -903,7 +961,7 @@ test('submits a review, and only allows a comment on your own pull request', asy
   }
 });
 
-test('drafts, edits and deletes line comments in the diff', async () => {
+test('drafts, edits, deletes and publishes line comments in the diff', async () => {
   const app = await launch();
   try {
     const page = await app.firstWindow();
@@ -913,6 +971,8 @@ test('drafts, edits and deletes line comments in the diff', async () => {
       type Draft = { id: number; body: string } & Record<string, unknown>;
       let drafts: Draft[] = [];
       let nextId = 1;
+      const submitted: unknown[] = [];
+      Object.assign(globalThis, { submittedReviews: submitted });
       const handlers: Record<string, (input: never) => unknown> = {
         'pullRequests.list': () => ({
           pullRequests: [
@@ -938,18 +998,33 @@ test('drafts, edits and deletes line comments in the diff', async () => {
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
           files: [
-            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+            {
+              path: 'a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 2,
+              deletions: 2,
+              // Lines 2 and 13 changed, with 3 lines of context around each.
+              hunks: [
+                { originalStart: 1, originalCount: 5, modifiedStart: 1, modifiedCount: 5 },
+                { originalStart: 10, originalCount: 7, modifiedStart: 10, modifiedCount: 7 },
+              ],
+            },
           ],
         }),
         'pullRequestFiles.getDiff': () => ({
           original: Array.from({ length: 20 }, (_, i) => `const line${i + 1} = 1;`).join('\n'),
           modified: Array.from({ length: 20 }, (_, i) =>
-            i === 1 ? 'const line2 = 2;' : `const line${i + 1} = 1;`,
+            i === 1 || i === 12 ? `const line${i + 1} = 2;` : `const line${i + 1} = 1;`,
           ).join('\n'),
           unavailable: null,
           images: null,
         }),
         'reviewDrafts.list': () => drafts,
+        'pullRequestReviews.submit': (input: unknown) => {
+          submitted.push(input);
+          return { status: 'submitted' };
+        },
         'reviewDrafts.create': (input: Record<string, unknown>) => {
           const now = new Date().toISOString();
           drafts.push({
@@ -985,10 +1060,10 @@ test('drafts, edits and deletes line comments in the diff', async () => {
       modified.locator('.line-numbers').getByText(String(line), { exact: true });
     const glyph = modified.locator('[class*="commentGlyph"]');
 
-    // Lines away from the change can take a comment too.
-    const far = await lineNumber(12).boundingBox();
+    // Lines outside the diff's hunks can't take a comment, because GitHub would refuse it.
+    const far = await lineNumber(7).boundingBox();
     await page.mouse.move(far!.x - 8, far!.y + far!.height / 2);
-    await expect(glyph).toHaveCount(1);
+    await expect(glyph).toHaveCount(0);
 
     const near = await lineNumber(3).boundingBox();
     await page.mouse.move(near!.x - 8, near!.y + near!.height / 2);
@@ -1047,9 +1122,9 @@ test('drafts, edits and deletes line comments in the diff', async () => {
     await page.keyboard.press('Escape');
     await expect(selectedRange).toBeHidden();
 
-    // Dragging down the gutter comments on several lines.
+    // Dragging down the gutter comments on several lines, and stops at the end of the hunk.
     const top = await lineNumber(14).boundingBox();
-    const bottom = await lineNumber(16).boundingBox();
+    const bottom = await lineNumber(18).boundingBox();
     await page.mouse.move(top!.x - 8, top!.y + top!.height / 2);
     await expect(glyph).toHaveCount(1);
     await page.mouse.down();
@@ -1066,6 +1141,28 @@ test('drafts, edits and deletes line comments in the diff', async () => {
     expect(
       await app.evaluate(() => (globalThis as { reviewDrafts?: () => unknown }).reviewDrafts?.()),
     ).toMatchObject([{ line: 3 }, { startLine: 14, line: 16, body: 'Pull these into a helper.' }]);
+
+    // Both drafts are published with the review.
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Publishes 2 line comments with this review.');
+    await dialog.getByRole('radio', { name: 'Comment' }).click();
+    await dialog.getByLabel('Summary').fill('A few notes.');
+    await dialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(dialog).toContainText('GitHub has your review and 2 line comments.');
+    await dialog.getByRole('button', { name: 'Done' }).click();
+    expect(
+      await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
+    ).toEqual([
+      {
+        pullRequestId: 1,
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        draftIds: [1, 2],
+        verdict: 'comment',
+        body: 'A few notes.',
+      },
+    ]);
     await rangeCard.getByRole('button', { name: 'Delete draft' }).click();
     await expect(rangeCard).toBeHidden();
 

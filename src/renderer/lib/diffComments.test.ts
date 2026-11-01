@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { originalLineInModified, selectedLines, type LineChange } from './diffComments.ts';
+import {
+  hunkIndex,
+  inOneHunk,
+  originalLineInModified,
+  selectedLines,
+  type LineChange,
+} from './diffComments.ts';
 
 // Old lines 10-11 became new lines 10-12.
 const modifiedBlock: LineChange = {
@@ -67,5 +73,41 @@ describe('selectedLines', () => {
       first: 4,
       last: 4,
     });
+  });
+});
+
+describe('hunkIndex', () => {
+  const hunks = [
+    { originalStart: 1, originalCount: 4, modifiedStart: 1, modifiedCount: 5 },
+    { originalStart: 40, originalCount: 3, modifiedStart: 41, modifiedCount: 0 },
+  ];
+
+  it('finds the hunk a line is in on its side', () => {
+    expect(hunkIndex(hunks, 'modified', 5)).toBe(0);
+    expect(hunkIndex(hunks, 'original', 5)).toBe(-1);
+    expect(hunkIndex(hunks, 'original', 42)).toBe(1);
+  });
+
+  it('finds no hunk on a side with no lines in it, or without hunks', () => {
+    expect(hunkIndex(hunks, 'modified', 41)).toBe(-1);
+    expect(hunkIndex(null, 'modified', 1)).toBe(-1);
+  });
+});
+
+describe('inOneHunk', () => {
+  const hunks = [
+    { originalStart: 1, originalCount: 4, modifiedStart: 1, modifiedCount: 5 },
+    { originalStart: 40, originalCount: 3, modifiedStart: 41, modifiedCount: 3 },
+  ];
+
+  it('takes lines inside one hunk', () => {
+    expect(inOneHunk(hunks, 'modified', 2)).toBe(true);
+    expect(inOneHunk(hunks, 'modified', 1, 5)).toBe(true);
+  });
+
+  it('refuses ranges across hunks or past their edge', () => {
+    expect(inOneHunk(hunks, 'modified', 4, 41)).toBe(false);
+    expect(inOneHunk(hunks, 'modified', 4, 6)).toBe(false);
+    expect(inOneHunk(hunks, 'modified', 20)).toBe(false);
   });
 });

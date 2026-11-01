@@ -6,8 +6,11 @@ export type ReviewVerdict = z.infer<typeof reviewVerdictSchema>;
 
 export const submitReviewInputSchema = z.object({
   pullRequestId: z.number().int(),
-  // The commit the reviewer was looking at.
+  // The commits of the diff the reviewer was looking at.
   headSha: commitShaSchema,
+  mergeBase: commitShaSchema,
+  // Drafts written on that diff to publish as line comments. Each must be inside a diff hunk.
+  draftIds: z.array(z.number().int()),
   verdict: reviewVerdictSchema,
   body: z.string().max(65_536),
 });

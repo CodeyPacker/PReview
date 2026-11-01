@@ -2,7 +2,7 @@
 // Read operations only. Write operations (reviews, replies, thread resolution, merge) are added
 // when the features that need them are built.
 
-import type { PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
+import type { DiffHunk, PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
 
 export type ProviderName = 'github';
 
@@ -45,6 +45,8 @@ export interface ProviderChangedFile {
   status: PullRequestFile['status'];
   additions: number;
   deletions: number;
+  // null when the provider shows no diff for the file.
+  hunks: DiffHunk[] | null;
 }
 
 // Where a pull request is now. Read live, because the synced copy can be a minute old.
@@ -55,12 +57,24 @@ export interface ProviderPullRequestRefs {
 
 export type ReviewVerdict = 'approve' | 'request-changes' | 'comment';
 
+// A comment on lines of one side of a file's diff. It runs from startLine to line, or is on
+// line alone when startLine is null. The lines must be inside one diff hunk.
+export interface ProviderReviewComment {
+  path: string;
+  side: 'original' | 'modified';
+  startLine: number | null;
+  line: number;
+  body: string;
+}
+
 export interface ProviderReview {
   verdict: ReviewVerdict;
   // The summary shown with the review. Required for comment and request-changes.
   body: string;
   // The commit the reviewer looked at.
   headSha: string;
+  // Line comments published with the review.
+  comments: ProviderReviewComment[];
 }
 
 export interface GitProvider {

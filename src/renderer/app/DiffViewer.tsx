@@ -10,6 +10,7 @@ import {
   type Ref,
 } from 'react';
 import { createPortal } from 'react-dom';
+import type { DiffHunk } from '../../shared/contracts/pull-request-files.ts';
 import type { DiffSide, ReviewDraft } from '../../shared/contracts/review-drafts.ts';
 import { definePreviewTheme, monaco, monoFont } from './monaco.ts';
 import styles from './DiffViewer.module.css';
@@ -21,7 +22,12 @@ import {
 } from './DraftComments.tsx';
 import { useThemeVersion } from './useThemeVersion.ts';
 import { useViewZones, type ViewZone } from './useViewZones.ts';
-import { originalLineInModified, selectedLines, type LineChange } from '../lib/diffComments.ts';
+import {
+  inOneHunk,
+  originalLineInModified,
+  selectedLines,
+  type LineChange,
+} from '../lib/diffComments.ts';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
 import { createFileScroller } from '../lib/fileScroller.ts';
 
@@ -39,6 +45,8 @@ export interface DiffViewerHandle {
 export interface DiffViewerDrafts {
   // This file's drafts at the commits on show.
   items: readonly ReviewDraft[];
+  // The file's diff hunks. Comments only go on lines inside them.
+  hunks: readonly DiffHunk[] | null;
   author: DraftAuthor;
   // The comment being written, when it is on this file.
   composer: DraftComposerState | undefined;
@@ -114,13 +122,17 @@ export function DiffViewer({
   const [lineChanges, setLineChanges] = useState<readonly LineChange[]>([]);
 
   const unified = mode === 'unified';
-  // Any line can take a comment. The unified view only shows the new file's lines.
-  const canComment = (side: DiffSide) => drafts !== undefined && !(unified && side === 'original');
+  // GitHub takes line comments inside a diff hunk only, and a comment on several lines
+  // inside one hunk. The unified view only takes comments on the new file's lines.
+  const canComment = (side: DiffSide, first: number, last = first) =>
+    drafts !== undefined &&
+    !(unified && side === 'original') &&
+    inOneHunk(drafts.hunks, side, first, last);
 
   const openComposer = (next: DraftComposerState) => drafts?.onComposerChange(next);
 
   const commentOnLines = (side: DiffSide, first: number, last: number) => {
-    if (!canComment(side)) return;
+    if (!canComment(side, first, last)) return;
     const startLine = Math.min(first, last);
     const line = Math.max(first, last);
     openComposer({
@@ -218,19 +230,20 @@ export function DiffViewer({
         const inZone =
           type === monaco.editor.MouseTargetType.CONTENT_VIEW_ZONE ||
           type === monaco.editor.MouseTargetType.GUTTER_VIEW_ZONE;
-        return position && !inZone && isCommentable(side) ? position.lineNumber : undefined;
+        return position && !inZone ? position.lineNumber : undefined;
       };
       return [
         hover,
         picked,
         sideEditor.onMouseMove((event) => {
           const line = lineAt(event);
-          if (drag?.side === side && line !== undefined) {
+          // A range stops at the edge of the hunk it started in.
+          if (drag?.side === side && line !== undefined && isCommentable(side, drag.first, line)) {
             drag.last = line;
             showPicked(drag.first, line);
           }
           hover.set(
-            line === undefined
+            line === undefined || !isCommentable(side, line)
               ? []
               : [
                   {
@@ -245,7 +258,8 @@ export function DiffViewer({
           const line = lineAt(event);
           if (
             line === undefined ||
-            event.target.type !== monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN
+            event.target.type !== monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+            !isCommentable(side, line)
           ) {
             return;
           }

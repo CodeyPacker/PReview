@@ -1,3 +1,6 @@
+import type { DiffHunk } from '../../shared/contracts/pull-request-files.ts';
+import type { DiffSide } from '../../shared/contracts/review-drafts.ts';
+
 // One changed region, as Monaco reports it. An end of 0 means the side has no lines in the
 // region, and its start is then the line the other side's lines come after.
 export interface LineChange {
@@ -44,4 +47,25 @@ export function selectedLines(selection: {
   const { startLineNumber: first, endLineNumber, endColumn } = selection;
   const last = endLineNumber > first && endColumn === 1 ? endLineNumber - 1 : endLineNumber;
   return { first, last };
+}
+
+// The index of the hunk a line is in on one side of the diff, or -1. Line comments only go
+// inside hunks, and a comment on several lines stays inside one.
+export function hunkIndex(hunks: readonly DiffHunk[] | null, side: DiffSide, line: number): number {
+  return (hunks ?? []).findIndex((hunk) => {
+    const start = side === 'original' ? hunk.originalStart : hunk.modifiedStart;
+    const count = side === 'original' ? hunk.originalCount : hunk.modifiedCount;
+    return line >= start && line < start + count;
+  });
+}
+
+// Whether lines first to last can take one comment: all inside the same hunk.
+export function inOneHunk(
+  hunks: readonly DiffHunk[] | null,
+  side: DiffSide,
+  first: number,
+  last = first,
+): boolean {
+  const hunk = hunkIndex(hunks, side, first);
+  return hunk >= 0 && hunkIndex(hunks, side, last) === hunk;
 }

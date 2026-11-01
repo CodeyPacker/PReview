@@ -225,7 +225,13 @@ describe('GitHubProvider changed files', () => {
   it('lists the files of a pull request', async () => {
     const { fetch, provider } = setup([
       json([
-        { filename: 'src/a.ts', status: 'modified', additions: 3, deletions: 1 },
+        {
+          filename: 'src/a.ts',
+          status: 'modified',
+          additions: 3,
+          deletions: 1,
+          patch: '@@ -1,3 +1,5 @@\n a\n-b\n+b2\n+b3\n+b4\n c',
+        },
         {
           filename: 'src/b.ts',
           previous_filename: 'src/old.ts',
@@ -238,15 +244,30 @@ describe('GitHubProvider changed files', () => {
     ]);
 
     await expect(provider.getPullRequestFiles('octo/app', 7)).resolves.toEqual([
-      { path: 'src/a.ts', previousPath: null, status: 'modified', additions: 3, deletions: 1 },
+      {
+        path: 'src/a.ts',
+        previousPath: null,
+        status: 'modified',
+        additions: 3,
+        deletions: 1,
+        hunks: [{ originalStart: 1, originalCount: 3, modifiedStart: 1, modifiedCount: 5 }],
+      },
       {
         path: 'src/b.ts',
         previousPath: 'src/old.ts',
         status: 'renamed',
         additions: 0,
         deletions: 0,
+        hunks: null,
       },
-      { path: 'src/c.ts', previousPath: null, status: 'changed', additions: 0, deletions: 0 },
+      {
+        path: 'src/c.ts',
+        previousPath: null,
+        status: 'changed',
+        additions: 0,
+        deletions: 0,
+        hunks: null,
+      },
     ]);
     expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/files');
   });
@@ -293,6 +314,7 @@ describe('GitHubProvider submitReview', () => {
       verdict: 'request-changes',
       body: 'Please fix the tests.',
       headSha: 'abc123',
+      comments: [],
     });
 
     expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/reviews');
@@ -301,7 +323,34 @@ describe('GitHubProvider submitReview', () => {
       commit_id: 'abc123',
       body: 'Please fix the tests.',
       event: 'REQUEST_CHANGES',
+      comments: [],
     });
+  });
+
+  it('sends line comments on either side, and comments on several lines', async () => {
+    const { fetch, provider } = setup([json({ id: 1 })]);
+
+    await provider.submitReview('octo/app', 7, {
+      verdict: 'comment',
+      body: 'Notes.',
+      headSha: 'abc',
+      comments: [
+        { path: 'a.ts', side: 'modified', startLine: null, line: 3, body: 'Rename.' },
+        { path: 'b.ts', side: 'original', startLine: 10, line: 12, body: 'Why remove these?' },
+      ],
+    });
+
+    expect(sentBody(fetch).comments).toEqual([
+      { path: 'a.ts', body: 'Rename.', line: 3, side: 'RIGHT' },
+      {
+        path: 'b.ts',
+        body: 'Why remove these?',
+        line: 12,
+        side: 'LEFT',
+        start_line: 10,
+        start_side: 'LEFT',
+      },
+    ]);
   });
 
   it.each([
@@ -310,7 +359,7 @@ describe('GitHubProvider submitReview', () => {
   ] as const)('sends %s as %s', async (verdict, event) => {
     const { fetch, provider } = setup([json({ id: 1 })]);
 
-    await provider.submitReview('octo/app', 7, { verdict, body: '', headSha: 'abc' });
+    await provider.submitReview('octo/app', 7, { verdict, body: '', headSha: 'abc', comments: [] });
 
     expect(sentBody(fetch).event).toBe(event);
   });
@@ -321,7 +370,12 @@ describe('GitHubProvider submitReview', () => {
     ]);
 
     await expect(
-      provider.submitReview('octo/app', 7, { verdict: 'approve', body: '', headSha: 'abc' }),
+      provider.submitReview('octo/app', 7, {
+        verdict: 'approve',
+        body: '',
+        headSha: 'abc',
+        comments: [],
+      }),
     ).rejects.toMatchObject({ status: 422, detail: 'Can not approve your own pull request' });
   });
 });

@@ -4,6 +4,7 @@ import { migrate } from '../../database/migrate.ts';
 import type { GitProvider } from '../../providers/types.ts';
 import { reconcileRepositories } from '../repositories/registry.ts';
 import { MAX_FILE_LENGTH, MAX_IMAGE_BYTES, PullRequestFiles } from './files.ts';
+import type { ProviderChangedFile } from '../../providers/types.ts';
 
 let db: ReturnType<typeof openDatabase>;
 let pullRequestId: number;
@@ -50,13 +51,14 @@ function setup(contents: Record<string, string | undefined> = {}) {
   return { provider, files: new PullRequestFiles({ db, provider }) };
 }
 
-const file = {
+const file: ProviderChangedFile = {
   path: 'a.ts',
   previousPath: null,
   status: 'added',
   additions: 1,
   deletions: 0,
-} as const;
+  hunks: [{ originalStart: 0, originalCount: 0, modifiedStart: 1, modifiedCount: 1 }],
+};
 
 describe('PullRequestFiles list', () => {
   it('returns the files with the commits they are at', async () => {

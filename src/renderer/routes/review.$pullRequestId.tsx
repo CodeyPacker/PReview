@@ -38,6 +38,7 @@ import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import type { DraftComposerState } from '../app/DraftComments.tsx';
 import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
+import { inOneHunk } from '../lib/diffComments.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
@@ -83,6 +84,16 @@ function ReviewPage() {
   const currentDrafts = reviewDrafts.drafts.data?.filter(
     (draft) => draft.headSha === files.data?.headSha && draft.mergeBase === files.data.mergeBase,
   );
+  // GitHub only takes line comments inside a diff hunk. Drafts written elsewhere stay local.
+  const sendableDrafts =
+    currentDrafts?.filter((draft) =>
+      inOneHunk(
+        changedFiles?.find((file) => file.path === draft.path)?.hunks ?? null,
+        draft.side,
+        draft.startLine ?? draft.line,
+        draft.line,
+      ),
+    ) ?? [];
   const [mode, setMode] = useState<DiffMode>('split');
   const [lineNumberOffset, setLineNumberOffset] = useState(52);
   const {
@@ -272,6 +283,9 @@ function ReviewPage() {
           pullRequestId={pullRequestId}
           pullRequestUrl={pullRequest.url}
           headSha={files.data.headSha}
+          mergeBase={files.data.mergeBase}
+          draftIds={sendableDrafts.map((draft) => draft.id)}
+          draftsOutsideDiff={(currentDrafts?.length ?? 0) - sendableDrafts.length}
           ownPullRequest={
             auth?.status === 'connected' && auth.user.login === pullRequest.author?.login
           }
@@ -410,6 +424,7 @@ function ReviewPage() {
                 searchMatch={selected ? search.matches.get(selected.path) : undefined}
                 drafts={{
                   items: currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],
+                  hunks: selected.hunks,
                   author:
                     auth?.status === 'connected'
                       ? { name: auth.user.login, avatarUrl: auth.user.avatarUrl }
