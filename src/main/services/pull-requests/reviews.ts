@@ -1,5 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type {
+  DeleteBranchInput,
+  DeleteBranchResult,
   MergePullRequestInput,
   MergePullRequestResult,
   SubmitReviewInput,
@@ -15,7 +17,7 @@ export interface PullRequestReviewsDeps {
   provider: GitProvider;
 }
 
-// Publishes reviews to the provider and merges pull requests.
+// Publishes reviews to the provider, merges pull requests and deletes their branches.
 export class PullRequestReviews {
   constructor(private readonly deps: PullRequestReviewsDeps) {}
 
@@ -102,17 +104,46 @@ export class PullRequestReviews {
     return { status: 'merged' };
   }
 
+  // Deletes the pull request's branch, such as after it merged.
+  async deleteBranch({ pullRequestId }: DeleteBranchInput): Promise<DeleteBranchResult> {
+    const { repository, headBranch } = this.find(pullRequestId);
+    try {
+      await this.deps.provider.deleteBranch(repository, headBranch);
+    } catch (error) {
+      // These are GitHub refusing, such as a protected branch, no permission, or the branch
+      // already being gone.
+      if (error instanceof GitHubApiError && [403, 404, 422].includes(error.status)) {
+        return {
+          status: 'rejected',
+          message: error.detail ?? 'GitHub did not delete this branch.',
+        };
+      }
+      throw error;
+    }
+    return { status: 'deleted' };
+  }
+
   private find(pullRequestId: number) {
     const row = this.deps.db
       .prepare(
-        `SELECT p.number, r.github_owner, r.github_name
+        `SELECT p.number, p.head_branch, r.github_owner, r.github_name
          FROM pull_requests p
          JOIN repositories r ON r.id = p.repository_id
          WHERE p.id = ?`,
       )
       .get(pullRequestId) as
-      { number: number; github_owner: string | null; github_name: string | null } | undefined;
+      | {
+          number: number;
+          head_branch: string;
+          github_owner: string | null;
+          github_name: string | null;
+        }
+      | undefined;
     if (!row?.github_owner || !row.github_name) throw new Error('Pull request not found.');
-    return { repository: `${row.github_owner}/${row.github_name}`, number: row.number };
+    return {
+      repository: `${row.github_owner}/${row.github_name}`,
+      number: row.number,
+      headBranch: row.head_branch,
+    };
   }
 }

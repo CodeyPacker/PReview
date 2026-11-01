@@ -40,3 +40,13 @@ export const mergePullRequestResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('rejected'), message: z.string() }),
 ]);
 export type MergePullRequestResult = z.infer<typeof mergePullRequestResultSchema>;
+
+export const deleteBranchInputSchema = z.object({ pullRequestId: z.number().int() });
+export type DeleteBranchInput = z.infer<typeof deleteBranchInputSchema>;
+
+// rejected: the provider refused to delete the branch. The message says why and is safe to show.
+export const deleteBranchResultSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('deleted') }),
+  z.object({ status: z.literal('rejected'), message: z.string() }),
+]);
+export type DeleteBranchResult = z.infer<typeof deleteBranchResultSchema>;
