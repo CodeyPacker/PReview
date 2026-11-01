@@ -43,6 +43,12 @@ const api: PreviewApi = {
     getDiff: (pullRequestId, headSha, mergeBase, path, previousPath) =>
       invoke('pullRequestFiles.getDiff', { pullRequestId, headSha, mergeBase, path, previousPath }),
   },
+  reviewDrafts: {
+    list: (pullRequestId) => invoke('reviewDrafts.list', { pullRequestId }),
+    create: (draft) => invoke('reviewDrafts.create', draft),
+    update: (draft) => invoke('reviewDrafts.update', draft),
+    delete: (pullRequestId, id) => invoke('reviewDrafts.delete', { pullRequestId, id }),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);

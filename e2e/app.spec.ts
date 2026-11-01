@@ -902,3 +902,146 @@ test('submits a review, and only allows a comment on your own pull request', asy
     await app.close();
   }
 });
+
+test('drafts, edits and deletes line comments in the diff', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain, BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(1100, 800);
+      type Draft = { id: number; body: string } & Record<string, unknown>;
+      let drafts: Draft[] = [];
+      let nextId = 1;
+      const handlers: Record<string, (input: never) => unknown> = {
+        'pullRequests.list': () => ({
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Comments',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        }),
+        'pullRequestFiles.list': () => ({
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [
+            { path: 'a.ts', previousPath: null, status: 'modified', additions: 1, deletions: 1 },
+          ],
+        }),
+        'pullRequestFiles.getDiff': () => ({
+          original: Array.from({ length: 20 }, (_, i) => `const line${i + 1} = 1;`).join('\n'),
+          modified: Array.from({ length: 20 }, (_, i) =>
+            i === 1 ? 'const line2 = 2;' : `const line${i + 1} = 1;`,
+          ).join('\n'),
+          unavailable: null,
+          images: null,
+        }),
+        'reviewDrafts.list': () => drafts,
+        'reviewDrafts.create': (input: Record<string, unknown>) => {
+          const now = new Date().toISOString();
+          drafts.push({
+            ...input,
+            id: nextId++,
+            body: input.body as string,
+            createdAt: now,
+            updatedAt: now,
+          });
+          return drafts;
+        },
+        'reviewDrafts.update': ({ id, body }: { id: number; body: string }) => {
+          drafts = drafts.map((draft) => (draft.id === id ? { ...draft, body } : draft));
+          return drafts;
+        },
+        'reviewDrafts.delete': ({ id }: { id: number }) => {
+          drafts = drafts.filter((draft) => draft.id !== id);
+          return drafts;
+        },
+      };
+      Object.assign(globalThis, { reviewDrafts: () => drafts });
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+
+    const modified = page.locator('.modified-in-monaco-diff-editor');
+    const lineNumber = (line: number) =>
+      modified.locator('.line-numbers').getByText(String(line), { exact: true });
+    const glyph = modified.locator('[class*="commentGlyph"]');
+
+    // Lines far from the change can't take a comment, because GitHub would refuse it.
+    const far = await lineNumber(12).boundingBox();
+    await page.mouse.move(far!.x - 8, far!.y + far!.height / 2);
+    await expect(glyph).toHaveCount(0);
+
+    const near = await lineNumber(3).boundingBox();
+    await page.mouse.move(near!.x - 8, near!.y + near!.height / 2);
+    await expect(glyph).toHaveCount(1);
+    await glyph.click();
+
+    const field = page.getByRole('textbox', { name: 'Comment on new line 3' });
+    await expect(field).toBeFocused();
+    // Review shortcuts stay off while typing.
+    await field.fill('Name this better.');
+    await page.keyboard.press('ControlOrMeta+Enter');
+    const card = page.getByRole('article', { name: 'Draft on new line 3' });
+    await expect(card).toContainText('Name this better.');
+    await expect(card).toContainText('Draft');
+    await page.screenshot({ path: test.info().outputPath('draft-comment.png') });
+    expect(
+      await app.evaluate(() => (globalThis as { reviewDrafts?: () => unknown }).reviewDrafts?.()),
+    ).toMatchObject([
+      {
+        pullRequestId: 1,
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        path: 'a.ts',
+        side: 'modified',
+        line: 3,
+        body: 'Name this better.',
+      },
+    ]);
+
+    // Drafts come back after a reload.
+    await page.reload();
+    await expect(card).toContainText('Name this better.');
+
+    await card.getByRole('button', { name: 'Edit' }).click();
+    const edit = page.getByRole('textbox', { name: 'Comment on new line 3' });
+    await edit.fill('Rename this.');
+    await page.getByRole('button', { name: 'Update Draft' }).click();
+    await expect(card).toContainText('Rename this.');
+
+    // The shortcut comments on the line with the cursor.
+    await lineNumber(2).click();
+    await modified.locator('.view-line').nth(1).click();
+    await page.keyboard.press('Control+i');
+    await expect(page.getByRole('textbox', { name: 'Comment on new line 2' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('textbox', { name: 'Comment on new line 2' })).toBeHidden();
+
+    await card.getByRole('button', { name: 'Delete draft' }).click();
+    await expect(card).toBeHidden();
+    expect(
+      await app.evaluate(() => (globalThis as { reviewDrafts?: () => unknown }).reviewDrafts?.()),
+    ).toEqual([]);
+  } finally {
+    await app.close();
+  }
+});

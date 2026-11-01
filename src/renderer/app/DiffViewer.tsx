@@ -1,7 +1,27 @@
-import { useEffect, useImperativeHandle, useRef, type Ref } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type Ref,
+} from 'react';
+import { createPortal } from 'react-dom';
+import type { DiffSide, ReviewDraft } from '../../shared/contracts/review-drafts.ts';
 import { definePreviewTheme, monaco, monoFont } from './monaco.ts';
 import styles from './DiffViewer.module.css';
+import {
+  DraftCard,
+  DraftComposer,
+  type DraftAuthor,
+  type DraftComposerState,
+} from './DraftComments.tsx';
 import { useThemeVersion } from './useThemeVersion.ts';
+import { useViewZones, type ViewZone } from './useViewZones.ts';
+import { isCommentableLine, originalLineInModified, type LineChange } from '../lib/diffComments.ts';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
 import { createFileScroller } from '../lib/fileScroller.ts';
 
@@ -11,6 +31,24 @@ export interface DiffViewerHandle {
   startScroll: (direction: -1 | 1) => void;
   stopScroll: () => void;
   cancelScroll: () => void;
+  // Opens a comment on the line with the cursor. Does nothing on a line GitHub can't take
+  // a comment on.
+  commentOnCursorLine: () => void;
+}
+
+// Line comments shown in the diff. Leave it out for a diff without comments.
+export interface DiffViewerDrafts {
+  // This file's drafts at the commits on show.
+  items: readonly ReviewDraft[];
+  author: DraftAuthor;
+  // The comment being written, when it is on this file.
+  composer: DraftComposerState | undefined;
+  onComposerChange: (composer: DraftComposerState | undefined) => void;
+  onSave: () => void;
+  saving: boolean;
+  saveFailed: boolean;
+  onDelete: (id: number) => void;
+  deletingId: number | undefined;
 }
 
 export interface DiffViewerProps {
@@ -24,6 +62,7 @@ export interface DiffViewerProps {
   onLineNumberOffsetChange?: (offset: number) => void;
   searchQuery?: string;
   searchMatch?: FileSearchMatch;
+  drafts?: DiffViewerDrafts;
 }
 
 interface Models {
@@ -63,6 +102,7 @@ export function DiffViewer({
   onLineNumberOffsetChange,
   searchQuery = '',
   searchMatch,
+  drafts,
 }: DiffViewerProps) {
   const themeVersion = useThemeVersion();
   const theme = `preview-${themeVersion}`;
@@ -71,16 +111,37 @@ export function DiffViewer({
   const editor = useRef<monaco.editor.IStandaloneDiffEditor>(null);
   const models = useRef<Models>(null);
   const scroller = useRef<ReturnType<typeof createFileScroller> | null>(null);
+  const [modelVersion, setModelVersion] = useState(0);
+  const [lineChanges, setLineChanges] = useState<readonly LineChange[]>([]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      startScroll: (direction) => scroller.current?.start(direction),
-      stopScroll: () => scroller.current?.stop(),
-      cancelScroll: () => scroller.current?.cancel(),
-    }),
-    [],
-  );
+  const unified = mode === 'unified';
+  const canComment = (side: DiffSide, line: number) =>
+    drafts !== undefined &&
+    !(unified && side === 'original') &&
+    isCommentableLine(lineChanges, side, line);
+
+  const openComposer = (next: DraftComposerState) => drafts?.onComposerChange(next);
+
+  const commentOnLine = (side: DiffSide, line: number) => {
+    if (canComment(side, line)) openComposer({ path, side, line, body: '' });
+  };
+  const commentOnGutter = useEffectEvent(commentOnLine);
+  const isCommentable = useEffectEvent(canComment);
+
+  useImperativeHandle(ref, () => ({
+    startScroll: (direction) => scroller.current?.start(direction),
+    stopScroll: () => scroller.current?.stop(),
+    cancelScroll: () => scroller.current?.cancel(),
+    commentOnCursorLine: () => {
+      const diffEditor = editor.current;
+      if (!diffEditor) return;
+      const before = diffEditor.getOriginalEditor();
+      const side = !unified && before.hasTextFocus() ? 'original' : 'modified';
+      const line = (side === 'original' ? before : diffEditor.getModifiedEditor()).getPosition()
+        ?.lineNumber;
+      if (line) commentOnLine(side, line);
+    },
+  }));
 
   useEffect(() => {
     if (!container.current) return;
@@ -120,7 +181,56 @@ export function DiffViewer({
     const inputObserver = new MutationObserver(() => nameInputs(element));
     inputObserver.observe(element, { childList: true, subtree: true });
     nameInputs(element);
+    // Monaco drops view zones with a model and works the diff out after it.
+    const modelChange = diffEditor.onDidChangeModel(() =>
+      setModelVersion((version) => version + 1),
+    );
+    const diffUpdate = diffEditor.onDidUpdateDiff(() =>
+      setLineChanges(diffEditor.getLineChanges() ?? []),
+    );
+    // A plus in the gutter of a line that can take a comment, under the pointer.
+    const gutters = (['original', 'modified'] as const).map((side) => {
+      const sideEditor =
+        side === 'original' ? diffEditor.getOriginalEditor() : diffEditor.getModifiedEditor();
+      const hover = sideEditor.createDecorationsCollection();
+      const lineAt = (event: monaco.editor.IEditorMouseEvent) => {
+        const line = event.target.position?.lineNumber;
+        return line !== undefined && isCommentable(side, line) ? line : undefined;
+      };
+      return [
+        hover,
+        sideEditor.onMouseMove((event) => {
+          const line = lineAt(event);
+          hover.set(
+            line === undefined
+              ? []
+              : [
+                  {
+                    range: new monaco.Range(line, 1, line, 1),
+                    options: { glyphMarginClassName: styles.commentGlyph },
+                  },
+                ],
+          );
+        }),
+        sideEditor.onMouseLeave(() => hover.clear()),
+        sideEditor.onMouseDown((event) => {
+          const line = lineAt(event);
+          if (
+            line !== undefined &&
+            event.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN
+          ) {
+            commentOnGutter(side, line);
+          }
+        }),
+      ] as const;
+    });
     return () => {
+      for (const [hover, ...subscriptions] of gutters) {
+        hover.clear();
+        subscriptions.forEach((subscription) => subscription.dispose());
+      }
+      modelChange.dispose();
+      diffUpdate.dispose();
       inputObserver.disconnect();
       fileScroller.cancel();
       scroller.current = null;
@@ -247,5 +357,94 @@ export function DiffViewer({
     monaco.editor.setTheme(theme);
   }, [theme]);
 
-  return <div data-review-diff ref={container} className={styles.viewer} />;
+  const commentsOn = drafts !== undefined;
+  useEffect(() => {
+    editor.current?.updateOptions({ glyphMargin: commentsOn });
+  }, [commentsOn]);
+
+  const draftItems = drafts?.items;
+  const composer = drafts?.composer;
+  const newComposer =
+    composer && composer.draftId === undefined
+      ? { side: composer.side, line: composer.line }
+      : undefined;
+  const newComposerSide = newComposer?.side;
+  const newComposerLine = newComposer?.line;
+
+  // Comments open below their line. The unified view only shows the new file's editor, so
+  // comments on the old file go below where their line would be in the new one.
+  const zones = useMemo(() => {
+    const place = (side: DiffSide, line: number) =>
+      unified && side === 'original'
+        ? { side: 'modified' as const, afterLine: originalLineInModified(lineChanges, line) }
+        : { side, afterLine: line };
+    const list: (ViewZone & { draftId?: number })[] = (draftItems ?? []).map((draft, index) => ({
+      key: `draft-${draft.id}`,
+      draftId: draft.id,
+      ...place(draft.side, draft.line),
+      ordinal: index,
+    }));
+    if (newComposerSide && newComposerLine) {
+      list.push({
+        key: 'composer',
+        ...place(newComposerSide, newComposerLine),
+        ordinal: list.length,
+      });
+    }
+    return list;
+  }, [draftItems, newComposerSide, newComposerLine, unified, lineChanges]);
+
+  const editorFor = useCallback((side: DiffSide) => {
+    const diffEditor = editor.current;
+    if (!diffEditor) return undefined;
+    return side === 'original' ? diffEditor.getOriginalEditor() : diffEditor.getModifiedEditor();
+  }, []);
+  const zoneTargets = useViewZones(zones, editorFor, modelVersion, styles.zone);
+
+  let portals: ReactNode = null;
+  if (drafts) {
+    const composerView = composer && (
+      <DraftComposer
+        composer={composer}
+        onChange={(body) => drafts.onComposerChange({ ...composer, body })}
+        onSave={drafts.onSave}
+        onCancel={() => drafts.onComposerChange(undefined)}
+        saving={drafts.saving}
+        failed={drafts.saveFailed}
+      />
+    );
+    portals = zones.map((zone) => {
+      const target = zoneTargets.get(zone.key);
+      if (!target) return null;
+      const draft = drafts.items.find((item) => item.id === zone.draftId);
+      const content = !draft ? (
+        composerView
+      ) : composer?.draftId === draft.id ? (
+        composerView
+      ) : (
+        <DraftCard
+          draft={draft}
+          author={drafts.author}
+          deleting={drafts.deletingId === draft.id}
+          onEdit={() =>
+            openComposer({
+              path,
+              side: draft.side,
+              line: draft.line,
+              draftId: draft.id,
+              body: draft.body,
+            })
+          }
+          onDelete={() => drafts.onDelete(draft.id)}
+        />
+      );
+      return createPortal(content, target, zone.key);
+    });
+  }
+
+  return (
+    <div data-review-diff ref={container} className={styles.viewer}>
+      {portals}
+    </div>
+  );
 }
