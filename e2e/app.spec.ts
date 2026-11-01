@@ -1063,14 +1063,24 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     const lineNumber = (line: number) =>
       modified.locator('.line-numbers').getByText(String(line), { exact: true });
     const glyph = modified.locator('[class*="commentGlyph"]');
+    // Monaco reuses line elements as it scrolls, so lines are found by their text, not order.
+    const codeLine = (line: number) =>
+      modified.locator('.view-line').filter({ hasText: new RegExp(`line${line}\\s=`) });
+    // The point just left of a line number, where the plus shows.
+    const gutterPoint = async (line: number) => {
+      // Monaco redraws line numbers after a layout change, so the measure is retried.
+      let box: { x: number; y: number; height: number } | null = null;
+      await expect.poll(async () => (box = await lineNumber(line).boundingBox())).not.toBeNull();
+      return { x: box!.x - 8, y: box!.y + box!.height / 2 };
+    };
 
     // Lines outside the diff's hunks can't take a comment, because GitHub would refuse it.
-    const far = await lineNumber(7).boundingBox();
-    await page.mouse.move(far!.x - 8, far!.y + far!.height / 2);
+    const far = await gutterPoint(7);
+    await page.mouse.move(far.x, far.y);
     await expect(glyph).toHaveCount(0);
 
-    const near = await lineNumber(3).boundingBox();
-    await page.mouse.move(near!.x - 8, near!.y + near!.height / 2);
+    const near = await gutterPoint(3);
+    await page.mouse.move(near.x, near.y);
     await expect(glyph).toHaveCount(1);
     await glyph.click();
 
@@ -1080,7 +1090,7 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     const codeLeft = async () => (await modified.locator('.editor-scrollable').boundingBox())!.x;
     const fieldLeft = async () => (await field.boundingBox())!.x;
     const before = await fieldLeft();
-    await page.mouse.move(near!.x + 200, near!.y);
+    await page.mouse.move(near.x + 200, near.y);
     await page.mouse.wheel(400, 0);
     await expect
       .poll(async () => (await modified.locator('.view-lines').boundingBox())!.x)
@@ -1121,14 +1131,14 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
 
     // The shortcut comments on the line with the cursor.
     await lineNumber(2).click();
-    await modified.locator('.view-line').nth(1).click();
+    await codeLine(2).click();
     await page.keyboard.press('Control+i');
     await expect(page.getByRole('textbox', { name: 'Comment on new line 2' })).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('textbox', { name: 'Comment on new line 2' })).toBeHidden();
 
     // The shortcut takes every selected line.
-    await modified.locator('.view-line').nth(9).click();
+    await codeLine(10).click();
     await page.keyboard.press('Shift+ArrowDown');
     await page.keyboard.press('Shift+ArrowDown');
     await page.keyboard.press('Control+i');
@@ -1138,10 +1148,10 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     await expect(selectedRange).toBeHidden();
 
     // The plus on a line inside a selection comments on every selected line.
-    await modified.locator('.view-line').nth(10).click();
+    await codeLine(11).click();
     await page.keyboard.press('Shift+ArrowDown');
-    const inside = await lineNumber(12).boundingBox();
-    await page.mouse.move(inside!.x - 8, inside!.y + inside!.height / 2);
+    const inside = await gutterPoint(12);
+    await page.mouse.move(inside.x, inside.y);
     await glyph.click();
     const selectedByPlus = page.getByRole('textbox', { name: 'Comment on new lines 11–12' });
     await expect(selectedByPlus).toBeFocused();
@@ -1149,12 +1159,12 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     await expect(selectedByPlus).toBeHidden();
 
     // Dragging down the gutter comments on several lines, and stops at the end of the hunk.
-    const top = await lineNumber(14).boundingBox();
-    const bottom = await lineNumber(18).boundingBox();
-    await page.mouse.move(top!.x - 8, top!.y + top!.height / 2);
+    const top = await gutterPoint(14);
+    const bottom = await gutterPoint(18);
+    await page.mouse.move(top.x, top.y);
     await expect(glyph).toHaveCount(1);
     await page.mouse.down();
-    await page.mouse.move(bottom!.x - 8, bottom!.y + bottom!.height / 2, { steps: 4 });
+    await page.mouse.move(bottom.x, bottom.y, { steps: 4 });
     await page.mouse.up();
     const range = page.getByRole('textbox', { name: 'Comment on new lines 14–16' });
     await expect(range).toBeFocused();
