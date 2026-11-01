@@ -22,6 +22,18 @@
   cursor: auto;
 }
 
+/* Monaco outlines every focused field and button inside the editor, even after a click.
+   Comments use the app's own focus styles instead: the field's border, and the usual ring on
+   buttons reached by keyboard. */
+:global(.monaco-editor) .zone :is(textarea, button):focus {
+  outline: none;
+}
+
+:global(.monaco-editor) .zone button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 /* The plus in the gutter of a line that can take a comment. */
 .commentGlyph {
   display: grid;

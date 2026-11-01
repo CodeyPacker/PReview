@@ -999,6 +999,7 @@ test('drafts, edits and deletes line comments in the diff', async () => {
     await expect(field).toBeFocused();
     // Review shortcuts stay off while typing.
     await field.fill('Name this better.');
+    await page.screenshot({ path: test.info().outputPath('draft-composer.png') });
     await page.keyboard.press('ControlOrMeta+Enter');
     const card = page.getByRole('article', { name: 'Draft on new line 3' });
     await expect(card).toContainText('Name this better.');
