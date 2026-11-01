@@ -126,4 +126,36 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE pull_requests ADD COLUMN author_is_bot INTEGER NOT NULL DEFAULT 0;
     `,
   },
+  {
+    version: 7,
+    name: 'review_drafts',
+    // Comments on diff lines that have not been sent. A draft is anchored to the commits of
+    // the diff it was written on. side is 'original' for the old file and 'modified' for the
+    // new one. Drafts go with their pull request when it closes.
+    sql: `
+      CREATE TABLE review_drafts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pull_request_id INTEGER NOT NULL REFERENCES pull_requests (id) ON DELETE CASCADE,
+        head_sha TEXT NOT NULL,
+        merge_base TEXT NOT NULL,
+        path TEXT NOT NULL,
+        side TEXT NOT NULL CHECK (side IN ('original', 'modified')),
+        line INTEGER NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+
+      CREATE INDEX review_drafts_pull_request ON review_drafts (pull_request_id);
+    `,
+  },
+  {
+    version: 8,
+    name: 'review_draft_ranges',
+    // A comment on several lines runs from start_line to line. Null for one line.
+    sql: `
+      ALTER TABLE review_drafts ADD COLUMN start_line INTEGER
+        CHECK (start_line IS NULL OR start_line < line);
+    `,
+  },
 ];

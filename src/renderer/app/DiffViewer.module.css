@@ -13,3 +13,43 @@
   background: color-mix(in srgb, var(--warning-fill) 35%, transparent);
   border-radius: 2px;
 }
+
+/* Room for a comment between two lines. Its width follows the code area. */
+.zone {
+  box-sizing: border-box;
+  padding: var(--space-8) var(--space-16) var(--space-8) var(--space-4);
+  white-space: normal;
+  cursor: auto;
+}
+
+/* Monaco outlines every focused field and button inside the editor, even after a click.
+   Comments use the app's own focus styles instead: the field's border, and the usual ring on
+   buttons reached by keyboard. */
+:global(.monaco-editor) .zone :is(textarea, button):focus {
+  outline: none;
+}
+
+:global(.monaco-editor) .zone button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The plus in the gutter of a line that can take a comment. */
+.commentGlyph {
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+
+.commentGlyph::before {
+  content: '+';
+  font: 600 var(--text-md) / 1 var(--font-sans);
+}
+
+/* The lines a comment covers. */
+.commentRange {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}

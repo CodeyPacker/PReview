@@ -1,1 +1,56 @@
 /* Comment styles. Read values from tokens.css custom properties only. */
+
+.comment {
+  display: flex;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+.body {
+  display: grid;
+  flex: 1;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.author {
+  font: 600 var(--text-base) / 20px var(--font-sans);
+}
+
+.time {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
+
+.status {
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.text {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 20px var(--font-sans);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-6);
+}

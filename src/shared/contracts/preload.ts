@@ -3,6 +3,11 @@ import type { AppInfo } from './ipc.ts';
 import type { PullRequestChanges, PullRequestFileDiff } from './pull-request-files.ts';
 import type { SubmitReviewInput, SubmitReviewResult } from './pull-request-reviews.ts';
 import type { PullRequestsState } from './pull-requests.ts';
+import type {
+  CreateReviewDraftInput,
+  ReviewDraft,
+  UpdateReviewDraftInput,
+} from './review-drafts.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
 
@@ -53,5 +58,12 @@ export interface PreviewApi {
   };
   pullRequestReviews: {
     submit(review: SubmitReviewInput): Promise<SubmitReviewResult>;
+  };
+  // Each call resolves with every draft of the pull request.
+  reviewDrafts: {
+    list(pullRequestId: number): Promise<ReviewDraft[]>;
+    create(draft: CreateReviewDraftInput): Promise<ReviewDraft[]>;
+    update(draft: UpdateReviewDraftInput): Promise<ReviewDraft[]>;
+    delete(pullRequestId: number, id: number): Promise<ReviewDraft[]>;
   };
 }

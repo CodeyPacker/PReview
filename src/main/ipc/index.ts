@@ -3,6 +3,12 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { AppInfo } from '../../shared/contracts/ipc.ts';
 import type { GitHubAuth } from '../services/github/auth.ts';
 import type { RepositoryDiscovery } from '../services/repositories/discovery.ts';
+import {
+  createReviewDraft,
+  deleteReviewDraft,
+  listReviewDrafts,
+  updateReviewDraft,
+} from '../services/pull-requests/drafts.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
@@ -94,4 +100,11 @@ export function registerIpcHandlers(
   );
 
   handle('pullRequestReviews.submit', (review) => pullRequestReviews.submit(review));
+
+  handle('reviewDrafts.list', ({ pullRequestId }) => listReviewDrafts(db, pullRequestId));
+  handle('reviewDrafts.create', (draft) => createReviewDraft(db, draft));
+  handle('reviewDrafts.update', (draft) => updateReviewDraft(db, draft));
+  handle('reviewDrafts.delete', ({ pullRequestId, id }) =>
+    deleteReviewDraft(db, pullRequestId, id),
+  );
 }

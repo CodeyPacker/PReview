@@ -36,6 +36,8 @@ import {
 } from '../lib/fileReview.ts';
 import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
+import type { DraftComposerState } from '../app/DraftComments.tsx';
+import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
@@ -74,6 +76,12 @@ function ReviewPage() {
     (file) =>
       matchesFileReviewFilter(reviewStates[file.path], fileFilter) &&
       (!searchTerm || matchesFilePath(file, searchTerm) || search.matches.has(file.path)),
+  );
+  const reviewDrafts = useReviewDrafts(pullRequestId);
+  const [composer, setComposer] = useState<DraftComposerState>();
+  // Drafts written on other commits stay stored, but only these line up with the diff on show.
+  const currentDrafts = reviewDrafts.drafts.data?.filter(
+    (draft) => draft.headSha === files.data?.headSha && draft.mergeBase === files.data.mergeBase,
   );
   const [mode, setMode] = useState<DiffMode>('split');
   const [lineNumberOffset, setLineNumberOffset] = useState(52);
@@ -125,6 +133,7 @@ function ReviewPage() {
     {
       approve: () => toggleReviewState('approved'),
       flag: () => toggleReviewState('flagged'),
+      comment: () => diffViewer.current?.commentOnSelection(),
       tree: () => setFilesCollapsed((value) => !value),
       next: () => {
         if (nextFile) selectFile(nextFile.path);
@@ -150,6 +159,49 @@ function ReviewPage() {
     selected?.path,
     selected?.previousPath ?? null,
   );
+
+  function changeComposer(next: DraftComposerState | undefined) {
+    // A comment with unsent text stays open until it is saved or cancelled. Opening another
+    // one goes back to it instead.
+    const moved =
+      next?.path !== composer?.path ||
+      next?.side !== composer?.side ||
+      next?.startLine !== composer?.startLine ||
+      next?.line !== composer?.line ||
+      next?.draftId !== composer?.draftId;
+    if (next && moved && composer?.body.trim()) {
+      selectFile(composer.path);
+      return;
+    }
+    reviewDrafts.create.reset();
+    reviewDrafts.update.reset();
+    setComposer(next);
+  }
+
+  function saveComposer() {
+    if (!composer || !files.data) return;
+    const done = { onSuccess: () => setComposer(undefined) };
+    if (composer.draftId === undefined) {
+      reviewDrafts.create.mutate(
+        {
+          pullRequestId,
+          headSha: files.data.headSha,
+          mergeBase: files.data.mergeBase,
+          path: composer.path,
+          side: composer.side,
+          startLine: composer.startLine ?? null,
+          line: composer.line,
+          body: composer.body,
+        },
+        done,
+      );
+    } else {
+      reviewDrafts.update.mutate(
+        { pullRequestId, id: composer.draftId, body: composer.body },
+        done,
+      );
+    }
+  }
 
   const back = (
     <Button
@@ -356,6 +408,22 @@ function ReviewPage() {
                 onLineNumberOffsetChange={setLineNumberOffset}
                 searchQuery={fileSearch.trim()}
                 searchMatch={selected ? search.matches.get(selected.path) : undefined}
+                drafts={{
+                  items: currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],
+                  author:
+                    auth?.status === 'connected'
+                      ? { name: auth.user.login, avatarUrl: auth.user.avatarUrl }
+                      : { name: 'You' },
+                  composer: composer?.path === selected.path ? composer : undefined,
+                  onComposerChange: changeComposer,
+                  onSave: saveComposer,
+                  saving: reviewDrafts.create.isPending || reviewDrafts.update.isPending,
+                  saveFailed: reviewDrafts.create.isError || reviewDrafts.update.isError,
+                  onDelete: (id) => reviewDrafts.remove.mutate(id),
+                  deletingId: reviewDrafts.remove.isPending
+                    ? reviewDrafts.remove.variables
+                    : undefined,
+                }}
               />
             ))
           )}

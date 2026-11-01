@@ -3,6 +3,7 @@ import type { ReviewLeader } from '../../shared/contracts/settings.ts';
 export const reviewShortcuts = {
   approve: { key: 'a', label: 'Toggle approval' },
   flag: { key: 'f', label: 'Toggle flag' },
+  comment: { key: 'i', label: 'Comment on line' },
   tree: { key: 't', label: 'Toggle file tree' },
   next: { key: 'n', label: 'Next file' },
   previous: { key: 'p', label: 'Previous file' },

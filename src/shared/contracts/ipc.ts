@@ -13,6 +13,11 @@ import {
 } from './pull-request-files.ts';
 import { submitReviewInputSchema, submitReviewResultSchema } from './pull-request-reviews.ts';
 import { pullRequestsStateSchema } from './pull-requests.ts';
+import {
+  createReviewDraftInputSchema,
+  reviewDraftSchema,
+  updateReviewDraftInputSchema,
+} from './review-drafts.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
 export const appInfoSchema = z.object({
@@ -74,6 +79,23 @@ export const ipcContract = {
   'pullRequestReviews.submit': {
     input: submitReviewInputSchema,
     output: submitReviewResultSchema,
+  },
+  // Unsent line comments, kept on this machine. Each call returns the pull request's drafts.
+  'reviewDrafts.list': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.array(reviewDraftSchema),
+  },
+  'reviewDrafts.create': {
+    input: createReviewDraftInputSchema,
+    output: z.array(reviewDraftSchema),
+  },
+  'reviewDrafts.update': {
+    input: updateReviewDraftInputSchema,
+    output: z.array(reviewDraftSchema),
+  },
+  'reviewDrafts.delete': {
+    input: z.object({ pullRequestId: z.number().int(), id: z.number().int() }),
+    output: z.array(reviewDraftSchema),
   },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 
