@@ -8,6 +8,8 @@ import {
   GitPullRequest,
   Lock,
   RefreshCw,
+  ShieldCheck,
+  ShieldX,
   Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -38,6 +40,8 @@ export const statusPresets = {
   // Findings.
   resolved: { tone: 'success', icon: CircleCheck, label: 'Resolved' },
   unresolved: { tone: 'danger', icon: null, label: 'Open' },
+  validated: { tone: 'success', icon: ShieldCheck, label: 'Validated' },
+  rejected: { tone: 'neutral', icon: ShieldX, label: 'Not Confirmed' },
   // Agent state.
   'agent-running': { tone: 'info', icon: Bot, label: 'Agent Running' },
   'agent-failed': { tone: 'danger', icon: Bot, label: 'Agent Failed' },

@@ -54,6 +54,13 @@ const api: PreviewApi = {
     update: (draft) => invoke('reviewDrafts.update', draft),
     delete: (pullRequestId, id) => invoke('reviewDrafts.delete', { pullRequestId, id }),
   },
+  reviewFindings: {
+    list: (pullRequestId) => invoke('reviewFindings.list', { pullRequestId }),
+    create: (finding) => invoke('reviewFindings.create', finding),
+    update: (finding) => invoke('reviewFindings.update', finding),
+    setResolution: (change) => invoke('reviewFindings.setResolution', change),
+    delete: (pullRequestId, id) => invoke('reviewFindings.delete', { pullRequestId, id }),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);

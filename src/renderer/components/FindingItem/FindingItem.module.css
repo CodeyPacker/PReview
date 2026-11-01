@@ -1,1 +1,55 @@
 /* FindingItem styles. Read values from tokens.css custom properties only. */
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  padding: var(--space-8) var(--space-12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.item:hover:not(.selected) {
+  background: var(--surface-hover);
+}
+
+.selected {
+  border-color: var(--accent-border);
+  background: var(--surface-selected);
+}
+
+.main {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.title {
+  overflow: hidden;
+  color: var(--ink);
+  font: 600 var(--text-base) / 20px var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.trailing {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-8);
+}

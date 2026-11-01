@@ -29,6 +29,12 @@ import {
   reviewDraftSchema,
   updateReviewDraftInputSchema,
 } from './review-drafts.ts';
+import {
+  createReviewFindingInputSchema,
+  reviewFindingSchema,
+  setFindingResolutionInputSchema,
+  updateReviewFindingInputSchema,
+} from './review-findings.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
 export const appInfoSchema = z.object({
@@ -132,6 +138,28 @@ export const ipcContract = {
   'reviewDrafts.delete': {
     input: z.object({ pullRequestId: z.number().int(), id: z.number().int() }),
     output: z.array(reviewDraftSchema),
+  },
+  // Problems not tied to a code line, kept on this machine. Each call returns the pull
+  // request's findings.
+  'reviewFindings.list': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.array(reviewFindingSchema),
+  },
+  'reviewFindings.create': {
+    input: createReviewFindingInputSchema,
+    output: z.array(reviewFindingSchema),
+  },
+  'reviewFindings.update': {
+    input: updateReviewFindingInputSchema,
+    output: z.array(reviewFindingSchema),
+  },
+  'reviewFindings.setResolution': {
+    input: setFindingResolutionInputSchema,
+    output: z.array(reviewFindingSchema),
+  },
+  'reviewFindings.delete': {
+    input: z.object({ pullRequestId: z.number().int(), id: z.number().int() }),
+    output: z.array(reviewFindingSchema),
   },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 

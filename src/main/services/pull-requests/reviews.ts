@@ -15,6 +15,7 @@ import { transaction } from '../../database/connection.ts';
 import { GitHubApiError } from '../../providers/github/client.ts';
 import type { GitProvider } from '../../providers/types.ts';
 import { listReviewDrafts } from './drafts.ts';
+import { findingsMarkdown, listReviewFindings } from './findings.ts';
 
 export interface PullRequestReviewsDeps {
   db: DatabaseSync;
@@ -51,17 +52,19 @@ export class PullRequestReviews {
     );
   }
 
-  // Publishes the review with the chosen drafts as line comments, then deletes those drafts.
+  // Publishes the review with the chosen drafts as line comments and the chosen findings in
+  // its body. Then it deletes those drafts and marks those findings published.
   async submit({
     pullRequestId,
     headSha,
     mergeBase,
     draftIds,
+    findingIds,
     verdict,
     body,
   }: SubmitReviewInput): Promise<SubmitReviewResult> {
-    // GitHub refuses these two without a summary. Say so before sending.
-    if (verdict !== 'approve' && body.trim() === '') {
+    // GitHub refuses these two without a body. Say so before sending.
+    if (verdict !== 'approve' && body.trim() === '' && findingIds.length === 0) {
       return { status: 'rejected', message: 'Write a summary to comment or request changes.' };
     }
     const { repository, number } = this.find(pullRequestId);
@@ -76,11 +79,21 @@ export class PullRequestReviews {
         message: 'Some comments changed or were written on another version. Try again.',
       };
     }
+    const wantedFindings = new Set(findingIds);
+    const findings = listReviewFindings(this.deps.db, pullRequestId).filter(
+      (finding) => wantedFindings.has(finding.id) && finding.publishedAt === null,
+    );
+    if (findings.length !== wantedFindings.size) {
+      return { status: 'rejected', message: 'Some findings changed. Try again.' };
+    }
+    const text = [body.trim(), findings.length > 0 && findingsMarkdown(findings)]
+      .filter(Boolean)
+      .join('\n\n');
 
     try {
       await this.deps.provider.submitReview(repository, number, {
         verdict,
-        body: body.trim(),
+        body: text,
         headSha,
         comments: drafts.map(({ path, side, startLine, line, body: text }) => ({
           path,
@@ -104,7 +117,14 @@ export class PullRequestReviews {
     }
 
     const remove = this.deps.db.prepare('DELETE FROM review_drafts WHERE id = ?');
-    transaction(this.deps.db, () => drafts.forEach((draft) => remove.run(draft.id)));
+    const publish = this.deps.db.prepare(
+      `UPDATE review_findings SET published_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       WHERE id = ?`,
+    );
+    transaction(this.deps.db, () => {
+      drafts.forEach((draft) => remove.run(draft.id));
+      findings.forEach((finding) => publish.run(finding.id));
+    });
     return { status: 'submitted' };
   }
 

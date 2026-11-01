@@ -5,6 +5,7 @@ import { GitHubApiError } from '../../providers/github/client.ts';
 import type { GitProvider } from '../../providers/types.ts';
 import { reconcileRepositories } from '../repositories/registry.ts';
 import { createReviewDraft, listReviewDrafts } from './drafts.ts';
+import { createReviewFinding, listReviewFindings } from './findings.ts';
 import { PullRequestReviews } from './reviews.ts';
 
 let db: ReturnType<typeof openDatabase>;
@@ -77,6 +78,7 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [],
+        findingIds: [],
         verdict: 'approve',
         body: '  Looks good.  ',
       }),
@@ -99,6 +101,7 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [],
+        findingIds: [],
         verdict: 'approve',
         body: '',
       }),
@@ -116,6 +119,7 @@ describe('PullRequestReviews', () => {
           headSha: HEAD,
           mergeBase: BASE,
           draftIds: [],
+          findingIds: [],
           verdict,
           body: '   ',
         }),
@@ -139,6 +143,7 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [],
+        findingIds: [],
         verdict: 'approve',
         body: '',
       }),
@@ -155,6 +160,7 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [],
+        findingIds: [],
         verdict: 'approve',
         body: '',
       }),
@@ -170,6 +176,7 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [],
+        findingIds: [],
         verdict: 'approve',
         body: '',
       }),
@@ -200,6 +207,7 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [single.id, range.id],
+        findingIds: [],
         verdict: 'comment',
         body: 'Notes.',
       }),
@@ -237,6 +245,7 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [draft!.id],
+        findingIds: [],
         verdict: 'comment',
         body: 'Notes.',
       }),
@@ -263,6 +272,120 @@ describe('PullRequestReviews', () => {
         headSha: HEAD,
         mergeBase: BASE,
         draftIds: [draft!.id],
+        findingIds: [],
+        verdict: 'comment',
+        body: 'Notes.',
+      }),
+    ).resolves.toMatchObject({ status: 'rejected' });
+    expect(submitReview).not.toHaveBeenCalled();
+  });
+
+  it('adds findings to the body and marks them published once GitHub has them', async () => {
+    const { submitReview, reviews } = setup();
+    createReviewFinding(db, {
+      pullRequestId,
+      category: 'ui-bug',
+      description: 'The save button overlaps the footer.',
+      steps: '1. Open settings.\n2. Shrink the window.',
+    });
+    const [first, second] = createReviewFinding(db, {
+      pullRequestId,
+      category: 'security',
+      description: 'The token is logged.',
+      steps: '',
+    });
+
+    await expect(
+      reviews.submit({
+        pullRequestId,
+        headSha: HEAD,
+        mergeBase: BASE,
+        draftIds: [],
+        findingIds: [first!.id, second!.id],
+        verdict: 'comment',
+        body: '',
+      }),
+    ).resolves.toEqual({ status: 'submitted' });
+
+    expect(submitReview.mock.calls[0]?.[2].body).toBe(
+      [
+        '## Findings',
+        '### 1. UI bug',
+        'The save button overlaps the footer.',
+        '**Steps to reproduce**',
+        '1. Open settings.\n2. Shrink the window.',
+        '### 2. Security',
+        'The token is logged.',
+      ].join('\n\n'),
+    );
+    expect(listReviewFindings(db, pullRequestId).every((f) => f.publishedAt !== null)).toBe(true);
+  });
+
+  it('puts the summary before the findings', async () => {
+    const { submitReview, reviews } = setup();
+    const [finding] = createReviewFinding(db, {
+      pullRequestId,
+      category: 'bug',
+      description: 'Crashes on empty input.',
+      steps: '',
+    });
+
+    await reviews.submit({
+      pullRequestId,
+      headSha: HEAD,
+      mergeBase: BASE,
+      draftIds: [],
+      findingIds: [finding!.id],
+      verdict: 'approve',
+      body: ' Nice work. ',
+    });
+
+    expect(submitReview.mock.calls[0]?.[2].body).toBe(
+      'Nice work.\n\n## Findings\n\n### 1. Bug\n\nCrashes on empty input.',
+    );
+  });
+
+  it('keeps findings unpublished when GitHub refuses the review', async () => {
+    const { submitReview, reviews } = setup();
+    submitReview.mockRejectedValue(new GitHubApiError(422, '/reviews', 'Body is too long'));
+    const [finding] = createReviewFinding(db, {
+      pullRequestId,
+      category: 'bug',
+      description: 'Crashes.',
+      steps: '',
+    });
+
+    await expect(
+      reviews.submit({
+        pullRequestId,
+        headSha: HEAD,
+        mergeBase: BASE,
+        draftIds: [],
+        findingIds: [finding!.id],
+        verdict: 'comment',
+        body: '',
+      }),
+    ).resolves.toEqual({ status: 'rejected', message: 'Body is too long' });
+    expect(listReviewFindings(db, pullRequestId)[0]?.publishedAt).toBeNull();
+  });
+
+  it('refuses findings that were already published', async () => {
+    const { submitReview, reviews } = setup();
+    const [finding] = createReviewFinding(db, {
+      pullRequestId,
+      category: 'bug',
+      description: 'Crashes.',
+      steps: '',
+    });
+    db.prepare("UPDATE review_findings SET published_at = 'then'").run();
+
+    await expect(
+      reviews.submit({
+        pullRequestId,
+        headSha: HEAD,
+        mergeBase: BASE,
+        draftIds: [],
+        findingIds: [finding!.id],
         verdict: 'comment',
         body: 'Notes.',
       }),

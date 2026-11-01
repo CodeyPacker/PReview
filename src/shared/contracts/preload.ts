@@ -19,6 +19,12 @@ import type {
   ReviewDraft,
   UpdateReviewDraftInput,
 } from './review-drafts.ts';
+import type {
+  CreateReviewFindingInput,
+  ReviewFinding,
+  SetFindingResolutionInput,
+  UpdateReviewFindingInput,
+} from './review-findings.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
 
@@ -81,5 +87,13 @@ export interface PreviewApi {
     create(draft: CreateReviewDraftInput): Promise<ReviewDraft[]>;
     update(draft: UpdateReviewDraftInput): Promise<ReviewDraft[]>;
     delete(pullRequestId: number, id: number): Promise<ReviewDraft[]>;
+  };
+  // Each call resolves with every finding of the pull request.
+  reviewFindings: {
+    list(pullRequestId: number): Promise<ReviewFinding[]>;
+    create(finding: CreateReviewFindingInput): Promise<ReviewFinding[]>;
+    update(finding: UpdateReviewFindingInput): Promise<ReviewFinding[]>;
+    setResolution(change: SetFindingResolutionInput): Promise<ReviewFinding[]>;
+    delete(pullRequestId: number, id: number): Promise<ReviewFinding[]>;
   };
 }

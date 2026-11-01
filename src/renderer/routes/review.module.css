@@ -26,6 +26,12 @@
   -webkit-app-region: no-drag;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
 .summary {
   display: flex;
   flex-wrap: wrap;

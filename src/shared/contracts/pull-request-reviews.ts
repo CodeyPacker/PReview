@@ -12,6 +12,8 @@ export const submitReviewInputSchema = z.object({
   mergeBase: commitShaSchema,
   // Drafts written on that diff to publish as line comments. Each must be inside a diff hunk.
   draftIds: z.array(z.number().int()),
+  // Unpublished findings to add to the review's body.
+  findingIds: z.array(z.number().int()),
   verdict: reviewVerdictSchema,
   body: z.string().max(65_536),
 });

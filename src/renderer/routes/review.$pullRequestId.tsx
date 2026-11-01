@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Flag,
+  ListChecks,
   Maximize2,
   Minimize2,
 } from 'lucide-react';
@@ -36,6 +37,9 @@ import {
 } from '../lib/fileReview.ts';
 import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
+import { FindingsDialog } from '../app/FindingsDialog.tsx';
+import { Count } from '../components/Count/Count.tsx';
+import { useReviewFindings } from '../hooks/useReviewFindings.ts';
 import type { DraftComposerState } from '../app/DraftComments.tsx';
 import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
 import { useReviewThreads } from '../hooks/useReviewThreads.ts';
@@ -63,6 +67,7 @@ function ReviewPage() {
   const pullRequest = pullRequestState?.pullRequests.find((pull) => pull.id === pullRequestId);
   const { data: auth } = useGitHubAuth();
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [findingsOpen, setFindingsOpen] = useState(false);
   const repository = repositoryState?.repositories.find(
     (item) => item.id === pullRequest?.repositoryId,
   );
@@ -81,6 +86,9 @@ function ReviewPage() {
       (!searchTerm || matchesFilePath(file, searchTerm) || search.matches.has(file.path)),
   );
   const reviewDrafts = useReviewDrafts(pullRequestId);
+  const reviewFindings = useReviewFindings(pullRequestId);
+  const findings = reviewFindings.findings.data ?? [];
+  const openFindings = findings.filter((finding) => finding.resolution === 'open').length;
   const reviewThreads = useReviewThreads(pullRequestId, files.data?.headSha);
   const threadActions = useThreadActions(pullRequestId);
   // A failure to reach GitHub reads like a refusal, so the thread shows it in place.
@@ -276,15 +284,40 @@ function ReviewPage() {
             Opened {relativeTime(pullRequest.createdAt)} by {author?.login ?? 'an unknown author'}
           </span>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={!files.data}
-          onClick={() => setReviewOpen(true)}
-        >
-          Submit review
-        </Button>
+        <div className={styles.headerActions}>
+          <Button
+            size="sm"
+            iconStart={<ListChecks aria-hidden />}
+            iconEnd={openFindings > 0 ? <Count value={openFindings} /> : undefined}
+            aria-label={`Findings, ${openFindings} open`}
+            onClick={() => setFindingsOpen(true)}
+          >
+            Findings
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            disabled={!files.data}
+            onClick={() => setReviewOpen(true)}
+          >
+            Submit review
+          </Button>
+        </div>
       </header>
+      <FindingsDialog
+        open={findingsOpen}
+        onOpenChange={setFindingsOpen}
+        findings={findings}
+        onSave={({ id, ...finding }) =>
+          id === undefined
+            ? reviewFindings.create.mutateAsync({ pullRequestId, ...finding })
+            : reviewFindings.update.mutateAsync({ pullRequestId, id, ...finding })
+        }
+        onSetResolution={(id, resolution) =>
+          reviewFindings.setResolution.mutateAsync({ pullRequestId, id, resolution })
+        }
+        onDelete={(id) => reviewFindings.remove.mutateAsync(id)}
+      />
       {files.data && (
         <ReviewDialog
           open={reviewOpen}
@@ -295,6 +328,9 @@ function ReviewPage() {
           mergeBase={files.data.mergeBase}
           draftIds={sendableDrafts.map((draft) => draft.id)}
           draftsOutsideDiff={(currentDrafts?.length ?? 0) - sendableDrafts.length}
+          findingIds={findings
+            .filter((finding) => finding.publishedAt === null)
+            .map((finding) => finding.id)}
           ownPullRequest={
             auth?.status === 'connected' && auth.user.login === pullRequest.author?.login
           }
