@@ -1015,7 +1015,11 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
         'pullRequestFiles.getDiff': () => ({
           original: Array.from({ length: 20 }, (_, i) => `const line${i + 1} = 1;`).join('\n'),
           modified: Array.from({ length: 20 }, (_, i) =>
-            i === 1 || i === 12 ? `const line${i + 1} = 2;` : `const line${i + 1} = 1;`,
+            i === 1 || i === 12
+              ? `const line${i + 1} = 2;`
+              : i === 19
+                ? `const line20 = '${'x'.repeat(300)}';`
+                : `const line${i + 1} = 1;`,
           ).join('\n'),
           unavailable: null,
           images: null,
@@ -1072,6 +1076,17 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
 
     const field = page.getByRole('textbox', { name: 'Comment on new line 3' });
     await expect(field).toBeFocused();
+    // The box stays in view when the code scrolls sideways.
+    const codeLeft = async () => (await modified.locator('.editor-scrollable').boundingBox())!.x;
+    const fieldLeft = async () => (await field.boundingBox())!.x;
+    const before = await fieldLeft();
+    await page.mouse.move(near!.x + 200, near!.y);
+    await page.mouse.wheel(400, 0);
+    await expect
+      .poll(async () => (await modified.locator('.view-lines').boundingBox())!.x)
+      .toBeLessThan(await codeLeft());
+    await expect.poll(fieldLeft).toBe(before);
+    await page.mouse.wheel(-400, 0);
     // Review shortcuts stay off while typing.
     await field.fill('Name this better.');
     await page.screenshot({ path: test.info().outputPath('draft-composer.png') });
@@ -1121,6 +1136,17 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     await expect(selectedRange).toBeFocused();
     await page.keyboard.press('Escape');
     await expect(selectedRange).toBeHidden();
+
+    // The plus on a line inside a selection comments on every selected line.
+    await modified.locator('.view-line').nth(10).click();
+    await page.keyboard.press('Shift+ArrowDown');
+    const inside = await lineNumber(12).boundingBox();
+    await page.mouse.move(inside!.x - 8, inside!.y + inside!.height / 2);
+    await glyph.click();
+    const selectedByPlus = page.getByRole('textbox', { name: 'Comment on new lines 11–12' });
+    await expect(selectedByPlus).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(selectedByPlus).toBeHidden();
 
     // Dragging down the gutter comments on several lines, and stops at the end of the hunk.
     const top = await lineNumber(14).boundingBox();

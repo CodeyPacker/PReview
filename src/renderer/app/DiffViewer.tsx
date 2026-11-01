@@ -264,8 +264,18 @@ export function DiffViewer({
             return;
           }
           event.event.preventDefault();
-          drag = { side, first: line, last: line };
-          showPicked(line, line);
+          // The plus on a line inside a selection of several lines comments on all of them.
+          const selection = sideEditor.getSelection();
+          const selected = selection && selectedLines(selection);
+          drag =
+            selected &&
+            selected.first < selected.last &&
+            line >= selected.first &&
+            line <= selected.last &&
+            isCommentable(side, selected.first, selected.last)
+              ? { side, ...selected }
+              : { side, first: line, last: line };
+          showPicked(drag.first, drag.last);
           // The pointer can be released outside the editor.
           window.addEventListener(
             'mouseup',
