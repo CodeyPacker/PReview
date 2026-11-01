@@ -4,8 +4,12 @@ import type {
   DeleteBranchResult,
   MergePullRequestInput,
   MergePullRequestResult,
+  ReplyToThreadInput,
+  ReviewThread,
+  SetThreadResolvedInput,
   SubmitReviewInput,
   SubmitReviewResult,
+  ThreadActionResult,
 } from '../../../shared/contracts/pull-request-reviews.ts';
 import { transaction } from '../../database/connection.ts';
 import { GitHubApiError } from '../../providers/github/client.ts';
@@ -17,9 +21,35 @@ export interface PullRequestReviewsDeps {
   provider: GitProvider;
 }
 
-// Publishes reviews to the provider, merges pull requests and deletes their branches.
+// Reads and answers review threads, publishes reviews, merges pull requests and deletes their
+// branches.
 export class PullRequestReviews {
   constructor(private readonly deps: PullRequestReviewsDeps) {}
+
+  // The pull request's published review threads.
+  listThreads(pullRequestId: number): Promise<ReviewThread[]> {
+    const { repository, number } = this.find(pullRequestId);
+    return this.deps.provider.getReviewThreads(repository, number);
+  }
+
+  // Posts a reply to a thread straight away, as GitHub's single comments do.
+  async reply({ threadId, body }: ReplyToThreadInput): Promise<ThreadActionResult> {
+    return this.changeThread(
+      () => this.deps.provider.replyToThread(threadId, body.trim()),
+      'GitHub did not accept this reply.',
+    );
+  }
+
+  // Resolves a thread, or reopens it.
+  async setThreadResolved({
+    threadId,
+    resolved,
+  }: SetThreadResolvedInput): Promise<ThreadActionResult> {
+    return this.changeThread(
+      () => this.deps.provider.setThreadResolved(threadId, resolved),
+      resolved ? 'GitHub did not resolve this thread.' : 'GitHub did not reopen this thread.',
+    );
+  }
 
   // Publishes the review with the chosen drafts as line comments, then deletes those drafts.
   async submit({
@@ -121,6 +151,23 @@ export class PullRequestReviews {
       throw error;
     }
     return { status: 'deleted' };
+  }
+
+  private async changeThread(
+    change: () => Promise<void>,
+    fallback: string,
+  ): Promise<ThreadActionResult> {
+    try {
+      await change();
+    } catch (error) {
+      // GraphQL reports a refusal, such as no permission or a deleted thread, as an error with
+      // a 200. 403 and 422 are refusals too. Anything else is a failure to reach GitHub.
+      if (error instanceof GitHubApiError && [200, 403, 422].includes(error.status)) {
+        return { status: 'rejected', message: error.detail ?? fallback };
+      }
+      throw error;
+    }
+    return { status: 'saved' };
   }
 
   private find(pullRequestId: number) {

@@ -16,8 +16,12 @@ import {
   deleteBranchResultSchema,
   mergePullRequestInputSchema,
   mergePullRequestResultSchema,
+  replyToThreadInputSchema,
+  reviewThreadSchema,
+  setThreadResolvedInputSchema,
   submitReviewInputSchema,
   submitReviewResultSchema,
+  threadActionResultSchema,
 } from './pull-request-reviews.ts';
 import { pullRequestsStateSchema } from './pull-requests.ts';
 import {
@@ -81,6 +85,21 @@ export const ipcContract = {
       previousPath: z.string().nullable(),
     }),
     output: pullRequestFileDiffSchema,
+  },
+  // The pull request's published review threads, read from the provider.
+  'pullRequestReviews.listThreads': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.array(reviewThreadSchema),
+  },
+  // Posts a reply to a thread on the provider.
+  'pullRequestReviews.replyToThread': {
+    input: replyToThreadInputSchema,
+    output: threadActionResultSchema,
+  },
+  // Resolves or reopens a thread on the provider.
+  'pullRequestReviews.setThreadResolved': {
+    input: setThreadResolvedInputSchema,
+    output: threadActionResultSchema,
   },
   // Publishes a review to the provider.
   'pullRequestReviews.submit': {

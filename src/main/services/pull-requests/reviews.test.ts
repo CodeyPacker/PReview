@@ -38,6 +38,9 @@ function setup() {
   const submitReview = vi.fn<GitProvider['submitReview']>().mockResolvedValue(undefined);
   const mergePullRequest = vi.fn<GitProvider['mergePullRequest']>().mockResolvedValue(undefined);
   const deleteBranch = vi.fn<GitProvider['deleteBranch']>().mockResolvedValue(undefined);
+  const getReviewThreads = vi.fn<GitProvider['getReviewThreads']>().mockResolvedValue([]);
+  const replyToThread = vi.fn<GitProvider['replyToThread']>().mockResolvedValue(undefined);
+  const setThreadResolved = vi.fn<GitProvider['setThreadResolved']>().mockResolvedValue(undefined);
   const provider = {
     getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
@@ -46,11 +49,17 @@ function setup() {
     getMergeBase: vi.fn(),
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),
+    getReviewThreads,
+    replyToThread,
+    setThreadResolved,
     submitReview,
     mergePullRequest,
     deleteBranch,
   } satisfies GitProvider;
   return {
+    getReviewThreads,
+    replyToThread,
+    setThreadResolved,
     submitReview,
     mergePullRequest,
     deleteBranch,
@@ -335,5 +344,53 @@ describe('PullRequestReviews deleteBranch', () => {
     deleteBranch.mockRejectedValue(new GitHubApiError(502, '/git/refs'));
 
     await expect(reviews.deleteBranch({ pullRequestId })).rejects.toThrow();
+  });
+});
+
+describe('PullRequestReviews listThreads', () => {
+  it("reads the pull request's threads from its repository", async () => {
+    const { getReviewThreads, reviews } = setup();
+
+    await expect(reviews.listThreads(pullRequestId)).resolves.toEqual([]);
+    expect(getReviewThreads).toHaveBeenCalledWith('octo/app', 7);
+  });
+});
+
+describe('PullRequestReviews thread changes', () => {
+  it('posts a trimmed reply', async () => {
+    const { replyToThread, reviews } = setup();
+
+    await expect(reviews.reply({ threadId: 'T1', body: ' Fixed. ' })).resolves.toEqual({
+      status: 'saved',
+    });
+    expect(replyToThread).toHaveBeenCalledWith('T1', 'Fixed.');
+  });
+
+  it.each([true, false])('sets resolved to %s', async (resolved) => {
+    const { setThreadResolved, reviews } = setup();
+
+    await expect(reviews.setThreadResolved({ threadId: 'T1', resolved })).resolves.toEqual({
+      status: 'saved',
+    });
+    expect(setThreadResolved).toHaveBeenCalledWith('T1', resolved);
+  });
+
+  it("passes on GitHub's reason when it refuses", async () => {
+    const { setThreadResolved, reviews } = setup();
+    setThreadResolved.mockRejectedValue(
+      new GitHubApiError(200, '/graphql', 'Resource not accessible by integration'),
+    );
+
+    await expect(reviews.setThreadResolved({ threadId: 'T1', resolved: true })).resolves.toEqual({
+      status: 'rejected',
+      message: 'Resource not accessible by integration',
+    });
+  });
+
+  it('throws when GitHub cannot be reached', async () => {
+    const { replyToThread, reviews } = setup();
+    replyToThread.mockRejectedValue(new GitHubApiError(502, '/graphql'));
+
+    await expect(reviews.reply({ threadId: 'T1', body: 'Fixed.' })).rejects.toThrow();
   });
 });

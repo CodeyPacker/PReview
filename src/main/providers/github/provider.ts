@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ReviewThread } from '../../../shared/contracts/pull-request-reviews.ts';
 import type {
   GitProvider,
   ProviderChangedFile,
@@ -59,6 +60,85 @@ const pullRequestRefsSchema = z.object({
 });
 
 const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
+
+const REVIEW_THREADS_QUERY = `
+  query ($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+    repository(owner: $owner, name: $name) {
+      pullRequest(number: $number) {
+        reviewThreads(first: 100, after: $cursor) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            id
+            path
+            diffSide
+            startLine
+            line
+            isResolved
+            isOutdated
+            comments(first: 100) {
+              nodes { id body createdAt url author { login avatarUrl } }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+const reviewThreadsSchema = z.object({
+  repository: z.object({
+    pullRequest: z.object({
+      reviewThreads: z.object({
+        pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable() }),
+        nodes: z.array(
+          z.object({
+            id: z.string(),
+            path: z.string(),
+            diffSide: z.enum(['LEFT', 'RIGHT']),
+            startLine: z.number().nullable(),
+            line: z.number().nullable(),
+            isResolved: z.boolean(),
+            isOutdated: z.boolean(),
+            comments: z.object({
+              nodes: z.array(
+                z.object({
+                  id: z.string(),
+                  body: z.string(),
+                  createdAt: z.string(),
+                  url: z.string(),
+                  author: z.object({ login: z.string(), avatarUrl: z.string() }).nullable(),
+                }),
+              ),
+            }),
+          }),
+        ),
+      }),
+    }),
+  }),
+});
+
+const REPLY_MUTATION = `
+  mutation ($threadId: ID!, $body: String!) {
+    addPullRequestReviewThreadReply(input: { pullRequestReviewThreadId: $threadId, body: $body }) {
+      comment { id }
+    }
+  }
+`;
+
+const RESOLVE_MUTATION = `
+  mutation ($threadId: ID!) {
+    resolveReviewThread(input: { threadId: $threadId }) { thread { id } }
+  }
+`;
+
+const UNRESOLVE_MUTATION = `
+  mutation ($threadId: ID!) {
+    unresolveReviewThread(input: { threadId: $threadId }) { thread { id } }
+  }
+`;
+
+// Stops a runaway listing, like the REST client's page limit.
+const MAX_THREAD_PAGES = 20;
 
 const reviewEvents: Record<ReviewVerdict, string> = {
   approve: 'APPROVE',
@@ -184,6 +264,43 @@ export class GitHubProvider implements GitProvider {
         ref,
       },
     );
+  }
+
+  // Threads come from GraphQL, because the REST API doesn't say whether a thread is resolved.
+  // A thread shows its first 100 comments.
+  async getReviewThreads(repositoryFullName: string, number: number): Promise<ReviewThread[]> {
+    const [owner, name] = repositoryFullName.split('/');
+    const threads: ReviewThread[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < MAX_THREAD_PAGES; page++) {
+      const data = reviewThreadsSchema.parse(
+        await this.client.graphql(REVIEW_THREADS_QUERY, { owner, name, number, cursor }),
+      );
+      const { pageInfo, nodes } = data.repository.pullRequest.reviewThreads;
+      for (const thread of nodes) {
+        threads.push({
+          id: thread.id,
+          path: thread.path,
+          side: thread.diffSide === 'LEFT' ? 'original' : 'modified',
+          startLine: thread.startLine,
+          line: thread.line,
+          resolved: thread.isResolved,
+          outdated: thread.isOutdated,
+          comments: thread.comments.nodes,
+        });
+      }
+      if (!pageInfo.hasNextPage) break;
+      cursor = pageInfo.endCursor;
+    }
+    return threads;
+  }
+
+  async replyToThread(threadId: string, body: string): Promise<void> {
+    await this.client.graphql(REPLY_MUTATION, { threadId, body });
+  }
+
+  async setThreadResolved(threadId: string, resolved: boolean): Promise<void> {
+    await this.client.graphql(resolved ? RESOLVE_MUTATION : UNRESOLVE_MUTATION, { threadId });
   }
 
   async submitReview(
