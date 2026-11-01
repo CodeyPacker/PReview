@@ -6,6 +6,7 @@ import type {
   DeleteBranchResult,
   MergePullRequestInput,
   MergePullRequestResult,
+  ReviewThread,
   SubmitReviewInput,
   SubmitReviewResult,
 } from './pull-request-reviews.ts';
@@ -64,6 +65,7 @@ export interface PreviewApi {
     ): Promise<PullRequestFileDiff>;
   };
   pullRequestReviews: {
+    listThreads(pullRequestId: number): Promise<ReviewThread[]>;
     submit(review: SubmitReviewInput): Promise<SubmitReviewResult>;
     merge(merge: MergePullRequestInput): Promise<MergePullRequestResult>;
     deleteBranch(branch: DeleteBranchInput): Promise<DeleteBranchResult>;

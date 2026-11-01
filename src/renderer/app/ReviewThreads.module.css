@@ -1,0 +1,6 @@
+/* Published review threads in the diff. Read values from tokens.css custom properties only. */
+
+.thread {
+  display: grid;
+  gap: var(--space-8);
+}

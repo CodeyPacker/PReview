@@ -402,3 +402,109 @@ describe('GitHubProvider submitReview', () => {
     ).rejects.toMatchObject({ status: 422, detail: 'Can not approve your own pull request' });
   });
 });
+
+function threadsPage(nodes: unknown[], endCursor: string | null = null) {
+  return json({
+    data: {
+      repository: {
+        pullRequest: {
+          reviewThreads: { pageInfo: { hasNextPage: endCursor !== null, endCursor }, nodes },
+        },
+      },
+    },
+  });
+}
+
+function thread(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'T1',
+    path: 'src/a.ts',
+    diffSide: 'RIGHT',
+    startLine: null,
+    line: 4,
+    isResolved: false,
+    isOutdated: false,
+    comments: {
+      nodes: [
+        {
+          id: 'C1',
+          body: 'Rename this.',
+          createdAt: '2026-10-01T00:00:00Z',
+          url: 'https://github.com/octo/app/pull/7#discussion_r1',
+          author: { login: 'hubot', avatarUrl: 'https://avatars.example/hubot' },
+        },
+      ],
+    },
+    ...overrides,
+  };
+}
+
+describe('GitHubProvider getReviewThreads', () => {
+  it('reads threads with their side, lines, state and comments', async () => {
+    const { fetch, provider } = setup([
+      threadsPage([
+        thread(),
+        thread({ id: 'T2', diffSide: 'LEFT', startLine: 2, line: 5, isResolved: true }),
+      ]),
+    ]);
+
+    await expect(provider.getReviewThreads('octo/app', 7)).resolves.toEqual([
+      {
+        id: 'T1',
+        path: 'src/a.ts',
+        side: 'modified',
+        startLine: null,
+        line: 4,
+        resolved: false,
+        outdated: false,
+        comments: [
+          {
+            id: 'C1',
+            body: 'Rename this.',
+            createdAt: '2026-10-01T00:00:00Z',
+            url: 'https://github.com/octo/app/pull/7#discussion_r1',
+            author: { login: 'hubot', avatarUrl: 'https://avatars.example/hubot' },
+          },
+        ],
+      },
+      expect.objectContaining({
+        id: 'T2',
+        side: 'original',
+        startLine: 2,
+        line: 5,
+        resolved: true,
+      }),
+    ]);
+    expect(urlOf(fetch, 0).pathname).toBe('/graphql');
+    expect(sentBody(fetch).variables).toEqual({
+      owner: 'octo',
+      name: 'app',
+      number: 7,
+      cursor: null,
+    });
+  });
+
+  it('follows the cursor to later pages', async () => {
+    const { fetch, provider } = setup([
+      threadsPage([thread()], 'next'),
+      threadsPage([thread({ id: 'T2' })]),
+    ]);
+
+    const threads = await provider.getReviewThreads('octo/app', 7);
+
+    expect(threads.map((item) => item.id)).toEqual(['T1', 'T2']);
+    const second = fetch.mock.calls[1]?.[1]?.body;
+    if (typeof second !== 'string') throw new Error('Expected a JSON body');
+    expect(JSON.parse(second)).toMatchObject({ variables: { cursor: 'next' } });
+  });
+
+  it('throws the error GitHub reports with a 200', async () => {
+    const { provider } = setup([
+      json({ data: null, errors: [{ message: 'Could not resolve to a Repository.' }] }),
+    ]);
+
+    await expect(provider.getReviewThreads('octo/app', 7)).rejects.toMatchObject({
+      detail: 'Could not resolve to a Repository.',
+    });
+  });
+});

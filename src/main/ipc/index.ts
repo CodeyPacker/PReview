@@ -99,6 +99,9 @@ export function registerIpcHandlers(
     pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
   );
 
+  handle('pullRequestReviews.listThreads', ({ pullRequestId }) =>
+    pullRequestReviews.listThreads(pullRequestId),
+  );
   handle('pullRequestReviews.submit', (review) => pullRequestReviews.submit(review));
   handle('pullRequestReviews.merge', (merge) => pullRequestReviews.merge(merge));
   handle('pullRequestReviews.deleteBranch', (branch) => pullRequestReviews.deleteBranch(branch));

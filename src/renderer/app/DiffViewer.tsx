@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { DiffHunk } from '../../shared/contracts/pull-request-files.ts';
+import type { ReviewThread } from '../../shared/contracts/pull-request-reviews.ts';
 import type { DiffSide, ReviewDraft } from '../../shared/contracts/review-drafts.ts';
 import { definePreviewTheme, monaco, monoFont } from './monaco.ts';
 import styles from './DiffViewer.module.css';
@@ -20,6 +21,7 @@ import {
   type DraftAuthor,
   type DraftComposerState,
 } from './DraftComments.tsx';
+import { ThreadCard } from './ReviewThreads.tsx';
 import { useThemeVersion } from './useThemeVersion.ts';
 import { useViewZones, type ViewZone } from './useViewZones.ts';
 import {
@@ -70,6 +72,8 @@ export interface DiffViewerProps {
   searchQuery?: string;
   searchMatch?: FileSearchMatch;
   drafts?: DiffViewerDrafts;
+  // This file's published threads. Threads with no line in the diff are left out.
+  threads?: readonly ReviewThread[];
 }
 
 interface Models {
@@ -110,6 +114,7 @@ export function DiffViewer({
   searchQuery = '',
   searchMatch,
   drafts,
+  threads,
 }: DiffViewerProps) {
   const themeVersion = useThemeVersion();
   const theme = `preview-${themeVersion}`;
@@ -440,6 +445,13 @@ export function DiffViewer({
   }, [commentsOn]);
 
   const draftItems = drafts?.items;
+  const threadItems = useMemo(
+    () =>
+      (threads ?? []).flatMap((thread) =>
+        thread.line === null ? [] : [{ ...thread, line: thread.line }],
+      ),
+    [threads],
+  );
   const composer = drafts?.composer;
   const newComposer =
     composer && composer.draftId === undefined
@@ -448,19 +460,25 @@ export function DiffViewer({
   const newComposerSide = newComposer?.side;
   const newComposerLine = newComposer?.line;
 
-  // Comments open below their line. The unified view only shows the new file's editor, so
+  // Threads and comments open below their line, threads first. The unified view only shows the new file's editor, so
   // comments on the old file go below where their line would be in the new one.
   const zones = useMemo(() => {
     const place = (side: DiffSide, line: number) =>
       unified && side === 'original'
         ? { side: 'modified' as const, afterLine: originalLineInModified(lineChanges, line) }
         : { side, afterLine: line };
-    const list: (ViewZone & { draftId?: number })[] = (draftItems ?? []).map((draft, index) => ({
-      key: `draft-${draft.id}`,
-      draftId: draft.id,
-      ...place(draft.side, draft.line),
-      ordinal: index,
-    }));
+    const list: (ViewZone & { draftId?: number; threadId?: string })[] = [
+      ...threadItems.map((thread) => ({
+        key: `thread-${thread.id}`,
+        threadId: thread.id,
+        ...place(thread.side, thread.line),
+      })),
+      ...(draftItems ?? []).map((draft) => ({
+        key: `draft-${draft.id}`,
+        draftId: draft.id,
+        ...place(draft.side, draft.line),
+      })),
+    ].map((zone, index) => ({ ...zone, ordinal: index }));
     if (newComposerSide && newComposerLine) {
       list.push({
         key: 'composer',
@@ -469,7 +487,7 @@ export function DiffViewer({
       });
     }
     return list;
-  }, [draftItems, newComposerSide, newComposerLine, unified, lineChanges]);
+  }, [threadItems, draftItems, newComposerSide, newComposerLine, unified, lineChanges]);
 
   const editorFor = useCallback((side: DiffSide) => {
     const diffEditor = editor.current;
@@ -478,9 +496,13 @@ export function DiffViewer({
   }, []);
   const zoneTargets = useViewZones(zones, editorFor, modelVersion, styles.zone);
 
-  // The lines of the comment being written, or of the draft under the pointer, are shaded.
-  const [hoveredDraftId, setHoveredDraftId] = useState<number>();
-  const shaded = composer ?? draftItems?.find((draft) => draft.id === hoveredDraftId);
+  // The lines of the comment being written, or of the draft or thread under the pointer, are
+  // shaded.
+  const [hoveredKey, setHoveredKey] = useState<string>();
+  const shaded =
+    composer ??
+    draftItems?.find((draft) => `draft-${draft.id}` === hoveredKey) ??
+    threadItems.find((thread) => `thread-${thread.id}` === hoveredKey);
   const shadedSide = shaded?.side;
   const shadedFirst = shaded && (shaded.startLine ?? shaded.line);
   const shadedLast = shaded?.line;
@@ -506,31 +528,37 @@ export function DiffViewer({
     return () => shading.clear();
   }, [shadedSide, shadedFirst, shadedLast, unified, lineChanges, modelVersion]);
 
-  let portals: ReactNode = null;
-  if (drafts) {
-    const composerView = composer && (
-      <DraftComposer
-        composer={composer}
-        onChange={(body) => drafts.onComposerChange({ ...composer, body })}
-        onSave={drafts.onSave}
-        onCancel={() => drafts.onComposerChange(undefined)}
-        saving={drafts.saving}
-        failed={drafts.saveFailed}
-      />
-    );
-    portals = zones.map((zone) => {
-      const target = zoneTargets.get(zone.key);
-      if (!target) return null;
-      const draft = drafts.items.find((item) => item.id === zone.draftId);
-      const content = !draft ? (
-        composerView
-      ) : composer?.draftId === draft.id ? (
-        composerView
-      ) : (
-        <div
-          onMouseEnter={() => setHoveredDraftId(draft.id)}
-          onMouseLeave={() => setHoveredDraftId(undefined)}
-        >
+  const hoverProps = (key: string) => ({
+    onMouseEnter: () => setHoveredKey(key),
+    onMouseLeave: () => setHoveredKey(undefined),
+  });
+  const composerView = drafts && composer && (
+    <DraftComposer
+      composer={composer}
+      onChange={(body) => drafts.onComposerChange({ ...composer, body })}
+      onSave={drafts.onSave}
+      onCancel={() => drafts.onComposerChange(undefined)}
+      saving={drafts.saving}
+      failed={drafts.saveFailed}
+    />
+  );
+  const portals: ReactNode = zones.map((zone) => {
+    const target = zoneTargets.get(zone.key);
+    if (!target) return null;
+    const thread = threadItems.find((item) => item.id === zone.threadId);
+    const draft = drafts?.items.find((item) => item.id === zone.draftId);
+    let content: ReactNode;
+    if (thread) {
+      content = (
+        <div {...hoverProps(zone.key)}>
+          <ThreadCard thread={thread} />
+        </div>
+      );
+    } else if (!drafts || !draft || composer?.draftId === draft.id) {
+      content = composerView;
+    } else {
+      content = (
+        <div {...hoverProps(zone.key)}>
           <DraftCard
             draft={draft}
             author={drafts.author}
@@ -549,9 +577,9 @@ export function DiffViewer({
           />
         </div>
       );
-      return createPortal(content, target, zone.key);
-    });
-  }
+    }
+    return createPortal(content, target, zone.key);
+  });
 
   return (
     <div data-review-diff ref={container} className={styles.viewer}>

@@ -36,6 +36,7 @@ const api: PreviewApi = {
     refresh: () => invoke('pullRequests.refresh', undefined),
   },
   pullRequestReviews: {
+    listThreads: (pullRequestId) => invoke('pullRequestReviews.listThreads', { pullRequestId }),
     submit: (review) => invoke('pullRequestReviews.submit', review),
     merge: (merge) => invoke('pullRequestReviews.merge', merge),
     deleteBranch: (branch) => invoke('pullRequestReviews.deleteBranch', branch),

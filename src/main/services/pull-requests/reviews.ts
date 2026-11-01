@@ -4,6 +4,7 @@ import type {
   DeleteBranchResult,
   MergePullRequestInput,
   MergePullRequestResult,
+  ReviewThread,
   SubmitReviewInput,
   SubmitReviewResult,
 } from '../../../shared/contracts/pull-request-reviews.ts';
@@ -17,9 +18,16 @@ export interface PullRequestReviewsDeps {
   provider: GitProvider;
 }
 
-// Publishes reviews to the provider, merges pull requests and deletes their branches.
+// Reads review threads from the provider, publishes reviews, merges pull requests and deletes
+// their branches.
 export class PullRequestReviews {
   constructor(private readonly deps: PullRequestReviewsDeps) {}
+
+  // The pull request's published review threads.
+  listThreads(pullRequestId: number): Promise<ReviewThread[]> {
+    const { repository, number } = this.find(pullRequestId);
+    return this.deps.provider.getReviewThreads(repository, number);
+  }
 
   // Publishes the review with the chosen drafts as line comments, then deletes those drafts.
   async submit({

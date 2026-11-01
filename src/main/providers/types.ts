@@ -1,8 +1,9 @@
 // The provider interface the rest of the app talks to. GitHub is the only adapter in the MVP.
-// Read operations only. Write operations (reviews, replies, thread resolution, merge) are added
-// when the features that need them are built.
+// Write operations (replies, thread resolution) are added when the features that need them
+// are built.
 
 import type { DiffHunk, PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
+import type { ReviewThread } from '../../shared/contracts/pull-request-reviews.ts';
 
 export type ProviderName = 'github';
 
@@ -103,6 +104,8 @@ export interface GitProvider {
     path: string,
     ref: string,
   ): Promise<Uint8Array | undefined>;
+  // The pull request's published review threads, with their comments.
+  getReviewThreads(repositoryFullName: string, number: number): Promise<ReviewThread[]>;
   // Publishes a review of the pull request. Rejects with the provider's explanation when the
   // provider refuses it, for example when the author tries to approve their own pull request.
   submitReview(repositoryFullName: string, number: number, review: ProviderReview): Promise<void>;

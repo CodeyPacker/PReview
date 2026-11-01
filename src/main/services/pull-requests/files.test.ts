@@ -46,6 +46,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
       Promise.resolve(contents[`${ref}:${path}`]),
     ),
     getFileBytes: vi.fn<GitProvider['getFileBytes']>().mockResolvedValue(undefined),
+    getReviewThreads: vi.fn<GitProvider['getReviewThreads']>(),
     submitReview: vi.fn<GitProvider['submitReview']>(),
     mergePullRequest: vi.fn<GitProvider['mergePullRequest']>(),
     deleteBranch: vi.fn<GitProvider['deleteBranch']>(),

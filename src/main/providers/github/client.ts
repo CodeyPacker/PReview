@@ -103,6 +103,19 @@ export class GitHubClient {
     return response.json();
   }
 
+  // Runs a GraphQL query. GitHub reports query errors with a 200, so those are thrown here.
+  async graphql(query: string, variables: Record<string, unknown>): Promise<unknown> {
+    const body = (await this.postJson('/graphql', { query, variables })) as {
+      data?: unknown;
+      errors?: { message?: unknown }[];
+    };
+    const message = body.errors?.[0]?.message;
+    if (body.errors?.length) {
+      throw new GitHubApiError(200, '/graphql', typeof message === 'string' ? message : undefined);
+    }
+    return body.data;
+  }
+
   // Sends a JSON body with PUT and returns the JSON response.
   async putJson(path: string, body: unknown): Promise<unknown> {
     const response = await this.request(this.url(path, {}), path, JSON_ACCEPT, {

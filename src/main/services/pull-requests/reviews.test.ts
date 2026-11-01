@@ -38,6 +38,7 @@ function setup() {
   const submitReview = vi.fn<GitProvider['submitReview']>().mockResolvedValue(undefined);
   const mergePullRequest = vi.fn<GitProvider['mergePullRequest']>().mockResolvedValue(undefined);
   const deleteBranch = vi.fn<GitProvider['deleteBranch']>().mockResolvedValue(undefined);
+  const getReviewThreads = vi.fn<GitProvider['getReviewThreads']>().mockResolvedValue([]);
   const provider = {
     getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
@@ -46,11 +47,13 @@ function setup() {
     getMergeBase: vi.fn(),
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),
+    getReviewThreads,
     submitReview,
     mergePullRequest,
     deleteBranch,
   } satisfies GitProvider;
   return {
+    getReviewThreads,
     submitReview,
     mergePullRequest,
     deleteBranch,
@@ -335,5 +338,14 @@ describe('PullRequestReviews deleteBranch', () => {
     deleteBranch.mockRejectedValue(new GitHubApiError(502, '/git/refs'));
 
     await expect(reviews.deleteBranch({ pullRequestId })).rejects.toThrow();
+  });
+});
+
+describe('PullRequestReviews listThreads', () => {
+  it("reads the pull request's threads from its repository", async () => {
+    const { getReviewThreads, reviews } = setup();
+
+    await expect(reviews.listThreads(pullRequestId)).resolves.toEqual([]);
+    expect(getReviewThreads).toHaveBeenCalledWith('octo/app', 7);
   });
 });
