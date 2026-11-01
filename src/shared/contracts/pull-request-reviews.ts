@@ -22,3 +22,21 @@ export const submitReviewResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('rejected'), message: z.string() }),
 ]);
 export type SubmitReviewResult = z.infer<typeof submitReviewResultSchema>;
+
+export const mergeMethodSchema = z.enum(['merge', 'squash', 'rebase']);
+export type MergeMethod = z.infer<typeof mergeMethodSchema>;
+
+export const mergePullRequestInputSchema = z.object({
+  pullRequestId: z.number().int(),
+  // The commit the reviewer looked at. The merge is refused if the branch has moved past it.
+  headSha: commitShaSchema,
+  method: mergeMethodSchema,
+});
+export type MergePullRequestInput = z.infer<typeof mergePullRequestInputSchema>;
+
+// rejected: the provider refused the merge. The message says why and is safe to show.
+export const mergePullRequestResultSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('merged') }),
+  z.object({ status: z.literal('rejected'), message: z.string() }),
+]);
+export type MergePullRequestResult = z.infer<typeof mergePullRequestResultSchema>;

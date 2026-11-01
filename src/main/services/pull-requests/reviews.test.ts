@@ -36,6 +36,7 @@ const BASE = 'b'.repeat(40);
 
 function setup() {
   const submitReview = vi.fn<GitProvider['submitReview']>().mockResolvedValue(undefined);
+  const mergePullRequest = vi.fn<GitProvider['mergePullRequest']>().mockResolvedValue(undefined);
   const provider = {
     getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
@@ -45,8 +46,9 @@ function setup() {
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),
     submitReview,
+    mergePullRequest,
   } satisfies GitProvider;
-  return { submitReview, reviews: new PullRequestReviews({ db, provider }) };
+  return { submitReview, mergePullRequest, reviews: new PullRequestReviews({ db, provider }) };
 }
 
 describe('PullRequestReviews', () => {
@@ -250,5 +252,53 @@ describe('PullRequestReviews', () => {
       }),
     ).resolves.toMatchObject({ status: 'rejected' });
     expect(submitReview).not.toHaveBeenCalled();
+  });
+});
+
+describe('PullRequestReviews merge', () => {
+  it('merges the pull request at the reviewed commit', async () => {
+    const { mergePullRequest, reviews } = setup();
+
+    await expect(
+      reviews.merge({ pullRequestId, headSha: HEAD, method: 'squash' }),
+    ).resolves.toEqual({ status: 'merged' });
+    expect(mergePullRequest).toHaveBeenCalledWith('octo/app', 7, HEAD, 'squash');
+  });
+
+  it('says so when the branch moved past the reviewed commit', async () => {
+    const { mergePullRequest, reviews } = setup();
+    mergePullRequest.mockRejectedValue(
+      new GitHubApiError(409, '/merge', 'Head branch was modified.'),
+    );
+
+    await expect(reviews.merge({ pullRequestId, headSha: HEAD, method: 'merge' })).resolves.toEqual(
+      {
+        status: 'rejected',
+        message: 'The branch has new commits since you reviewed it. Reload and review them first.',
+      },
+    );
+  });
+
+  it("passes on GitHub's reason when it refuses the merge", async () => {
+    const { mergePullRequest, reviews } = setup();
+    mergePullRequest.mockRejectedValue(
+      new GitHubApiError(405, '/merge', 'Merge commits are not allowed on this repository.'),
+    );
+
+    await expect(reviews.merge({ pullRequestId, headSha: HEAD, method: 'merge' })).resolves.toEqual(
+      {
+        status: 'rejected',
+        message: 'Merge commits are not allowed on this repository.',
+      },
+    );
+  });
+
+  it('throws when GitHub cannot be reached', async () => {
+    const { mergePullRequest, reviews } = setup();
+    mergePullRequest.mockRejectedValue(new GitHubApiError(502, '/merge'));
+
+    await expect(
+      reviews.merge({ pullRequestId, headSha: HEAD, method: 'merge' }),
+    ).rejects.toThrow();
   });
 });

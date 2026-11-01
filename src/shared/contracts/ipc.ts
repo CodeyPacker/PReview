@@ -11,7 +11,12 @@ import {
   pullRequestChangesSchema,
   pullRequestFileDiffSchema,
 } from './pull-request-files.ts';
-import { submitReviewInputSchema, submitReviewResultSchema } from './pull-request-reviews.ts';
+import {
+  mergePullRequestInputSchema,
+  mergePullRequestResultSchema,
+  submitReviewInputSchema,
+  submitReviewResultSchema,
+} from './pull-request-reviews.ts';
 import { pullRequestsStateSchema } from './pull-requests.ts';
 import {
   createReviewDraftInputSchema,
@@ -79,6 +84,11 @@ export const ipcContract = {
   'pullRequestReviews.submit': {
     input: submitReviewInputSchema,
     output: submitReviewResultSchema,
+  },
+  // Merges a pull request on the provider.
+  'pullRequestReviews.merge': {
+    input: mergePullRequestInputSchema,
+    output: mergePullRequestResultSchema,
   },
   // Unsent line comments, kept on this machine. Each call returns the pull request's drafts.
   'reviewDrafts.list': {

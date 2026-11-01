@@ -1,7 +1,12 @@
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type { PullRequestChanges, PullRequestFileDiff } from './pull-request-files.ts';
-import type { SubmitReviewInput, SubmitReviewResult } from './pull-request-reviews.ts';
+import type {
+  MergePullRequestInput,
+  MergePullRequestResult,
+  SubmitReviewInput,
+  SubmitReviewResult,
+} from './pull-request-reviews.ts';
 import type { PullRequestsState } from './pull-requests.ts';
 import type {
   CreateReviewDraftInput,
@@ -58,6 +63,7 @@ export interface PreviewApi {
   };
   pullRequestReviews: {
     submit(review: SubmitReviewInput): Promise<SubmitReviewResult>;
+    merge(merge: MergePullRequestInput): Promise<MergePullRequestResult>;
   };
   // Each call resolves with every draft of the pull request.
   reviewDrafts: {
