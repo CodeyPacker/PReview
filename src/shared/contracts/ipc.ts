@@ -37,6 +37,7 @@ import {
   updateReviewFindingInputSchema,
 } from './review-findings.ts';
 import { fileReviewMarkSchema, setFileReviewMarkInputSchema } from './file-review-marks.ts';
+import { reviewCompletionSchema } from './review-completions.ts';
 import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
@@ -181,6 +182,16 @@ export const ipcContract = {
   'fileReviewMarks.set': {
     input: setFileReviewMarkInputSchema,
     output: z.array(fileReviewMarkSchema),
+  },
+  // Null until the reviewer finishes the review.
+  'reviewCompletions.get': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: reviewCompletionSchema.nullable(),
+  },
+  // Finishing a review that is already finished returns the first completion.
+  'reviewCompletions.finish': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: reviewCompletionSchema,
   },
   // Where the reviewer left off in a pull request. Null before it was first opened.
   'reviewSessions.get': {

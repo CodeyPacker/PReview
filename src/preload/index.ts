@@ -68,6 +68,10 @@ const api: PreviewApi = {
     list: (pullRequestId) => invoke('fileReviewMarks.list', { pullRequestId }),
     set: (mark) => invoke('fileReviewMarks.set', mark),
   },
+  reviewCompletions: {
+    get: (pullRequestId) => invoke('reviewCompletions.get', { pullRequestId }),
+    finish: (pullRequestId) => invoke('reviewCompletions.finish', { pullRequestId }),
+  },
   reviewSessions: {
     get: (pullRequestId) => invoke('reviewSessions.get', { pullRequestId }),
     save: (session) => invoke('reviewSessions.save', session),

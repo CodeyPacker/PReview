@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CheckCheck,
   ChevronLeft,
   ChevronRight,
   Flag,
@@ -46,6 +47,7 @@ import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
 import { useReviewFindings } from '../hooks/useReviewFindings.ts';
+import { useReviewCompletion } from '../hooks/useReviewCompletion.ts';
 import type { DraftComposerState } from '../app/DraftComments.tsx';
 import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
 import { useReviewSession } from '../hooks/useReviewSession.ts';
@@ -124,6 +126,7 @@ function ReviewPage() {
   );
   const reviewDrafts = useReviewDrafts(pullRequestId);
   const reviewFindings = useReviewFindings(pullRequestId);
+  const { completion: reviewCompletion, finish: finishReview } = useReviewCompletion(pullRequestId);
   const findings = reviewFindings.findings.data ?? [];
   const openFindings = findings.filter((finding) => finding.resolution === 'open').length;
   const reviewThreads = useReviewThreads(pullRequestId, files.data?.headSha);
@@ -383,6 +386,15 @@ function ReviewPage() {
             onClick={() => setFindingsOpen(true)}
           >
             Findings
+          </Button>
+          <Button
+            size="sm"
+            iconStart={<CheckCheck aria-hidden />}
+            disabled={reviewCompletion.isPending || reviewCompletion.data != null}
+            loading={finishReview.isPending}
+            onClick={() => finishReview.mutate()}
+          >
+            {reviewCompletion.data ? 'Review finished' : 'Finish review'}
           </Button>
           <Button
             variant="primary"
