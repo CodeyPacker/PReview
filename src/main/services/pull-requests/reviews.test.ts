@@ -36,8 +36,16 @@ beforeEach(() => {
 const HEAD = 'a'.repeat(40);
 const BASE = 'b'.repeat(40);
 
+// The id PReview hides at the end of every review it sends.
+const MARKER = /\n\n<!-- preview-submission:([0-9a-f-]{36}) -->$/;
+const withoutMarker = (body: string | undefined) => body?.replace(MARKER, '');
+
 function setup() {
-  const submitReview = vi.fn<GitProvider['submitReview']>().mockResolvedValue(undefined);
+  const submitReview = vi.fn<GitProvider['submitReview']>().mockResolvedValue({ id: 'R1' });
+  const getReviews = vi.fn<GitProvider['getReviews']>().mockResolvedValue([]);
+  const getPullRequestRefs = vi
+    .fn<GitProvider['getPullRequestRefs']>()
+    .mockResolvedValue({ headSha: HEAD, baseBranch: 'main' });
   const mergePullRequest = vi.fn<GitProvider['mergePullRequest']>().mockResolvedValue(undefined);
   const deleteBranch = vi.fn<GitProvider['deleteBranch']>().mockResolvedValue(undefined);
   const getReviewThreads = vi.fn<GitProvider['getReviewThreads']>().mockResolvedValue([]);
@@ -47,7 +55,7 @@ function setup() {
   const provider = {
     getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
-    getPullRequestRefs: vi.fn(),
+    getPullRequestRefs,
     getPullRequestFiles: vi.fn(),
     getPullRequestCommits: vi.fn(),
     getCommitChanges: vi.fn(),
@@ -60,10 +68,13 @@ function setup() {
     replyToThread,
     setThreadResolved,
     submitReview,
+    getReviews,
     mergePullRequest,
     deleteBranch,
   } satisfies GitProvider;
   return {
+    getReviews,
+    getPullRequestRefs,
     getChangesBetween,
     getReviewThreads,
     replyToThread,
@@ -91,7 +102,10 @@ describe('PullRequestReviews', () => {
       }),
     ).resolves.toEqual({ status: 'submitted' });
 
-    expect(submitReview).toHaveBeenCalledWith('octo/app', 7, {
+    const [repository, number, review] = submitReview.mock.calls[0]!;
+    expect([repository, number]).toEqual(['octo/app', 7]);
+    expect(review.body).toMatch(MARKER);
+    expect({ ...review, body: withoutMarker(review.body) }).toEqual({
       verdict: 'approve',
       body: 'Looks good.',
       headSha: HEAD,
@@ -335,7 +349,7 @@ describe('PullRequestReviews', () => {
       }),
     ).resolves.toEqual({ status: 'submitted' });
 
-    expect(submitReview.mock.calls[0]?.[2].body).toBe(
+    expect(withoutMarker(submitReview.mock.calls[0]?.[2].body)).toBe(
       [
         '## Findings',
         '### 1. UI bug',
@@ -368,7 +382,7 @@ describe('PullRequestReviews', () => {
       body: ' Nice work. ',
     });
 
-    expect(submitReview.mock.calls[0]?.[2].body).toBe(
+    expect(withoutMarker(submitReview.mock.calls[0]?.[2].body)).toBe(
       'Nice work.\n\n## Findings\n\n### 1. Bug\n\nCrashes on empty input.',
     );
   });
@@ -418,6 +432,159 @@ describe('PullRequestReviews', () => {
         body: 'Notes.',
       }),
     ).resolves.toMatchObject({ status: 'rejected' });
+    expect(submitReview).not.toHaveBeenCalled();
+  });
+});
+
+describe('PullRequestReviews durable submissions', () => {
+  const draft = () =>
+    createReviewDraft(db, {
+      pullRequestId,
+      headSha: HEAD,
+      mergeBase: BASE,
+      path: 'src/app.ts',
+      side: 'modified',
+      startLine: null,
+      line: 3,
+      body: 'Fix this.',
+    }).at(-1)!;
+  const input = (draftIds: number[], sendToAgent = false) => ({
+    pullRequestId,
+    headSha: HEAD,
+    mergeBase: BASE,
+    draftIds,
+    findingIds: [],
+    verdict: 'comment' as const,
+    body: 'Notes.',
+    sendToAgent,
+  });
+  const submissions = () =>
+    db.prepare('SELECT state, provider_review_id FROM review_submissions').all();
+  const tasks = () => db.prepare('SELECT submission_id, status FROM agent_tasks').all();
+  const postedBody = (submitReview: ReturnType<typeof setup>['submitReview']) =>
+    submitReview.mock.calls[0]![2].body;
+
+  it('keeps the review and its drafts when GitHub cannot be reached', async () => {
+    const { submitReview, reviews } = setup();
+    const comment = draft();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+
+    await expect(reviews.submit(input([comment.id]))).rejects.toThrow('offline');
+
+    expect(submissions()).toEqual([{ state: 'publishing', provider_review_id: null }]);
+    expect(listReviewDrafts(db, pullRequestId)).toHaveLength(1);
+  });
+
+  it('does not post again when GitHub turns out to have the review', async () => {
+    const { submitReview, getReviews, reviews } = setup();
+    const comment = draft();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await expect(reviews.submit(input([comment.id]))).rejects.toThrow();
+    getReviews.mockResolvedValue([{ id: 'R9', body: postedBody(submitReview) }]);
+
+    await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'submitted' });
+
+    expect(submitReview).toHaveBeenCalledTimes(1);
+    expect(submissions()).toEqual([{ state: 'published', provider_review_id: 'R9' }]);
+    expect(listReviewDrafts(db, pullRequestId)).toEqual([]);
+  });
+
+  it('marks a review failed when GitHub never got it, and sends the retry', async () => {
+    const { submitReview, reviews } = setup();
+    const comment = draft();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await expect(reviews.submit(input([comment.id]))).rejects.toThrow();
+
+    await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'submitted' });
+
+    expect(submitReview).toHaveBeenCalledTimes(2);
+    expect(submissions()).toEqual([
+      { state: 'failed', provider_review_id: null },
+      { state: 'published', provider_review_id: 'R1' },
+    ]);
+    expect(listReviewDrafts(db, pullRequestId)).toEqual([]);
+  });
+
+  it('refuses a second submit while one is being sent', async () => {
+    const { submitReview, reviews } = setup();
+    let finish: (value: { id: string }) => void = () => {};
+    submitReview.mockReturnValueOnce(new Promise((resolve) => (finish = resolve)));
+    const first = reviews.submit(input([]));
+
+    await expect(reviews.submit(input([]))).resolves.toEqual({
+      status: 'rejected',
+      message: 'This review is already being sent.',
+    });
+    finish({ id: 'R1' });
+    await expect(first).resolves.toEqual({ status: 'submitted' });
+  });
+
+  it('forgets a review GitHub refuses', async () => {
+    const { submitReview, reviews } = setup();
+    submitReview.mockRejectedValueOnce(new GitHubApiError(422, 'POST', 'Unprocessable'));
+
+    await reviews.submit(input([]));
+
+    expect(submissions()).toEqual([]);
+  });
+
+  it('settles unconfirmed reviews at startup', async () => {
+    const { submitReview, getReviews, reviews } = setup();
+    const comment = draft();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await expect(reviews.submit(input([comment.id]))).rejects.toThrow();
+    getReviews.mockResolvedValue([{ id: 'R9', body: postedBody(submitReview) }]);
+
+    await reviews.recoverSubmissions();
+
+    expect(submissions()).toEqual([{ state: 'published', provider_review_id: 'R9' }]);
+    expect(listReviewDrafts(db, pullRequestId)).toEqual([]);
+  });
+
+  it('queues one agent task for a review sent to the agent', async () => {
+    const { reviews } = setup();
+    const comment = draft();
+
+    await expect(reviews.submit(input([comment.id], true))).resolves.toEqual({
+      status: 'submitted',
+    });
+
+    const { id } = db.prepare('SELECT id FROM review_submissions').get() as { id: string };
+    expect(tasks()).toEqual([{ submission_id: id, status: 'queued' }]);
+  });
+
+  it('queues the agent task when a review sent to the agent is confirmed later', async () => {
+    const { submitReview, getReviews, reviews } = setup();
+    const comment = draft();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await expect(reviews.submit(input([comment.id], true))).rejects.toThrow();
+    expect(tasks()).toEqual([]);
+    getReviews.mockResolvedValue([{ id: 'R9', body: postedBody(submitReview) }]);
+
+    await reviews.recoverSubmissions();
+
+    expect(tasks()).toHaveLength(1);
+  });
+
+  it('refuses to send to the agent when the branch moved', async () => {
+    const { submitReview, getPullRequestRefs, reviews } = setup();
+    const comment = draft();
+    getPullRequestRefs.mockResolvedValue({ headSha: 'c'.repeat(40), baseBranch: 'main' });
+
+    await expect(reviews.submit(input([comment.id], true))).resolves.toEqual({
+      status: 'rejected',
+      message: 'The branch has new commits since you reviewed it. Reload and review them first.',
+    });
+    expect(submitReview).not.toHaveBeenCalled();
+  });
+
+  it('refuses to send to the agent with nothing to work on', async () => {
+    const { submitReview, reviews } = setup();
+
+    await expect(reviews.submit(input([], true))).resolves.toEqual({
+      status: 'rejected',
+      message: 'Add a line comment or finding for the agent to work on.',
+    });
     expect(submitReview).not.toHaveBeenCalled();
   });
 });

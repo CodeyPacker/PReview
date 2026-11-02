@@ -77,8 +77,13 @@ export function ReviewDialog({
   // The findings fill the body when there are some, so no summary is needed then.
   const needsSummary = verdict !== 'approve' && findingIds.length === 0;
   const canSubmit = !submit.isPending && (!needsSummary || body.trim() !== '');
+  // The agent needs comments or findings to work on. An approval asks for nothing.
+  const canSendToAgent =
+    canSubmit && verdict !== 'approve' && draftIds.length + findingIds.length > 0;
+  const sendingToAgent = submit.variables?.sendToAgent === true;
   const result = submit.data;
   const submitted = result?.status === 'submitted';
+  const sentToAgent = submitted && sendingToAgent;
   const rejection = result?.status === 'rejected' ? result.message : undefined;
   const done = submitted || merged;
   const sentComments = submit.variables?.draftIds.length ?? 0;
@@ -97,6 +102,18 @@ export function ReviewDialog({
   ]
     .filter(Boolean)
     .join(' ');
+
+  const send = (sendToAgent: boolean) =>
+    submit.mutate({
+      pullRequestId,
+      headSha,
+      mergeBase,
+      draftIds,
+      findingIds,
+      verdict,
+      body,
+      sendToAgent,
+    });
 
   const close = (next: boolean) => {
     onOpenChange(next);
@@ -142,18 +159,22 @@ export function ReviewDialog({
             <>
               <CircleCheck className={styles.done} aria-hidden />
               <Dialog.Title className="title-2">
-                {merged ? 'Pull request merged' : 'Review submitted'}
+                {merged
+                  ? 'Pull request merged'
+                  : sentToAgent
+                    ? 'Sent to the agent'
+                    : 'Review submitted'}
               </Dialog.Title>
               <Dialog.Description className={styles.description}>
                 {merged
                   ? branchDeleted
                     ? 'GitHub merged this pull request and deleted its branch.'
                     : 'GitHub merged this pull request.'
-                  : sent
-                    ? `GitHub has your review and ${sent}.`
-                    : 'GitHub has your review.'}
+                  : `${sent ? `GitHub has your review and ${sent}.` : 'GitHub has your review.'}${
+                      sentToAgent ? ' The agent task is queued.' : ''
+                    }`}
               </Dialog.Description>
-              {!merged && mergeMethodPicker}
+              {!merged && !sentToAgent && mergeMethodPicker}
               {mergeError}
               {(deleteRejection || deleteBranch.isError) && (
                 <p className={styles.error} role="alert">
@@ -170,7 +191,7 @@ export function ReviewDialog({
                 >
                   View on GitHub
                 </Button>
-                {!merged && mergeButton}
+                {!merged && !sentToAgent && mergeButton}
                 {merged && !branchDeleted && (
                   <Button
                     loading={deleteBranch.isPending}
@@ -189,17 +210,7 @@ export function ReviewDialog({
               className={styles.form}
               onSubmit={(event) => {
                 event.preventDefault();
-                if (canSubmit) {
-                  submit.mutate({
-                    pullRequestId,
-                    headSha,
-                    mergeBase,
-                    draftIds,
-                    findingIds,
-                    verdict,
-                    body,
-                  });
-                }
+                if (canSubmit) send(false);
               }}
             >
               <Dialog.Title className="title-2">Submit your review</Dialog.Title>
@@ -237,9 +248,17 @@ export function ReviewDialog({
                 </Button>
                 {ownPullRequest && mergeButton}
                 <Button
+                  type="button"
+                  loading={submit.isPending && sendingToAgent}
+                  disabled={!canSendToAgent}
+                  onClick={() => send(true)}
+                >
+                  Send to Agent
+                </Button>
+                <Button
                   variant="primary"
                   type="submit"
-                  loading={submit.isPending}
+                  loading={submit.isPending && !sendingToAgent}
                   disabled={!canSubmit}
                 >
                   Submit review

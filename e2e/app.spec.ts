@@ -976,6 +976,7 @@ test('submits a review, and only allows a comment on your own pull request', asy
         findingIds: [],
         verdict: 'comment',
         body: 'Nice work.',
+        sendToAgent: false,
       },
     ]);
 
@@ -1216,6 +1217,7 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
         findingIds: [],
         verdict: 'comment',
         body: 'A few notes.',
+        sendToAgent: false,
       },
     ]);
     await rangeCard.getByRole('button', { name: 'Delete draft' }).click();

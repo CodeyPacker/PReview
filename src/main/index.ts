@@ -163,6 +163,9 @@ void app.whenReady().then(async () => {
   });
   void discovery.scan();
   pullRequests.start();
+  void pullRequestReviews
+    .recoverSubmissions()
+    .catch((error: unknown) => log.warn('Could not check unconfirmed reviews', error));
   app.on('will-quit', () => {
     pullRequests.stop();
     db.close();
