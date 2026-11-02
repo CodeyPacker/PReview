@@ -286,6 +286,8 @@ test('keeps split view at window size and toggles review panels independently', 
     await page.evaluate(() => {
       location.hash = '/review/1';
     });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
     await expect(page.getByRole('heading', { name: 'Repository #7' })).toBeVisible();
     const files = page.locator('#review-files');
     const nav = page.locator('#main-sidebar');
@@ -659,6 +661,8 @@ test('configures review shortcuts and scrolls without focusing the code', async 
     await page.evaluate(() => {
       location.hash = '/review/1';
     });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
     const title = page.locator('#review-file-title');
     const files = page.locator('#review-files');
     const nav = page.locator('#main-sidebar');
@@ -1082,6 +1086,8 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     await page.evaluate(() => {
       location.hash = '/review/1';
     });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
 
     const modified = page.locator('.modified-in-monaco-diff-editor');
     const lineNumber = (line: number) =>
