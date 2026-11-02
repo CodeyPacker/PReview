@@ -7,6 +7,7 @@ import type {
   ProviderCommitChanges,
   ProviderPullRequest,
   ProviderPublishedReview,
+  ProviderPullRequestDetails,
   ProviderPullRequestRefs,
   ProviderReview,
   MergeMethod,
@@ -81,6 +82,8 @@ const pullRequestRefsSchema = z.object({
   head: z.object({ sha: z.string() }),
   base: z.object({ ref: z.string() }),
 });
+
+const pullRequestBodySchema = z.object({ body: z.string().nullable() });
 
 const comparedFilesSchema = z.object({ files: z.array(changedFileSchema).optional() });
 
@@ -407,6 +410,24 @@ export class GitHubProvider implements GitProvider {
       },
     );
     return { id: String(postedReviewSchema.parse(posted).id) };
+  }
+
+  async getPullRequestDetails(
+    repositoryFullName: string,
+    number: number,
+  ): Promise<ProviderPullRequestDetails> {
+    const [pull, items] = await Promise.all([
+      this.client.getJson(`/repos/${repositoryFullName}/pulls/${number}`),
+      this.client.getAll(`/repos/${repositoryFullName}/pulls/${number}/files`),
+    ]);
+    return {
+      description: pullRequestBodySchema.parse(pull).body ?? '',
+      files: items.map((item) => {
+        const file = changedFileSchema.parse(item);
+        const { path, previousPath, status, additions, deletions } = toChangedFile(file);
+        return { path, previousPath, status, additions, deletions, patch: file.patch ?? null };
+      }),
+    };
   }
 
   async getReviews(repositoryFullName: string, number: number): Promise<ProviderPublishedReview[]> {

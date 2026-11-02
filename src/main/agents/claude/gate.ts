@@ -22,6 +22,10 @@ export const BLOCKED_TOOLS = [
   'SlashCommand',
 ];
 
+// The tools PReview serves to the agent itself, such as get_file_diff.
+export const PREVIEW_TOOL_SERVER = 'preview';
+const PREVIEW_TOOL_PREFIX = `mcp__${PREVIEW_TOOL_SERVER}__`;
+
 // The real path of `path`, or of its nearest existing folder plus the rest, so a file that
 // doesn't exist yet still resolves through symlinks.
 async function realPathOf(path: string): Promise<string> {
@@ -65,6 +69,8 @@ export function createToolGate({ root, onQuestion, onDecision }: GateOptions): C
     signal: AbortSignal,
   ): Promise<PermissionResult> => {
     if (tool === 'AskUserQuestion') return onQuestion(input, signal);
+    // PReview's own tools only read what PReview gives them.
+    if (tool.startsWith(PREVIEW_TOOL_PREFIX)) return { behavior: 'allow', updatedInput: input };
     if (!ALLOWED_TOOLS.includes(tool))
       return { behavior: 'deny', message: `${tool} is not available in PReview.` };
     for (const path of pathsIn(input)) {

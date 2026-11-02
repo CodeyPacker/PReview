@@ -69,6 +69,7 @@ function setup() {
     setThreadResolved,
     submitReview,
     getReviews,
+    getPullRequestDetails: vi.fn(),
     mergePullRequest,
     deleteBranch,
   } satisfies GitProvider;

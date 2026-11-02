@@ -57,6 +57,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
     mergePullRequest: vi.fn<GitProvider['mergePullRequest']>(),
     deleteBranch: vi.fn<GitProvider['deleteBranch']>(),
     getReviews: vi.fn<GitProvider['getReviews']>(),
+    getPullRequestDetails: vi.fn<GitProvider['getPullRequestDetails']>(),
   } satisfies GitProvider;
   return { provider, files: new PullRequestFiles({ db, provider }) };
 }
