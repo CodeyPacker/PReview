@@ -17,13 +17,17 @@ import type { FileReviewFilter, FileReviewState } from '../lib/fileReview.ts';
 import styles from './ChangedFiles.module.css';
 
 const ALL_CHANGES = 'all';
+export const SINCE_REVIEW = 'since-review';
 
 export interface ChangedFilesProps {
   id?: string;
   className?: string;
   // The pull request's commits, oldest first. The files of one can be shown on their own.
   commits?: readonly PullRequestCommit[];
-  // Undefined shows all changes of the pull request.
+  // Adds the choice of the changes since the last submitted review.
+  hasLastReview?: boolean;
+  // Undefined shows all changes of the pull request. SINCE_REVIEW shows the changes since the
+  // last submitted review.
   commitSha?: string;
   onCommitChange?: (sha: string | undefined) => void;
   files: readonly PullRequestFile[] | undefined;
@@ -47,6 +51,7 @@ export function ChangedFiles({
   id,
   className,
   commits,
+  hasLastReview = false,
   commitSha,
   onCommitChange,
   files,
@@ -92,6 +97,7 @@ export function ChangedFiles({
           onValueChange={(value) => onCommitChange?.(value === ALL_CHANGES ? undefined : value)}
           options={[
             { value: ALL_CHANGES, label: 'All changes' },
+            ...(hasLastReview ? [{ value: SINCE_REVIEW, label: 'Since last review' }] : []),
             ...commits.map((commit) => ({
               value: commit.sha,
               label: `${commit.sha.slice(0, 7)} ${commit.subject}`,

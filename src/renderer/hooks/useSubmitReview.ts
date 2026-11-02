@@ -3,7 +3,7 @@ import type { SubmitReviewInput } from '../../shared/contracts/pull-request-revi
 
 // Publishes a review to GitHub. The result says whether GitHub accepted it, and why not.
 // Published drafts are deleted and become threads, and published findings are marked, so all
-// three are read again.
+// three are read again, along with the rounds, because the submitted one ends.
 export function useSubmitReview() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -13,6 +13,7 @@ export function useSubmitReview() {
         queryClient.invalidateQueries({ queryKey: ['reviewDrafts', review.pullRequestId] }),
         queryClient.invalidateQueries({ queryKey: ['reviewThreads', review.pullRequestId] }),
         queryClient.invalidateQueries({ queryKey: ['reviewFindings', review.pullRequestId] }),
+        queryClient.invalidateQueries({ queryKey: ['reviewRounds', review.pullRequestId] }),
       ]),
   });
 }

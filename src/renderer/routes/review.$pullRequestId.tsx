@@ -27,6 +27,7 @@ import { Panel } from '../components/Panel/Panel.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import {
+  usePullRequestChangesSince,
   usePullRequestCommitFiles,
   usePullRequestCommits,
   usePullRequestFileDiff,
@@ -48,6 +49,9 @@ import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
 import { useReviewFindings } from '../hooks/useReviewFindings.ts';
 import { useReviewCompletion } from '../hooks/useReviewCompletion.ts';
+import { useReviewRounds } from '../hooks/useReviewRounds.ts';
+import { SINCE_REVIEW } from '../app/ChangedFiles.tsx';
+import { Tag } from '../components/Tag/Tag.tsx';
 import type { DraftComposerState } from '../app/DraftComments.tsx';
 import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
 import { useReviewSession } from '../hooks/useReviewSession.ts';
@@ -92,10 +96,26 @@ function ReviewPage() {
   }
   const files = usePullRequestFiles(pullRequestId, shownRefs?.headSha, shownRefs?.baseBranch);
   const commits = usePullRequestCommits(pullRequestId, files.data?.headSha);
-  // One commit shown on its own is read-only: no file decisions, comments or threads.
-  const [commitSha, setCommitSha] = useState<string>();
+  const rounds = useReviewRounds(pullRequestId, files.data?.headSha);
+  const round = rounds.data?.at(-1);
+  const baselineSha = round?.baselineSha ?? undefined;
+  // The reviewer's pick: 'all', SINCE_REVIEW or a commit. A re-review opens on the changes since
+  // the last one until they pick.
+  const [chosenView, setChosenView] = useState<string>();
+  const chosen = chosenView ?? (baselineSha ? SINCE_REVIEW : 'all');
+  const view = chosen === SINCE_REVIEW && !baselineSha ? 'all' : chosen;
+  const sinceReview = view === SINCE_REVIEW;
+  const commitSha = view === 'all' || sinceReview ? undefined : view;
+  // The changes since the last review and one commit on its own are read-only: no file
+  // decisions, comments or threads.
+  const readOnlyView = view !== 'all';
   const commitFiles = usePullRequestCommitFiles(pullRequestId, commitSha);
-  const shown = commitSha ? commitFiles : files;
+  const sinceFiles = usePullRequestChangesSince(
+    pullRequestId,
+    sinceReview ? baselineSha : undefined,
+    sinceReview ? files.data?.headSha : undefined,
+  );
+  const shown = sinceReview ? sinceFiles : commitSha ? commitFiles : files;
   const changedFiles = shown.data?.files;
   // The list can be read after a push the last sync hadn't seen, so it counts as shown too.
   const newCommits =
@@ -118,7 +138,7 @@ function ReviewPage() {
     pullRequestId,
     files.data,
   );
-  const reviewStates = commitSha ? noReviewStates : markedStates;
+  const reviewStates = readOnlyView ? noReviewStates : markedStates;
   const visibleFiles = changedFiles?.filter(
     (file) =>
       matchesFileReviewFilter(reviewStates[file.path], fileFilter) &&
@@ -126,7 +146,8 @@ function ReviewPage() {
   );
   const reviewDrafts = useReviewDrafts(pullRequestId);
   const reviewFindings = useReviewFindings(pullRequestId);
-  const { completion: reviewCompletion, finish: finishReview } = useReviewCompletion(pullRequestId);
+  const { finish: finishReview } = useReviewCompletion(pullRequestId);
+  const roundFinished = round?.finishedAt != null;
   const findings = reviewFindings.findings.data ?? [];
   const openFindings = findings.filter((finding) => finding.resolution === 'open').length;
   const reviewThreads = useReviewThreads(pullRequestId, files.data?.headSha);
@@ -224,7 +245,7 @@ function ReviewPage() {
   }, [sessionReady, selectedPath, mode]);
 
   function toggleReviewState(state: FileReviewState) {
-    if (!selected || commitSha) return;
+    if (!selected || readOnlyView) return;
     const nextState = reviewState === state ? undefined : state;
     setReviewState(selected.path, nextState);
     if (nextState && nextFile) selectFile(nextFile.path);
@@ -355,6 +376,7 @@ function ReviewPage() {
             {repository ? repositoryName(repository) : 'Repository'} #{pullRequest.number}
           </h1>
           <StatusPill status={pullRequest.draft ? 'draft' : 'open'} />
+          {round && <Tag size="sm">Round {round.number}</Tag>}
           <span className={styles.branches}>
             {pullRequest.headBranch} → {pullRequest.baseBranch}
           </span>
@@ -390,11 +412,11 @@ function ReviewPage() {
           <Button
             size="sm"
             iconStart={<CheckCheck aria-hidden />}
-            disabled={reviewCompletion.isPending || reviewCompletion.data != null}
+            disabled={rounds.isPending || roundFinished}
             loading={finishReview.isPending}
             onClick={() => finishReview.mutate()}
           >
-            {reviewCompletion.data ? 'Review finished' : 'Finish review'}
+            {roundFinished ? 'Review finished' : 'Finish review'}
           </Button>
           <Button
             variant="primary"
@@ -470,8 +492,9 @@ function ReviewPage() {
             searchFailed={search.failed}
             searchSkipped={search.skipped}
             commits={commits.data}
-            commitSha={commitSha}
-            onCommitChange={setCommitSha}
+            hasLastReview={baselineSha !== undefined}
+            commitSha={view === 'all' ? undefined : view}
+            onCommitChange={(sha) => setChosenView(sha ?? 'all')}
             loading={shown.isPending}
             error={shown.isError}
             selectedPath={selected?.path}
@@ -514,7 +537,7 @@ function ReviewPage() {
                 label={reviewState === 'approved' ? 'Remove file approval' : 'Approve file'}
                 shortcut={shortcut('a')}
                 selected={reviewState === 'approved'}
-                disabled={!selected || commitSha !== undefined}
+                disabled={!selected || readOnlyView}
                 onClick={() => toggleReviewState('approved')}
               />
               <IconButton
@@ -526,7 +549,7 @@ function ReviewPage() {
                 label={reviewState === 'flagged' ? 'Remove file flag' : 'Flag file'}
                 shortcut={shortcut('f')}
                 selected={reviewState === 'flagged'}
-                disabled={!selected || commitSha !== undefined}
+                disabled={!selected || readOnlyView}
                 onClick={() => toggleReviewState('flagged')}
               />
               <IconButton
@@ -591,7 +614,7 @@ function ReviewPage() {
                 searchQuery={fileSearch.trim()}
                 searchMatch={selected ? search.matches.get(selected.path) : undefined}
                 threads={
-                  commitSha
+                  readOnlyView
                     ? undefined
                     : {
                         items:
@@ -610,7 +633,7 @@ function ReviewPage() {
                       }
                 }
                 drafts={
-                  commitSha
+                  readOnlyView
                     ? undefined
                     : {
                         items: currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],

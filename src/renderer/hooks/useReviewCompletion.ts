@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 // Whether the reviewer finished this pull request's review. Finishing is local and doesn't
-// touch GitHub.
+// touch GitHub. It also finishes the latest round, so the rounds are read again.
 export function useReviewCompletion(pullRequestId: number) {
   const queryClient = useQueryClient();
   const queryKey = ['reviewCompletion', pullRequestId] as const;
@@ -11,7 +11,10 @@ export function useReviewCompletion(pullRequestId: number) {
   });
   const finish = useMutation({
     mutationFn: () => window.preview.reviewCompletions.finish(pullRequestId),
-    onSuccess: (saved) => queryClient.setQueryData(queryKey, saved),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKey, saved);
+      return queryClient.invalidateQueries({ queryKey: ['reviewRounds', pullRequestId] });
+    },
   });
   return { completion, finish };
 }

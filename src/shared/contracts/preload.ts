@@ -31,6 +31,7 @@ import type {
 } from './review-findings.ts';
 import type { FileReviewMark, SetFileReviewMarkInput } from './file-review-marks.ts';
 import type { ReviewCompletion } from './review-completions.ts';
+import type { ReviewRound } from './review-rounds.ts';
 import type { ReviewSession, SaveReviewSessionInput } from './review-sessions.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
@@ -74,6 +75,11 @@ export interface PreviewApi {
     list(pullRequestId: number): Promise<PullRequestChanges>;
     listCommits(pullRequestId: number): Promise<PullRequestCommit[]>;
     listCommit(pullRequestId: number, sha: string): Promise<PullRequestChanges>;
+    listSince(
+      pullRequestId: number,
+      baselineSha: string,
+      headSha: string,
+    ): Promise<PullRequestChanges>;
     getDiff(
       pullRequestId: number,
       headSha: string,
@@ -112,6 +118,9 @@ export interface PreviewApi {
   reviewCompletions: {
     get(pullRequestId: number): Promise<ReviewCompletion | null>;
     finish(pullRequestId: number): Promise<ReviewCompletion>;
+  };
+  reviewRounds: {
+    sync(pullRequestId: number, headSha: string): Promise<ReviewRound[]>;
   };
   reviewSessions: {
     get(pullRequestId: number): Promise<ReviewSession | null>;

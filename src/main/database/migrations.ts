@@ -229,4 +229,26 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 13,
+    name: 'review_rounds',
+    // One pass over a pull request. A round ends when its review is submitted, and the next
+    // new commit starts the following round. head_sha is the head the round opened on.
+    // baseline_sha is the head the previous round was submitted at, null for the first round.
+    // finished_at is when the reviewer finished the round.
+    sql: `
+      CREATE TABLE review_rounds (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pull_request_id INTEGER NOT NULL REFERENCES pull_requests (id) ON DELETE CASCADE,
+        number INTEGER NOT NULL CHECK (number >= 1),
+        head_sha TEXT NOT NULL,
+        baseline_sha TEXT,
+        started_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        submitted_head_sha TEXT,
+        submitted_at TEXT,
+        finished_at TEXT,
+        UNIQUE (pull_request_id, number)
+      ) STRICT;
+    `,
+  },
 ];

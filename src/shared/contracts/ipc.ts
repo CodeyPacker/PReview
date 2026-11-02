@@ -38,6 +38,7 @@ import {
 } from './review-findings.ts';
 import { fileReviewMarkSchema, setFileReviewMarkInputSchema } from './file-review-marks.ts';
 import { reviewCompletionSchema } from './review-completions.ts';
+import { reviewRoundSchema } from './review-rounds.ts';
 import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
@@ -93,6 +94,15 @@ export const ipcContract = {
   // The files one commit changes, against its parent.
   'pullRequestFiles.listCommit': {
     input: z.object({ pullRequestId: z.number().int(), sha: commitShaSchema }),
+    output: pullRequestChangesSchema,
+  },
+  // The files that changed between a reviewed commit and the head.
+  'pullRequestFiles.listSince': {
+    input: z.object({
+      pullRequestId: z.number().int(),
+      baselineSha: commitShaSchema,
+      headSha: commitShaSchema,
+    }),
     output: pullRequestChangesSchema,
   },
   // One file at the commits that list returned.
@@ -192,6 +202,12 @@ export const ipcContract = {
   'reviewCompletions.finish': {
     input: z.object({ pullRequestId: z.number().int() }),
     output: reviewCompletionSchema,
+  },
+  // Every round of the pull request, oldest first. headSha is the head on show. It starts the
+  // next round when the last one was submitted at another commit, and that drops the drafts.
+  'reviewRounds.sync': {
+    input: z.object({ pullRequestId: z.number().int(), headSha: commitShaSchema }),
+    output: z.array(reviewRoundSchema),
   },
   // Where the reviewer left off in a pull request. Null before it was first opened.
   'reviewSessions.get': {

@@ -75,6 +75,18 @@ export class PullRequestFiles {
     return { headSha: sha, mergeBase: parentSha, files };
   }
 
+  // The files that changed between a reviewed commit and the head, shaped like list. The
+  // diff of each is taken against baselineSha.
+  async listSince(
+    pullRequestId: number,
+    baselineSha: string,
+    headSha: string,
+  ): Promise<PullRequestChanges> {
+    const { fullName } = this.findRepository(pullRequestId);
+    const files = await this.deps.provider.getChangesBetween(fullName, baselineSha, headSha);
+    return { headSha, mergeBase: baselineSha, files };
+  }
+
   // The file before and after the pull request, at the commits list returned.
   async getDiff(
     pullRequestId: number,

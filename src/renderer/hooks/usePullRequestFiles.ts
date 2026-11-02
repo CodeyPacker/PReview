@@ -34,6 +34,22 @@ export function usePullRequestCommitFiles(pullRequestId: number, sha: string | u
   });
 }
 
+// The files that changed since the last submitted review. Both commits are in the key, so it
+// never changes.
+export function usePullRequestChangesSince(
+  pullRequestId: number,
+  baselineSha: string | undefined,
+  headSha: string | undefined,
+) {
+  return useQuery({
+    queryKey: ['pullRequestChangesSince', pullRequestId, baselineSha, headSha],
+    queryFn: () =>
+      window.preview.pullRequestFiles.listSince(pullRequestId, baselineSha ?? '', headSha ?? ''),
+    enabled: baselineSha !== undefined && headSha !== undefined,
+    staleTime: Infinity,
+  });
+}
+
 // Shared by the selected file and text search so each immutable diff is loaded once.
 export function pullRequestFileDiffOptions(
   pullRequestId: number,
