@@ -17,6 +17,8 @@ import { useSidebar } from '../app/SidebarContext.ts';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { cx } from '../lib/cx.ts';
 import { ChangedFiles } from '../app/ChangedFiles.tsx';
+import type { PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
+import { RepositoryFiles } from '../app/RepositoryFiles.tsx';
 import { ImageDiff } from '../app/ImageDiff.tsx';
 import { DiffViewer, type DiffMode, type DiffViewerHandle } from '../app/DiffViewer.tsx';
 import { relativeTime } from '../app/relativeTime.ts';
@@ -32,6 +34,7 @@ import {
   usePullRequestCommits,
   usePullRequestFileDiff,
   usePullRequestFiles,
+  useRepositoryFiles,
 } from '../hooks/usePullRequestFiles.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
@@ -113,7 +116,10 @@ function ReviewPage() {
   const commitSha = view === 'all' || sinceReview ? undefined : view;
   // The changes since the last review and one commit on its own are read-only: no file
   // decisions, comments or threads.
-  const readOnlyView = view !== 'all';
+  // Browsing lists the repository's files, including the ones the pull request leaves alone.
+  const [browsing, setBrowsing] = useState(false);
+  const repositoryFiles = useRepositoryFiles(pullRequestId, files.data?.headSha, browsing);
+  const readOnlyView = view !== 'all' || browsing;
   const commitFiles = usePullRequestCommitFiles(pullRequestId, commitSha);
   const sinceFiles = usePullRequestChangesSince(
     pullRequestId,
@@ -247,10 +253,26 @@ function ReviewPage() {
     setFilesCollapsed(next === 'split');
     setSidebarCollapsed(next === 'split');
   }
-  const selected =
+  const changedSelection =
     restored === undefined
       ? undefined
       : (visibleFiles?.find((file) => file.path === chosenPath) ?? visibleFiles?.[0]);
+  const browsedFile: PullRequestFile | undefined =
+    browsing && chosenPath !== undefined
+      ? (files.data?.files.find((file) => file.path === chosenPath) ?? {
+          path: chosenPath,
+          blobSha: '',
+          previousPath: null,
+          status: 'modified',
+          additions: 0,
+          deletions: 0,
+          hunks: null,
+        })
+      : undefined;
+  const selected = browsing ? browsedFile : changedSelection;
+  // A file the pull request leaves alone is the same on both sides, so one side is enough.
+  const unchanged =
+    browsedFile !== undefined && !files.data?.files.some((file) => file.path === browsedFile.path);
   const selectedIndex = visibleFiles?.findIndex((file) => file.path === selected?.path) ?? -1;
   const previousFile = visibleFiles?.[selectedIndex - 1];
   const nextFile = selectedIndex >= 0 ? visibleFiles?.[selectedIndex + 1] : undefined;
@@ -309,15 +331,15 @@ function ReviewPage() {
     },
   );
 
-  const isAdded = selected?.status === 'added';
-  const effectiveMode = isAdded ? 'unified' : mode;
+  const unifiedOnly = selected?.status === 'added' || unchanged;
+  const effectiveMode = unifiedOnly ? 'unified' : mode;
   // Generated and large files wait for the reviewer, so their diffs are not read before then.
   const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(new Set());
   const collapsedReason =
     selected && !expandedPaths.has(selected.path) ? collapseReason(selected) : undefined;
   const diff = usePullRequestFileDiff(
     pullRequestId,
-    shown.data,
+    browsing ? files.data : shown.data,
     collapsedReason ? undefined : selected?.path,
     selected?.previousPath ?? null,
   );
@@ -430,6 +452,7 @@ function ReviewPage() {
             {repository ? repositoryName(repository) : 'Repository'} #{pullRequest.number}
           </h1>
           <StatusPill status={pullRequest.draft ? 'draft' : 'open'} />
+          <StatusPill status={pullRequest.reviewState} />
           {round && <Tag size="sm">Round {round.number}</Tag>}
           <span className={styles.branches}>
             {pullRequest.headBranch} → {pullRequest.baseBranch}
@@ -521,29 +544,43 @@ function ReviewPage() {
           aria-hidden={filesCollapsed || undefined}
         >
           {!filesCollapsed && filesToggle}
-          <ChangedFiles
-            id="review-files"
-            className={styles.files}
-            files={visibleFiles}
-            totalFiles={changedFiles?.length}
-            reviewStates={reviewStates}
-            filter={fileFilter}
-            onFilterChange={setFileFilter}
-            searchQuery={fileSearch}
-            onSearchChange={setFileSearch}
-            searchMatches={search.matches}
-            searching={search.searching}
-            searchFailed={search.failed}
-            searchSkipped={search.skipped}
-            commits={commits.data}
-            hasLastReview={baselineSha !== undefined}
-            commitSha={view === 'all' ? undefined : view}
-            onCommitChange={(sha) => setChosenView(sha ?? 'all')}
-            loading={shown.isPending}
-            error={shown.isError}
-            selectedPath={selected?.path}
-            onSelect={selectFile}
-          />
+          {browsing ? (
+            <RepositoryFiles
+              id="review-files"
+              className={styles.files}
+              paths={repositoryFiles.data?.paths}
+              truncated={repositoryFiles.data?.truncated ?? false}
+              error={repositoryFiles.isError}
+              selectedPath={selected?.path}
+              onSelect={selectFile}
+              onBrowseChange={setBrowsing}
+            />
+          ) : (
+            <ChangedFiles
+              id="review-files"
+              className={styles.files}
+              files={visibleFiles}
+              totalFiles={changedFiles?.length}
+              reviewStates={reviewStates}
+              filter={fileFilter}
+              onFilterChange={setFileFilter}
+              searchQuery={fileSearch}
+              onSearchChange={setFileSearch}
+              searchMatches={search.matches}
+              searching={search.searching}
+              searchFailed={search.failed}
+              searchSkipped={search.skipped}
+              commits={commits.data}
+              hasLastReview={baselineSha !== undefined}
+              commitSha={view === 'all' ? undefined : view}
+              onCommitChange={(sha) => setChosenView(sha ?? 'all')}
+              loading={shown.isPending}
+              error={shown.isError}
+              selectedPath={selected?.path}
+              onSelect={selectFile}
+              onBrowseChange={setBrowsing}
+            />
+          )}
         </div>
         <Panel className={styles.diff} padding="sm" aria-labelledby="review-file-title">
           {filesCollapsed && filesToggle}
@@ -611,7 +648,7 @@ function ReviewPage() {
                 size="sm"
                 options={modeOptions.map((option) => ({
                   ...option,
-                  disabled: isAdded && option.value === 'split',
+                  disabled: unifiedOnly && option.value === 'split',
                 }))}
                 value={effectiveMode}
                 onValueChange={changeMode}

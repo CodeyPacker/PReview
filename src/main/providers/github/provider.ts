@@ -75,6 +75,11 @@ const pullRequestRefsSchema = z.object({
 
 const comparedFilesSchema = z.object({ files: z.array(changedFileSchema).optional() });
 
+const treeSchema = z.object({
+  tree: z.array(z.object({ path: z.string(), type: z.string() })),
+  truncated: z.boolean(),
+});
+
 const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
 
 function toChangedFile(file: z.infer<typeof changedFileSchema>): ProviderChangedFile {
@@ -283,6 +288,18 @@ export class GitHubProvider implements GitProvider {
       await this.client.getJson(`/repos/${repositoryFullName}/compare/${baseSha}...${headSha}`),
     );
     return (comparison.files ?? []).map(toChangedFile);
+  }
+
+  async getRepositoryFiles(
+    repositoryFullName: string,
+    ref: string,
+  ): Promise<{ paths: string[]; truncated: boolean }> {
+    const { tree, truncated } = treeSchema.parse(
+      await this.client.getJson(`/repos/${repositoryFullName}/git/trees/${ref}`, {
+        recursive: '1',
+      }),
+    );
+    return { paths: tree.filter((entry) => entry.type === 'blob').map((e) => e.path), truncated };
   }
 
   async getMergeBase(

@@ -120,6 +120,9 @@ export function registerIpcHandlers(
   handle('pullRequestFiles.listSince', ({ pullRequestId, baselineSha, headSha }) =>
     pullRequestFiles.listSince(pullRequestId, baselineSha, headSha),
   );
+  handle('pullRequestFiles.listRepositoryFiles', ({ pullRequestId, headSha }) =>
+    pullRequestFiles.listRepositoryFiles(pullRequestId, headSha),
+  );
   handle('pullRequestFiles.getDiff', ({ pullRequestId, headSha, mergeBase, path, previousPath }) =>
     pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
   );

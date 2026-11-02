@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type {
   PullRequestChanges,
+  RepositoryFiles,
   PullRequestCommit,
   PullRequestFileDiff,
 } from '../../../shared/contracts/pull-request-files.ts';
@@ -85,6 +86,13 @@ export class PullRequestFiles {
     const { fullName } = this.findRepository(pullRequestId);
     const files = await this.deps.provider.getChangesBetween(fullName, baselineSha, headSha);
     return { headSha, mergeBase: baselineSha, files };
+  }
+
+  // Every file of the repository at the head, so files the pull request leaves alone can be read.
+  async listRepositoryFiles(pullRequestId: number, headSha: string): Promise<RepositoryFiles> {
+    const { fullName } = this.findRepository(pullRequestId);
+    const { paths, truncated } = await this.deps.provider.getRepositoryFiles(fullName, headSha);
+    return { headSha, paths, truncated };
   }
 
   // The file before and after the pull request, at the commits list returned.

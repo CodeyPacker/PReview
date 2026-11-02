@@ -426,8 +426,11 @@ export function DiffViewer({
 
   // A search match can sit in folded lines, so the folds open while searching.
   useEffect(() => {
-    editor.current?.updateOptions({ hideUnchangedRegions: { enabled: !searchQuery } });
-  }, [searchQuery]);
+    // A file the pull request doesn't change has nothing to fold around.
+    editor.current?.updateOptions({
+      hideUnchangedRegions: { enabled: !searchQuery && original !== modified },
+    });
+  }, [searchQuery, original, modified]);
 
   useEffect(() => {
     const diffEditor = editor.current;

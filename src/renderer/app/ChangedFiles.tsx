@@ -45,6 +45,8 @@ export interface ChangedFilesProps {
   error: boolean;
   selectedPath: string | undefined;
   onSelect: (path: string) => void;
+  // Adds the choice of listing the repository's files instead of the changed ones.
+  onBrowseChange?: (browsing: boolean) => void;
 }
 
 export function ChangedFiles({
@@ -69,6 +71,7 @@ export function ChangedFiles({
   error,
   selectedPath,
   onSelect,
+  onBrowseChange,
 }: ChangedFilesProps) {
   const listRef = useRef<HTMLUListElement>(null);
   const activeLayout = useMemo(
@@ -88,6 +91,19 @@ export function ChangedFiles({
       count={totalFiles}
       padding="sm"
     >
+      {onBrowseChange && (
+        <ToggleGroup
+          aria-label="File list"
+          size="sm"
+          block
+          value="changed"
+          onValueChange={(value) => onBrowseChange(value === 'repository')}
+          options={[
+            { value: 'changed', label: 'Changed' },
+            { value: 'repository', label: 'Repository' },
+          ]}
+        />
+      )}
       {commits && commits.length > 0 && (
         <Select
           block
