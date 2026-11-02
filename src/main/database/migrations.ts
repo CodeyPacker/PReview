@@ -350,4 +350,40 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE agent_tasks ADD COLUMN finished_at TEXT;
     `,
   },
+  {
+    version: 19,
+    name: 'agent_activity',
+    // The activity feed of each task: short summaries, with the technical detail behind them.
+    // A question is what the agent asked the user, as JSON, and the answers once given.
+    // resume_note is the message the next resumed run starts with, such as an answer given
+    // after the app restarted.
+    sql: `
+      CREATE TABLE agent_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL REFERENCES agent_tasks (id) ON DELETE CASCADE,
+        kind TEXT NOT NULL
+          CHECK (kind IN ('status', 'message', 'tool', 'file', 'test', 'error', 'question', 'answer')),
+        summary TEXT NOT NULL,
+        detail TEXT,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+
+      CREATE INDEX agent_events_task ON agent_events (task_id);
+
+      CREATE TABLE agent_questions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL REFERENCES agent_tasks (id) ON DELETE CASCADE,
+        questions TEXT NOT NULL,
+        answers TEXT,
+        status TEXT NOT NULL DEFAULT 'pending'
+          CHECK (status IN ('pending', 'answered', 'cancelled')),
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        answered_at TEXT
+      ) STRICT;
+
+      CREATE INDEX agent_questions_task ON agent_questions (task_id);
+
+      ALTER TABLE agent_tasks ADD COLUMN resume_note TEXT;
+    `,
+  },
 ];

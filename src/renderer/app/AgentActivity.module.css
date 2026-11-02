@@ -1,0 +1,191 @@
+/* Agent activity. Read values from tokens.css custom properties only. */
+
+.agent {
+  display: grid;
+  gap: var(--space-12);
+  padding-top: var(--space-16);
+  border-top: 1px solid var(--border);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.header h4 {
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+.error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  margin: 0;
+  color: var(--danger);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+  overflow-wrap: anywhere;
+}
+
+.error svg {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  margin-top: 1px;
+}
+
+.summary {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.feed {
+  display: grid;
+  margin: 0;
+  padding: 0;
+}
+
+.detail summary {
+  color: var(--accent-text);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+  cursor: pointer;
+}
+
+.detail pre {
+  max-height: 200px;
+  margin: var(--space-4) 0 0;
+  padding: var(--space-8);
+  overflow: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: 400 var(--text-sm) / 16px var(--font-mono);
+  white-space: pre-wrap;
+}
+
+.report {
+  display: grid;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  color: var(--ink);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.items {
+  display: grid;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.items li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-6);
+  color: var(--ink-secondary);
+}
+
+.items code {
+  color: var(--ink);
+  font: 400 var(--text-sm) / 16px var(--font-mono);
+}
+
+.itemId {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.question {
+  display: grid;
+  gap: var(--space-12);
+  padding: var(--space-12);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+}
+
+.fieldset {
+  display: grid;
+  gap: var(--space-8);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.fieldset legend {
+  padding: 0;
+}
+
+.prompt {
+  margin: 0;
+  color: var(--ink);
+  font: 400 var(--text-base) / 20px var(--font-sans);
+  white-space: pre-wrap;
+}
+
+.options {
+  display: grid;
+  gap: var(--space-8);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  color: var(--ink);
+  font: 400 var(--text-base) / 20px var(--font-sans);
+  cursor: pointer;
+}
+
+.radio {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  padding: 0;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  cursor: pointer;
+}
+
+.radio[data-checked] {
+  border-color: var(--accent);
+}
+
+.radio:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.radioDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+
+.optionText {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.optionDescription {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}

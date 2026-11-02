@@ -7,6 +7,7 @@ import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
 import type { AgentRunInput, AgentRunResult, AgentReport } from '../../agents/provider.ts';
 import type { GitProvider } from '../../providers/types.ts';
+import { listActivity, listAgentTasks } from './activity.ts';
 import { AgentRunner, type AgentRunnerDeps } from './runner.ts';
 import type { OpenWorktreeResult } from './worktrees.ts';
 
@@ -299,5 +300,103 @@ describe('AgentRunner', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
 
     expect(task(id).status).toBe('running');
+  });
+
+  it('records its steps in the activity feed', async () => {
+    const { runner, runs } = setup();
+    const id = addTask(addPullRequest(7));
+
+    runner.wake();
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+    runs[0]!.input.onActivity({ kind: 'file', summary: 'Edited src/app.ts' });
+    runs[0]!.input.onActivity({
+      kind: 'test',
+      summary: 'Tests passed',
+      detail: 'token ghp_abcdefghijklmnopqrstuvwxyz0123',
+    });
+    runs[0]!.finish({ status: 'completed', report, costUsd: null });
+
+    await vi.waitFor(() => expect(task(id).status).toBe('completed'));
+    expect(listActivity(db, id).map(({ kind, summary }) => [kind, summary])).toEqual([
+      ['status', 'Started working'],
+      ['file', 'Edited src/app.ts'],
+      ['test', 'Tests passed'],
+      ['status', 'Finished. Fixed the comment.'],
+    ]);
+    expect(listActivity(db, id)[2]!.detail).toBe('token [REDACTED]');
+  });
+
+  const question = [
+    { question: 'Keep the old endpoint?', header: 'API', options: [], multiSelect: false },
+  ];
+
+  it('waits for the answer to a question and passes it to the agent', async () => {
+    const { runner, runs, notify } = setup();
+    const id = addTask(addPullRequest(7));
+    runner.wake();
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+
+    const answer = runs[0]!.input.ask(question, new AbortController().signal);
+    const [waiting] = listAgentTasks(db);
+    expect(waiting).toMatchObject({ status: 'waiting', question: { questions: question } });
+    expect(notify).toHaveBeenCalledWith(
+      'An agent has a question',
+      'On "Title": Keep the old endpoint?',
+    );
+
+    expect(runner.answer(waiting!.question!.id, { 'Keep the old endpoint?': 'Yes' })).toBe(true);
+    await expect(answer).resolves.toEqual({ 'Keep the old endpoint?': 'Yes' });
+    expect(task(id).status).toBe('running');
+    expect(listAgentTasks(db)[0]!.question).toBeNull();
+    expect(runner.answer(waiting!.question!.id, { 'Keep the old endpoint?': 'No' })).toBe(false);
+  });
+
+  it('withdraws a question when the task stops', async () => {
+    const { runner, runs } = setup();
+    const id = addTask(addPullRequest(7));
+    runner.wake();
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+    const abort = new AbortController();
+    const answer = runs[0]!.input.ask(question, abort.signal);
+
+    abort.abort();
+
+    await expect(answer).resolves.toBeNull();
+    expect(listAgentTasks(db).find((item) => item.id === id)!.question).toBeNull();
+  });
+
+  it('resumes the session with the answer when the app restarted while waiting', async () => {
+    const { runner, runs } = setup();
+    const id = addTask(addPullRequest(7));
+    db.prepare(`UPDATE agent_tasks SET status = 'waiting', session_id = 'S1' WHERE id = ?`).run(id);
+    const questionId = Number(
+      db
+        .prepare('INSERT INTO agent_questions (task_id, questions) VALUES (?, ?)')
+        .run(id, JSON.stringify(question)).lastInsertRowid,
+    );
+    runner.recover();
+    runner.wake();
+    expect(task(id).status).toBe('waiting');
+
+    runner.answer(questionId, { 'Keep the old endpoint?': 'Yes' });
+
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+    expect(runs[0]!.input).toMatchObject({ resume: true, sessionId: 'S1' });
+    expect(runs[0]!.input.prompt).toContain('Question: Keep the old endpoint?\nAnswer: Yes');
+  });
+
+  it('stops a task the app restarted while it waited', async () => {
+    const { runner } = setup();
+    const id = addTask(addPullRequest(7));
+    db.prepare(`UPDATE agent_tasks SET status = 'waiting' WHERE id = ?`).run(id);
+    db.prepare('INSERT INTO agent_questions (task_id, questions) VALUES (?, ?)').run(
+      id,
+      JSON.stringify(question),
+    );
+
+    await runner.stop(id);
+
+    expect(task(id).status).toBe('stopped');
+    expect(listAgentTasks(db)[0]!.question).toBeNull();
   });
 });

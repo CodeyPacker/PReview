@@ -2,9 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
-import type { AgentProvider, AgentRun, AgentRunResult } from '../../agents/provider.ts';
+import type { AgentQuestionItem } from '../../../shared/contracts/agent-tasks.ts';
+import type {
+  AgentActivity,
+  AgentProvider,
+  AgentRun,
+  AgentRunResult,
+} from '../../agents/provider.ts';
 import type { log as appLog } from '../../logging/log.ts';
 import type { GitProvider } from '../../providers/types.ts';
+import { cancelQuestions, createQuestion, recordActivity, saveAnswers } from './activity.ts';
 import { AGENT_INSTRUCTIONS, fileDiff, loadTaskContext, taskPrompt } from './context.ts';
 import type { AgentWorktrees } from './worktrees.ts';
 
@@ -36,25 +43,32 @@ interface TaskRow {
   session_id: string | null;
   attempts: number;
   error: string | null;
+  resume_note: string | null;
   head_sha: string;
   title: string;
 }
+
+type Answers = Record<string, string>;
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 // Runs queued agent tasks, oldest first, a few at a time and one per pull request. A failed
 // run is retried twice, then waits for the user. Tasks interrupted by a crash resume their
-// sessions on the next start.
+// sessions on the next start. Each step is saved to the task's activity feed, and questions
+// the agent asks wait for the user's answer.
 export class AgentRunner {
   // Tasks being run. The run is null until the agent has started.
   private readonly running = new Map<number, AgentRun | null>();
   private readonly stopping = new Set<number>();
+  // Questions an agent is waiting on, by question id.
+  private readonly waiting = new Map<number, (answers: Answers) => void>();
   // Set as the app quits, so ending its agents isn't recorded as the user stopping them.
   private closing = false;
 
   constructor(private readonly deps: AgentRunnerDeps) {}
 
   // Puts tasks a crash left mid-run back in the queue. Call once at startup, before wake.
+  // Tasks waiting on a question keep waiting. The answer resumes them.
   recover(): void {
     this.deps.db
       .prepare(
@@ -72,7 +86,7 @@ export class AgentRunner {
         .prepare(
           `SELECT id FROM agent_tasks
            WHERE status = 'queued' AND pull_request_id NOT IN (
-             SELECT pull_request_id FROM agent_tasks WHERE status = 'running'
+             SELECT pull_request_id FROM agent_tasks WHERE status IN ('running', 'waiting')
            )
            ORDER BY id LIMIT 1`,
         )
@@ -102,12 +116,49 @@ export class AgentRunner {
       await this.running.get(taskId)?.stop();
       return;
     }
-    this.deps.db
+    const stopped = this.deps.db
       .prepare(
         `UPDATE agent_tasks SET status = 'stopped', updated_at = ${NOW}
-         WHERE id = ? AND status = 'queued'`,
+         WHERE id = ? AND status IN ('queued', 'waiting')`,
       )
       .run(taskId);
+    if (stopped.changes > 0) {
+      cancelQuestions(this.deps.db, taskId);
+      this.activity(taskId, { kind: 'status', summary: 'Stopped' });
+    }
+  }
+
+  // Passes the user's answers to the agent that asked. An agent the app restarted on
+  // resumes its session with them. Resolves false when the question isn't pending any more.
+  answer(questionId: number, answers: Answers): boolean {
+    const saved = saveAnswers(this.deps.db, questionId, answers);
+    if (!saved) return false;
+    this.activity(saved.taskId, {
+      kind: 'answer',
+      summary: `You answered: ${Object.values(answers).join('; ')}`,
+    });
+    const deliver = this.waiting.get(questionId);
+    if (deliver) {
+      this.waiting.delete(questionId);
+      deliver(answers);
+      return true;
+    }
+    const note = [
+      'The reviewer answered your question.',
+      ...saved.questions.map(
+        ({ question }) => `Question: ${question}\nAnswer: ${answers[question] ?? '(none)'}`,
+      ),
+      'Continue the task where you left off.',
+    ].join('\n\n');
+    this.deps.db
+      .prepare(
+        `UPDATE agent_tasks SET status = 'queued', resume_note = ?, attempts = 0,
+           updated_at = ${NOW}
+         WHERE id = ? AND status = 'waiting'`,
+      )
+      .run(note, saved.taskId);
+    this.wake();
+    return true;
   }
 
   // Ends a running task's agent at once.
@@ -138,7 +189,8 @@ export class AgentRunner {
   private async run(taskId: number): Promise<void> {
     const task = this.deps.db
       .prepare(
-        `SELECT t.id, t.pull_request_id, t.session_id, t.attempts, t.error, s.head_sha, p.title
+        `SELECT t.id, t.pull_request_id, t.session_id, t.attempts, t.error, t.resume_note,
+                s.head_sha, p.title
          FROM agent_tasks t
          JOIN review_submissions s ON s.id = t.submission_id
          JOIN pull_requests p ON p.id = t.pull_request_id
@@ -173,7 +225,9 @@ export class AgentRunner {
     ).slice(0, MAX_INSTRUCTIONS);
     const resume = task.session_id !== null;
     let prompt = taskPrompt(context);
-    if (resume) {
+    if (resume && task.resume_note) {
+      prompt = task.resume_note;
+    } else if (resume) {
       prompt = task.error
         ? `Your last attempt stopped with this error:\n${task.error}\n\nContinue the task where you left off.`
         : 'Continue the task where you left off.';
@@ -182,6 +236,14 @@ export class AgentRunner {
         '\n\nAn earlier attempt may have left changes in this folder. Check them before redoing anything.';
     }
     if (this.stopping.has(task.id)) return { status: 'stopped' };
+    this.activity(task.id, {
+      kind: 'status',
+      summary: resume
+        ? 'Resumed its session'
+        : task.attempts > 1
+          ? `Started attempt ${task.attempts}`
+          : 'Started working',
+    });
 
     const sessionId = task.session_id ?? randomUUID();
     const run = await this.deps.agent.start({
@@ -193,10 +255,15 @@ export class AgentRunner {
       sessionId,
       resume,
       getFileDiff: (path) => fileDiff(context.files, path),
+      onActivity: (activity) => this.activity(task.id, activity),
+      ask: (questions, signal) => this.ask(task.id, context.title, questions, signal),
     });
     // Saved once the session exists, so a restart resumes it rather than starting over.
     this.deps.db
-      .prepare(`UPDATE agent_tasks SET session_id = ?, updated_at = ${NOW} WHERE id = ?`)
+      .prepare(
+        `UPDATE agent_tasks SET session_id = ?, resume_note = NULL, updated_at = ${NOW}
+         WHERE id = ?`,
+      )
       .run(sessionId, task.id);
     this.running.set(task.id, run);
     if (this.stopping.has(task.id)) void run.stop();
@@ -216,6 +283,47 @@ export class AgentRunner {
     }
   }
 
+  // Records the question, tells the user and waits for the answer. A stop withdraws it.
+  private ask(
+    taskId: number,
+    title: string,
+    questions: AgentQuestionItem[],
+    signal: AbortSignal,
+  ): Promise<Answers | null> {
+    const { db } = this.deps;
+    const questionId = createQuestion(db, taskId, questions);
+    db.prepare(`UPDATE agent_tasks SET status = 'waiting', updated_at = ${NOW} WHERE id = ?`).run(
+      taskId,
+    );
+    this.activity(taskId, {
+      kind: 'question',
+      summary: questions.map(({ question }) => question).join('\n'),
+    });
+    this.deps.notify('An agent has a question', `On "${title}": ${questions[0]?.question ?? ''}`);
+    return new Promise((resolve) => {
+      this.waiting.set(questionId, (answers) => {
+        db.prepare(
+          `UPDATE agent_tasks SET status = 'running', updated_at = ${NOW} WHERE id = ?`,
+        ).run(taskId);
+        resolve(answers);
+      });
+      signal.addEventListener(
+        'abort',
+        () => {
+          if (!this.waiting.delete(questionId)) return;
+          // Quitting keeps the question, so it can still be answered after the restart.
+          if (!this.closing) cancelQuestions(db, taskId);
+          resolve(null);
+        },
+        { once: true },
+      );
+    });
+  }
+
+  private activity(taskId: number, activity: AgentActivity): void {
+    if (!this.closing) recordActivity(this.deps.db, taskId, activity);
+  }
+
   private record(task: TaskRow, result: AgentRunResult, resumed: boolean): void {
     const { db } = this.deps;
     if (result.status === 'completed') {
@@ -225,6 +333,7 @@ export class AgentRunner {
              finished_at = ${NOW}, updated_at = ${NOW}
          WHERE id = ?`,
       ).run(JSON.stringify(result.report), result.costUsd, task.id);
+      this.activity(task.id, { kind: 'status', summary: `Finished. ${result.report.summary}` });
       return;
     }
     if (result.status === 'stopped' || this.stopping.has(task.id)) {
@@ -232,9 +341,10 @@ export class AgentRunner {
         `UPDATE agent_tasks SET status = 'stopped', finished_at = ${NOW}, updated_at = ${NOW}
          WHERE id = ?`,
       ).run(task.id);
+      this.activity(task.id, { kind: 'status', summary: 'Stopped' });
       return;
     }
-    if (result.status === 'failed') this.deps.log.warn('Agent task failed', task.id, result.error);
+    this.deps.log.warn('Agent task failed', task.id, result.error);
     // attempts already counts this run.
     const retry = result.retryable && task.attempts < MAX_ATTEMPTS;
     db.prepare(
@@ -244,5 +354,10 @@ export class AgentRunner {
            ${resumed ? ', session_id = NULL' : ''}
        WHERE id = ?`,
     ).run(retry ? 'queued' : 'failed', result.error, task.id);
+    this.activity(task.id, {
+      kind: 'error',
+      summary: retry ? 'The run failed. Trying again.' : 'The run failed.',
+      detail: result.error,
+    });
   }
 }

@@ -7,6 +7,7 @@ import {
   type AgentRunInput,
   type AgentRunResult,
 } from '../provider.ts';
+import { createActivityMapper, readQuestions } from './activity.ts';
 import { claudeEnvironment } from './environment.ts';
 import { ALLOWED_TOOLS, BLOCKED_TOOLS, createToolGate, PREVIEW_TOOL_SERVER } from './gate.ts';
 import { InputQueue } from './input-queue.ts';
@@ -41,6 +42,7 @@ export class ClaudeAgent implements AgentProvider {
     const isolation = await prepareIsolation(input.worktree);
     const abort = new AbortController();
     const messages = new InputQueue();
+    const activities = createActivityMapper(input.worktree);
     let stopping = false;
     let rateLimit: string | undefined;
     const tools = sdk.createSdkMcpServer({
@@ -66,13 +68,17 @@ export class ClaudeAgent implements AgentProvider {
         disallowedTools: BLOCKED_TOOLS,
         canUseTool: createToolGate({
           root: input.worktree,
-          // Questions reach the user in a later slice. Until then the agent decides.
-          onQuestion: () =>
-            Promise.resolve({
-              behavior: 'deny',
-              message:
-                'The reviewer cannot answer questions yet. Make the safest choice, or leave the item and mark it needs_input with your question.',
-            }),
+          onQuestion: async (questionInput, signal) => {
+            const questions = readQuestions(questionInput);
+            const answers = questions.length > 0 ? await input.ask(questions, signal) : null;
+            return answers
+              ? { behavior: 'allow', updatedInput: { ...questionInput, answers } }
+              : {
+                  behavior: 'deny',
+                  message:
+                    'The reviewer did not answer. Make the safest choice, or leave the item and mark it needs_input with your question.',
+                };
+          },
         }),
         sandbox: isolation.sandbox,
         mcpServers: { [PREVIEW_TOOL_SERVER]: tools },
@@ -111,6 +117,7 @@ export class ClaudeAgent implements AgentProvider {
     const result = (async (): Promise<AgentRunResult> => {
       try {
         for await (const message of query) {
+          activities(message).forEach(input.onActivity);
           if (
             message.type === 'rate_limit_event' &&
             message.rate_limit_info.status === 'rejected'

@@ -37,6 +37,7 @@ import {
 } from '../services/repositories/watched-folders.ts';
 import { getSettings, updateSettings } from '../services/settings.ts';
 import type { RepositorySearch } from '../services/pull-requests/repository-search.ts';
+import { listActivity, listAgentTasks } from '../services/agents/activity.ts';
 import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
 
@@ -47,7 +48,7 @@ export interface IpcServices {
   pullRequestFiles: PullRequestFiles;
   pullRequestReviews: PullRequestReviews;
   repositorySearch: RepositorySearch;
-  agentRunner: Pick<AgentRunner, 'wake'>;
+  agentRunner: Pick<AgentRunner, 'wake' | 'stop' | 'forceStop' | 'resume' | 'answer'>;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
@@ -147,6 +148,21 @@ export function registerIpcHandlers(
     if (review.sendToAgent && result.status === 'submitted') agentRunner.wake();
     return result;
   });
+  handle('agentTasks.list', () => listAgentTasks(db));
+  handle('agentTasks.listActivity', ({ taskId }) => listActivity(db, taskId));
+  handle('agentTasks.stop', async ({ taskId }) => {
+    await agentRunner.stop(taskId);
+    return null;
+  });
+  handle('agentTasks.forceStop', ({ taskId }) => {
+    agentRunner.forceStop(taskId);
+    return null;
+  });
+  handle('agentTasks.resume', ({ taskId }) => {
+    agentRunner.resume(taskId);
+    return null;
+  });
+  handle('agentTasks.answer', ({ questionId, answers }) => agentRunner.answer(questionId, answers));
   handle('pullRequestReviews.merge', (merge) => pullRequestReviews.merge(merge));
   handle('pullRequestReviews.deleteBranch', (branch) => pullRequestReviews.deleteBranch(branch));
 

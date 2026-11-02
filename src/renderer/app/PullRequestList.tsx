@@ -1,4 +1,5 @@
 import { GitPullRequest, RefreshCw } from 'lucide-react';
+import type { AgentTaskStatus } from '../../shared/contracts/agent-tasks.ts';
 import type { PullRequest } from '../../shared/contracts/pull-requests.ts';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
@@ -6,6 +7,7 @@ import { Panel } from '../components/Panel/Panel.tsx';
 import { SearchField } from '../components/SearchField/SearchField.tsx';
 import { Select } from '../components/Select/Select.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
+import { agentStatus } from './agentStatus.ts';
 import styles from './PullRequestList.module.css';
 import { relativeTime } from './relativeTime.ts';
 
@@ -13,6 +15,8 @@ export interface PullRequestListProps {
   className?: string;
   pullRequests: readonly PullRequest[];
   repositoryNames: ReadonlyMap<number, string>;
+  // The state of each pull request's latest agent task.
+  agentStatuses: ReadonlyMap<number, AgentTaskStatus>;
   // Shown when there are no pull requests to list.
   emptyMessage: string;
   selectedId: number | undefined;
@@ -30,6 +34,7 @@ export function PullRequestList({
   className,
   pullRequests,
   repositoryNames,
+  agentStatuses,
   emptyMessage,
   selectedId,
   onSelect,
@@ -101,6 +106,9 @@ export function PullRequestList({
                 <span className={styles.states}>
                   {pull.draft && <StatusPill status="draft" />}
                   <StatusPill status={pull.reviewState} />
+                  {agentStatuses.has(pull.id) && (
+                    <StatusPill status={agentStatus[agentStatuses.get(pull.id)!]} />
+                  )}
                 </span>
               </button>
             </li>
