@@ -25,7 +25,12 @@ import { Button } from '../components/Button/Button.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
-import { usePullRequestFileDiff, usePullRequestFiles } from '../hooks/usePullRequestFiles.ts';
+import {
+  usePullRequestCommitFiles,
+  usePullRequestCommits,
+  usePullRequestFileDiff,
+  usePullRequestFiles,
+} from '../hooks/usePullRequestFiles.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
 import { useFileSearch } from '../hooks/useFileSearch.ts';
@@ -57,6 +62,8 @@ import styles from './review.module.css';
 
 export const Route = createFileRoute('/review/$pullRequestId')({ component: ReviewPage });
 
+const noReviewStates: Record<string, FileReviewState> = {};
+
 const modeOptions = [
   { value: 'split', label: 'Split' },
   { value: 'unified', label: 'Unified' },
@@ -81,7 +88,12 @@ function ReviewPage() {
     setShownRefs({ headSha: pullRequest.headSha, baseBranch: pullRequest.baseBranch });
   }
   const files = usePullRequestFiles(pullRequestId, shownRefs?.headSha, shownRefs?.baseBranch);
-  const changedFiles = files.data?.files;
+  const commits = usePullRequestCommits(pullRequestId, files.data?.headSha);
+  // One commit shown on its own is read-only: no file decisions, comments or threads.
+  const [commitSha, setCommitSha] = useState<string>();
+  const commitFiles = usePullRequestCommitFiles(pullRequestId, commitSha);
+  const shown = commitSha ? commitFiles : files;
+  const changedFiles = shown.data?.files;
   // The list can be read after a push the last sync hadn't seen, so it counts as shown too.
   const newCommits =
     pullRequest !== undefined &&
@@ -97,9 +109,13 @@ function ReviewPage() {
   const [chosenPath, setChosenPath] = useState<string>();
   const [fileFilter, setFileFilter] = useState<FileReviewFilter>('all');
   const [fileSearch, setFileSearch] = useState('');
-  const search = useFileSearch(pullRequestId, files.data, fileSearch);
+  const search = useFileSearch(pullRequestId, shown.data, fileSearch);
   const searchTerm = fileSearch.trim().toLowerCase();
-  const { reviewStates, setReviewState } = useFileReviewStates(pullRequestId, files.data);
+  const { reviewStates: markedStates, setReviewState } = useFileReviewStates(
+    pullRequestId,
+    files.data,
+  );
+  const reviewStates = commitSha ? noReviewStates : markedStates;
   const visibleFiles = changedFiles?.filter(
     (file) =>
       matchesFileReviewFilter(reviewStates[file.path], fileFilter) &&
@@ -204,7 +220,7 @@ function ReviewPage() {
   }, [sessionReady, selectedPath, mode]);
 
   function toggleReviewState(state: FileReviewState) {
-    if (!selected) return;
+    if (!selected || commitSha) return;
     const nextState = reviewState === state ? undefined : state;
     setReviewState(selected.path, nextState);
     if (nextState && nextFile) selectFile(nextFile.path);
@@ -237,7 +253,7 @@ function ReviewPage() {
   const effectiveMode = isAdded ? 'unified' : mode;
   const diff = usePullRequestFileDiff(
     pullRequestId,
-    files.data,
+    shown.data,
     selected?.path,
     selected?.previousPath ?? null,
   );
@@ -313,7 +329,7 @@ function ReviewPage() {
   else if (diff.isError) diffMessage = 'Could not load the file. Try again later.';
   else if (diff.data?.unavailable === 'binary') diffMessage = 'This file is binary.';
   else if (diff.data?.unavailable === 'too-large') diffMessage = 'This file is too large to show.';
-  else if (!selected && !files.isPending && restored !== undefined)
+  else if (!selected && !shown.isPending && restored !== undefined)
     diffMessage = search.searching
       ? 'Searching file contents…'
       : searchTerm
@@ -435,8 +451,11 @@ function ReviewPage() {
             searching={search.searching}
             searchFailed={search.failed}
             searchSkipped={search.skipped}
-            loading={files.isPending}
-            error={files.isError}
+            commits={commits.data}
+            commitSha={commitSha}
+            onCommitChange={setCommitSha}
+            loading={shown.isPending}
+            error={shown.isError}
             selectedPath={selected?.path}
             onSelect={selectFile}
           />
@@ -477,7 +496,7 @@ function ReviewPage() {
                 label={reviewState === 'approved' ? 'Remove file approval' : 'Approve file'}
                 shortcut={shortcut('a')}
                 selected={reviewState === 'approved'}
-                disabled={!selected}
+                disabled={!selected || commitSha !== undefined}
                 onClick={() => toggleReviewState('approved')}
               />
               <IconButton
@@ -489,7 +508,7 @@ function ReviewPage() {
                 label={reviewState === 'flagged' ? 'Remove file flag' : 'Flag file'}
                 shortcut={shortcut('f')}
                 selected={reviewState === 'flagged'}
-                disabled={!selected}
+                disabled={!selected || commitSha !== undefined}
                 onClick={() => toggleReviewState('flagged')}
               />
               <IconButton
@@ -539,35 +558,46 @@ function ReviewPage() {
                 }
                 searchQuery={fileSearch.trim()}
                 searchMatch={selected ? search.matches.get(selected.path) : undefined}
-                threads={{
-                  items:
-                    reviewThreads.data?.filter((thread) => thread.path === selected.path) ?? [],
-                  actions: {
-                    onReply: (threadId, body) =>
-                      threadActions.reply.mutateAsync({ threadId, body }).catch(() => unreachable),
-                    onSetResolved: (threadId, resolved) =>
-                      threadActions.setResolved
-                        .mutateAsync({ threadId, resolved })
-                        .catch(() => unreachable),
-                  },
-                }}
-                drafts={{
-                  items: currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],
-                  hunks: selected.hunks,
-                  author:
-                    auth?.status === 'connected'
-                      ? { name: auth.user.login, avatarUrl: auth.user.avatarUrl }
-                      : { name: 'You' },
-                  composer: composer?.path === selected.path ? composer : undefined,
-                  onComposerChange: changeComposer,
-                  onSave: saveComposer,
-                  saving: reviewDrafts.create.isPending || reviewDrafts.update.isPending,
-                  saveFailed: reviewDrafts.create.isError || reviewDrafts.update.isError,
-                  onDelete: (id) => reviewDrafts.remove.mutate(id),
-                  deletingId: reviewDrafts.remove.isPending
-                    ? reviewDrafts.remove.variables
-                    : undefined,
-                }}
+                threads={
+                  commitSha
+                    ? undefined
+                    : {
+                        items:
+                          reviewThreads.data?.filter((thread) => thread.path === selected.path) ??
+                          [],
+                        actions: {
+                          onReply: (threadId, body) =>
+                            threadActions.reply
+                              .mutateAsync({ threadId, body })
+                              .catch(() => unreachable),
+                          onSetResolved: (threadId, resolved) =>
+                            threadActions.setResolved
+                              .mutateAsync({ threadId, resolved })
+                              .catch(() => unreachable),
+                        },
+                      }
+                }
+                drafts={
+                  commitSha
+                    ? undefined
+                    : {
+                        items: currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],
+                        hunks: selected.hunks,
+                        author:
+                          auth?.status === 'connected'
+                            ? { name: auth.user.login, avatarUrl: auth.user.avatarUrl }
+                            : { name: 'You' },
+                        composer: composer?.path === selected.path ? composer : undefined,
+                        onComposerChange: changeComposer,
+                        onSave: saveComposer,
+                        saving: reviewDrafts.create.isPending || reviewDrafts.update.isPending,
+                        saveFailed: reviewDrafts.create.isError || reviewDrafts.update.isError,
+                        onDelete: (id) => reviewDrafts.remove.mutate(id),
+                        deletingId: reviewDrafts.remove.isPending
+                          ? reviewDrafts.remove.variables
+                          : undefined,
+                      }
+                }
               />
             ))
           )}

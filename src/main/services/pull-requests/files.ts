@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type {
   PullRequestChanges,
+  PullRequestCommit,
   PullRequestFileDiff,
 } from '../../../shared/contracts/pull-request-files.ts';
 import type { GitProvider } from '../../providers/types.ts';
@@ -59,6 +60,19 @@ export class PullRequestFiles {
       }
     }
     throw new Error('The pull request kept changing while its files were read. Try again.');
+  }
+
+  // The pull request's commits, oldest first.
+  listCommits(pullRequestId: number): Promise<PullRequestCommit[]> {
+    const { fullName, number } = this.findRepository(pullRequestId);
+    return this.deps.provider.getPullRequestCommits(fullName, number);
+  }
+
+  // The files one commit changes, shaped like list so the diffs are read the same way.
+  async listCommit(pullRequestId: number, sha: string): Promise<PullRequestChanges> {
+    const { fullName } = this.findRepository(pullRequestId);
+    const { parentSha, files } = await this.deps.provider.getCommitChanges(fullName, sha);
+    return { headSha: sha, mergeBase: parentSha, files };
   }
 
   // The file before and after the pull request, at the commits list returned.

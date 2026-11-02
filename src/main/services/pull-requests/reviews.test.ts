@@ -47,6 +47,8 @@ function setup() {
     getPullRequests: vi.fn(),
     getPullRequestRefs: vi.fn(),
     getPullRequestFiles: vi.fn(),
+    getPullRequestCommits: vi.fn(),
+    getCommitChanges: vi.fn(),
     getMergeBase: vi.fn(),
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),

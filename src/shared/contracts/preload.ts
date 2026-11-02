@@ -1,6 +1,10 @@
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
-import type { PullRequestChanges, PullRequestFileDiff } from './pull-request-files.ts';
+import type {
+  PullRequestChanges,
+  PullRequestCommit,
+  PullRequestFileDiff,
+} from './pull-request-files.ts';
 import type {
   DeleteBranchInput,
   DeleteBranchResult,
@@ -67,6 +71,8 @@ export interface PreviewApi {
   };
   pullRequestFiles: {
     list(pullRequestId: number): Promise<PullRequestChanges>;
+    listCommits(pullRequestId: number): Promise<PullRequestCommit[]>;
+    listCommit(pullRequestId: number, sha: string): Promise<PullRequestChanges>;
     getDiff(
       pullRequestId: number,
       headSha: string,

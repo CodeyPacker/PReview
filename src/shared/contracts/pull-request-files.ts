@@ -38,6 +38,14 @@ export const pullRequestChangesSchema = z.object({
 });
 export type PullRequestChanges = z.infer<typeof pullRequestChangesSchema>;
 
+// A commit of the pull request.
+export const pullRequestCommitSchema = z.object({
+  sha: commitShaSchema,
+  subject: z.string(),
+  authorLogin: z.string().nullable(),
+});
+export type PullRequestCommit = z.infer<typeof pullRequestCommitSchema>;
+
 export const pullRequestFileDiffSchema = z.object({
   // The file's text before and after the pull request. Empty for an added or removed side.
   original: z.string(),

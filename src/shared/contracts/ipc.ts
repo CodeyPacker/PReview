@@ -8,6 +8,7 @@ import {
 } from './repositories.ts';
 import {
   commitShaSchema,
+  pullRequestCommitSchema,
   pullRequestChangesSchema,
   pullRequestFileDiffSchema,
 } from './pull-request-files.ts';
@@ -81,6 +82,16 @@ export const ipcContract = {
   // The files a pull request changes, read from the provider, with the commits they are at.
   'pullRequestFiles.list': {
     input: z.object({ pullRequestId: z.number().int() }),
+    output: pullRequestChangesSchema,
+  },
+  // The pull request's commits, oldest first.
+  'pullRequestFiles.listCommits': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.array(pullRequestCommitSchema),
+  },
+  // The files one commit changes, against its parent.
+  'pullRequestFiles.listCommit': {
+    input: z.object({ pullRequestId: z.number().int(), sha: commitShaSchema }),
     output: pullRequestChangesSchema,
   },
   // One file at the commits that list returned.

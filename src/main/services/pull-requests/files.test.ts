@@ -41,6 +41,8 @@ function setup(contents: Record<string, string | undefined> = {}) {
       .fn<GitProvider['getPullRequestRefs']>()
       .mockResolvedValue({ headSha: HEAD, baseBranch: 'main' }),
     getPullRequestFiles: vi.fn<GitProvider['getPullRequestFiles']>().mockResolvedValue([]),
+    getPullRequestCommits: vi.fn<GitProvider['getPullRequestCommits']>().mockResolvedValue([]),
+    getCommitChanges: vi.fn<GitProvider['getCommitChanges']>(),
     getMergeBase: vi.fn<GitProvider['getMergeBase']>().mockResolvedValue(BASE),
     getFileContent: vi.fn<GitProvider['getFileContent']>((_repository, path, ref) =>
       Promise.resolve(contents[`${ref}:${path}`]),
@@ -65,6 +67,23 @@ const file: ProviderChangedFile = {
   deletions: 0,
   hunks: [{ originalStart: 0, originalCount: 0, modifiedStart: 1, modifiedCount: 1 }],
 };
+
+describe('PullRequestFiles commits', () => {
+  it('lists the commits and returns one commit against its parent', async () => {
+    const { provider, files } = setup();
+    const commit = { sha: HEAD, subject: 'Fix it', authorLogin: 'octo' };
+    provider.getPullRequestCommits.mockResolvedValue([commit]);
+    provider.getCommitChanges.mockResolvedValue({ parentSha: BASE, files: [file] });
+
+    await expect(files.listCommits(pullRequestId)).resolves.toEqual([commit]);
+    await expect(files.listCommit(pullRequestId, HEAD)).resolves.toEqual({
+      headSha: HEAD,
+      mergeBase: BASE,
+      files: [file],
+    });
+    expect(provider.getCommitChanges).toHaveBeenCalledWith('octo/app', HEAD);
+  });
+});
 
 describe('PullRequestFiles list', () => {
   it('returns the files with the commits they are at', async () => {
