@@ -194,6 +194,7 @@
 .newCommits {
   color: var(--warning);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .newCommits:empty {
