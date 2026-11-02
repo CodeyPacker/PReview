@@ -1,4 +1,5 @@
-// Icons for the file tree: a Finder-style folder that opens, and a document with a folded corner.
+// Icons for the file tree: a Finder-style folder that opens, and a file icon for each file type.
+import { getIconForFile } from '@react-symbols/icons/utils';
 import styles from './icons.module.css';
 
 export function FolderIcon({ open }: { open: boolean }) {
@@ -21,14 +22,12 @@ export function FolderIcon({ open }: { open: boolean }) {
   );
 }
 
-export function FileIcon() {
-  return (
-    <svg className={styles.icon} viewBox="0 0 20 20" aria-hidden>
-      <path
-        className={styles.page}
-        d="M5.5 2.5h5.6c.4 0 .8.2 1.1.5l3.3 3.3c.3.3.5.7.5 1.1v8.1a2 2 0 0 1-2 2h-8.5a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2z"
-      />
-      <path className={styles.corner} d="M11.5 2.8v3a1.7 1.7 0 0 0 1.7 1.7h3" />
-    </svg>
-  );
+// The icon for a file's type, picked from its name. Unknown types get a plain document.
+export function FileTypeIcon({ fileName }: { fileName: string }) {
+  return getIconForFile({
+    fileName,
+    autoAssign: true,
+    className: styles.icon,
+    'aria-hidden': true,
+  });
 }

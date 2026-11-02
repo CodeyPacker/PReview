@@ -6,6 +6,12 @@ import { FileTree } from './FileTree.tsx';
 const paths = [
   'README.md',
   'package.json',
+  'tsconfig.json',
+  'vite.config.ts',
+  'src/styles/tokens.css',
+  'src/assets/logo.png',
+  'Dockerfile',
+  '.gitignore',
   'src/main/index.ts',
   'src/main/ipc/index.ts',
   'src/main/ipc/handlers.ts',

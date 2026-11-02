@@ -9,7 +9,7 @@ import {
   visibleRows,
   type TreeRow,
 } from '../../lib/fileTree.ts';
-import { FileIcon, FolderIcon } from './icons.tsx';
+import { FileTypeIcon, FolderIcon } from './icons.tsx';
 import styles from './FileTree.module.css';
 
 // Rows past this many wait for the reviewer to close folders or search.
@@ -156,7 +156,7 @@ export function FileTree({
             ) : (
               <span className={styles.chevron} aria-hidden />
             )}
-            {folder ? <FolderIcon open={isOpen} /> : <FileIcon />}
+            {folder ? <FolderIcon open={isOpen} /> : <FileTypeIcon fileName={node.name} />}
             <span className={styles.name}>{node.name}</span>
           </div>
         );
