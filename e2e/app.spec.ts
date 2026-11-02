@@ -1556,9 +1556,20 @@ test('browses a file the pull request does not change', async () => {
 
     await files.getByRole('radio', { name: 'Repository' }).click();
     await expect(page.getByRole('heading', { name: 'Repository files' })).toBeVisible();
+    const tree = files.getByRole('tree', { name: 'Repository files' });
+    const docs = tree.getByRole('treeitem', { name: 'docs', exact: true });
+    const readme = tree.getByRole('treeitem', { name: 'README.md', exact: true });
+    // Folders start closed, open on a click and close on the left arrow.
+    await expect(docs).toHaveAttribute('aria-expanded', 'false');
+    await expect(readme).toBeHidden();
+    await docs.click();
+    await expect(readme).toBeVisible();
+    await docs.press('ArrowLeft');
+    await expect(readme).toBeHidden();
+    // A search opens every folder that holds a match.
     await files.getByRole('searchbox', { name: 'Search repository files' }).fill('readme');
-    await expect(files.getByRole('button', { name: /a.ts/ })).toBeHidden();
-    await files.getByRole('button', { name: /README.md/ }).click();
+    await expect(tree.getByRole('treeitem', { name: 'a.ts', exact: true })).toBeHidden();
+    await readme.click();
     await expect(page.getByRole('heading', { name: 'docs/README.md' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeDisabled();
     await expect(page.getByRole('radio', { name: 'Split' })).toBeDisabled();
