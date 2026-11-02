@@ -6,14 +6,19 @@ const execFileAsync = promisify(execFile);
 // Runs git in a folder and resolves with its trimmed output.
 export type Git = (cwd: string, args: string[]) => Promise<string>;
 
-export const runGit: Git = async (cwd, args) => {
-  const { stdout } = await execFileAsync('git', args, {
-    cwd,
-    timeout: 15_000,
-    windowsHide: true,
-  });
-  return stdout.trim();
-};
+// A Git that gives up after timeoutMs, for slower work such as fetching.
+export function createGit(timeoutMs: number): Git {
+  return async (cwd, args) => {
+    const { stdout } = await execFileAsync('git', args, {
+      cwd,
+      timeout: timeoutMs,
+      windowsHide: true,
+    });
+    return stdout.trim();
+  };
+}
+
+export const runGit: Git = createGit(15_000);
 
 export interface GitInfo {
   // The origin remote exactly as configured. Null when there is none.

@@ -4,6 +4,7 @@ import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { openDatabase } from './database/connection.ts';
+import { AgentWorktrees } from './services/agents/worktrees.ts';
 import { migrate } from './database/migrate.ts';
 import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
@@ -17,7 +18,7 @@ import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
-import { runGit } from './services/repositories/git-info.ts';
+import { createGit, runGit } from './services/repositories/git-info.ts';
 import icon from '../../build/icon.png?asset';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
 
@@ -166,6 +167,18 @@ void app.whenReady().then(async () => {
   void pullRequestReviews
     .recoverSubmissions()
     .catch((error: unknown) => log.warn('Could not check unconfirmed reviews', error));
+  // Fetching a pull request's branch can take a while on a large repository.
+  const worktrees = new AgentWorktrees({
+    db,
+    git: createGit(120_000),
+    root: join(app.getPath('userData'), 'worktrees'),
+  });
+  void worktrees
+    .cleanUp()
+    .then((kept) => {
+      if (kept.length > 0) log.info('Kept agent worktrees with unsaved changes', kept);
+    })
+    .catch((error: unknown) => log.warn('Could not clean up agent worktrees', error));
   app.on('will-quit', () => {
     pullRequests.stop();
     db.close();
