@@ -64,6 +64,9 @@ const commitSchema = z.object({
   author: z.object({ login: z.string() }).nullable(),
 });
 
+// GitHub's answer to a new review. Only its id is used.
+const postedReviewSchema = z.object({ id: z.number() });
+
 const reviewSchema = z.object({
   id: z.number(),
   body: z.string().nullable(),
@@ -403,7 +406,7 @@ export class GitHubProvider implements GitProvider {
         }),
       },
     );
-    return { id: String(reviewSchema.parse(posted).id) };
+    return { id: String(postedReviewSchema.parse(posted).id) };
   }
 
   async getReviews(repositoryFullName: string, number: number): Promise<ProviderPublishedReview[]> {
