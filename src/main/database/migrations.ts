@@ -251,4 +251,14 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 14,
+    name: 'review_draft_outdated',
+    // A draft whose lines changed in newer commits, so it can't be placed on them for sure.
+    // It stays on its file at its old line, and it is never sent.
+    sql: `
+      ALTER TABLE review_drafts ADD COLUMN outdated INTEGER NOT NULL DEFAULT 0
+        CHECK (outdated IN (0, 1));
+    `,
+  },
 ];

@@ -20,6 +20,7 @@ import type {
 import type { PullRequestsState } from './pull-requests.ts';
 import type {
   CreateReviewDraftInput,
+  ReattachReviewDraftsInput,
   ReviewDraft,
   UpdateReviewDraftInput,
 } from './review-drafts.ts';
@@ -101,6 +102,7 @@ export interface PreviewApi {
     list(pullRequestId: number): Promise<ReviewDraft[]>;
     create(draft: CreateReviewDraftInput): Promise<ReviewDraft[]>;
     update(draft: UpdateReviewDraftInput): Promise<ReviewDraft[]>;
+    reattach(move: ReattachReviewDraftsInput): Promise<ReviewDraft[]>;
     delete(pullRequestId: number, id: number): Promise<ReviewDraft[]>;
   };
   // Each call resolves with every finding of the pull request.

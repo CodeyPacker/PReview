@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
   CreateReviewDraftInput,
+  ReattachReviewDraftsInput,
   ReviewDraft,
   UpdateReviewDraftInput,
 } from '../../shared/contracts/review-drafts.ts';
@@ -29,5 +30,11 @@ export function useReviewDrafts(pullRequestId: number) {
     onSuccess: replace,
   });
 
-  return { drafts, create, update, remove };
+  // Moves drafts from older commits to the ones on show, or marks them outdated.
+  const reattach = useMutation({
+    mutationFn: (move: ReattachReviewDraftsInput) => window.preview.reviewDrafts.reattach(move),
+    onSuccess: replace,
+  });
+
+  return { drafts, create, update, remove, reattach };
 }

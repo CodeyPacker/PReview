@@ -13,10 +13,18 @@ import type {
 } from '../../../shared/contracts/pull-request-reviews.ts';
 import { transaction } from '../../database/connection.ts';
 import { GitHubApiError } from '../../providers/github/client.ts';
-import type { GitProvider } from '../../providers/types.ts';
+import type { GitProvider, ProviderChangedFile } from '../../providers/types.ts';
+import type {
+  ReattachReviewDraftsInput,
+  ReviewDraft,
+} from '../../../shared/contracts/review-drafts.ts';
 import { listReviewDrafts } from './drafts.ts';
 import { findingsMarkdown, listReviewFindings } from './findings.ts';
+import { moveLines } from './reattach.ts';
 import { endReviewRound } from './rounds.ts';
+
+// GitHub lists at most this many files for a comparison, so a longer list may be cut short.
+const MAX_COMPARED_FILES = 300;
 
 export interface PullRequestReviewsDeps {
   db: DatabaseSync;
@@ -53,6 +61,67 @@ export class PullRequestReviews {
     );
   }
 
+  // Moves the drafts written on older commits to the commits on show. A draft moves when the
+  // commits in between changed nothing near its lines. Otherwise it is marked outdated and
+  // stays at its old line. Nothing is deleted.
+  async reattachDrafts({
+    pullRequestId,
+    headSha,
+    mergeBase,
+  }: ReattachReviewDraftsInput): Promise<ReviewDraft[]> {
+    const stale = listReviewDrafts(this.deps.db, pullRequestId).filter(
+      (draft) => draft.headSha !== headSha || draft.mergeBase !== mergeBase,
+    );
+    if (stale.length === 0) return listReviewDrafts(this.deps.db, pullRequestId);
+
+    // A comment on the old file is anchored to the merge base, so only a new merge base moves
+    // it. A comment on the new file moves with the commits since it was written.
+    const movable = (draft: ReviewDraft) =>
+      !draft.outdated && draft.mergeBase === mergeBase && draft.side === 'modified';
+    const { repository } = this.find(pullRequestId);
+    const changes = new Map<string, ProviderChangedFile[] | null>();
+    for (const sha of new Set(stale.filter(movable).map((draft) => draft.headSha))) {
+      changes.set(sha, await this.compare(repository, sha, headSha));
+    }
+
+    const place = (draft: ReviewDraft): { startLine: number | null; line: number } | null => {
+      if (draft.outdated || draft.mergeBase !== mergeBase) return null;
+      if (draft.side === 'original') return { startLine: draft.startLine, line: draft.line };
+      const compared = changes.get(draft.headSha);
+      if (!compared || compared.length >= MAX_COMPARED_FILES) return null;
+      // A file that moved or was removed can't be followed.
+      if (compared.some((file) => file.previousPath === draft.path)) return null;
+      const file = compared.find((item) => item.path === draft.path);
+      if (!file) return { startLine: draft.startLine, line: draft.line };
+      if (file.hunks === null || (file.status !== 'modified' && file.status !== 'changed')) {
+        return null;
+      }
+      const moved = moveLines(file.hunks, draft.startLine ?? draft.line, draft.line);
+      if (!moved) return null;
+      return { startLine: draft.startLine === null ? null : moved.startLine, line: moved.endLine };
+    };
+
+    const update = this.deps.db.prepare(
+      `UPDATE review_drafts
+       SET head_sha = ?, merge_base = ?, start_line = ?, line = ?, outdated = ?
+       WHERE id = ?`,
+    );
+    transaction(this.deps.db, () => {
+      for (const draft of stale) {
+        const placed = place(draft);
+        update.run(
+          headSha,
+          mergeBase,
+          placed ? placed.startLine : draft.startLine,
+          placed ? placed.line : draft.line,
+          placed ? 0 : 1,
+          draft.id,
+        );
+      }
+    });
+    return listReviewDrafts(this.deps.db, pullRequestId);
+  }
+
   // Publishes the review with the chosen drafts as line comments and the chosen findings in
   // its body. Then it deletes those drafts, marks those findings published and ends the round.
   async submit({
@@ -72,7 +141,11 @@ export class PullRequestReviews {
 
     const wanted = new Set(draftIds);
     const drafts = listReviewDrafts(this.deps.db, pullRequestId).filter(
-      (draft) => wanted.has(draft.id) && draft.headSha === headSha && draft.mergeBase === mergeBase,
+      (draft) =>
+        wanted.has(draft.id) &&
+        !draft.outdated &&
+        draft.headSha === headSha &&
+        draft.mergeBase === mergeBase,
     );
     if (drafts.length !== wanted.size) {
       return {
@@ -173,6 +246,23 @@ export class PullRequestReviews {
       throw error;
     }
     return { status: 'deleted' };
+  }
+
+  // The files that changed between two commits, or null when GitHub no longer has one of them,
+  // such as after a force push.
+  private async compare(
+    repository: string,
+    baseSha: string,
+    headSha: string,
+  ): Promise<ProviderChangedFile[] | null> {
+    try {
+      return await this.deps.provider.getChangesBetween(repository, baseSha, headSha);
+    } catch (error) {
+      if (error instanceof GitHubApiError && (error.status === 404 || error.status === 422)) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   private async changeThread(

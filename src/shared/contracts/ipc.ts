@@ -27,6 +27,7 @@ import {
 import { pullRequestsStateSchema } from './pull-requests.ts';
 import {
   createReviewDraftInputSchema,
+  reattachReviewDraftsInputSchema,
   reviewDraftSchema,
   updateReviewDraftInputSchema,
 } from './review-drafts.ts';
@@ -157,6 +158,11 @@ export const ipcContract = {
   },
   'reviewDrafts.update': {
     input: updateReviewDraftInputSchema,
+    output: z.array(reviewDraftSchema),
+  },
+  // Moves the drafts written on older commits to the commits on show, or marks them outdated.
+  'reviewDrafts.reattach': {
+    input: reattachReviewDraftsInputSchema,
     output: z.array(reviewDraftSchema),
   },
   'reviewDrafts.delete': {

@@ -162,15 +162,32 @@ function ReviewPage() {
   const currentDrafts = reviewDrafts.drafts.data?.filter(
     (draft) => draft.headSha === files.data?.headSha && draft.mergeBase === files.data.mergeBase,
   );
-  // GitHub only takes line comments inside a diff hunk. Drafts written elsewhere stay local.
+  // Drafts written on older commits move to the ones on show once, or become outdated.
+  const staleDrafts =
+    files.data !== undefined &&
+    reviewDrafts.drafts.data?.some(
+      (draft) => draft.headSha !== files.data.headSha || draft.mergeBase !== files.data.mergeBase,
+    );
+  const { mutate: reattachDrafts } = reviewDrafts.reattach;
+  const shownHeadSha = files.data?.headSha;
+  const shownMergeBase = files.data?.mergeBase;
+  useEffect(() => {
+    if (staleDrafts && shownHeadSha && shownMergeBase) {
+      reattachDrafts({ pullRequestId, headSha: shownHeadSha, mergeBase: shownMergeBase });
+    }
+  }, [staleDrafts, shownHeadSha, shownMergeBase, pullRequestId, reattachDrafts]);
+  // GitHub only takes line comments inside a diff hunk. Drafts written elsewhere, and outdated
+  // ones, stay local.
   const sendableDrafts =
-    currentDrafts?.filter((draft) =>
-      inOneHunk(
-        changedFiles?.find((file) => file.path === draft.path)?.hunks ?? null,
-        draft.side,
-        draft.startLine ?? draft.line,
-        draft.line,
-      ),
+    currentDrafts?.filter(
+      (draft) =>
+        !draft.outdated &&
+        inOneHunk(
+          changedFiles?.find((file) => file.path === draft.path)?.hunks ?? null,
+          draft.side,
+          draft.startLine ?? draft.line,
+          draft.line,
+        ),
     ) ?? [];
   const [mode, setMode] = useState<DiffMode>('split');
   if (restored === undefined && reviewSession.session.isFetched) {

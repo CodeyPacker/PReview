@@ -1470,6 +1470,106 @@ test('opens a re-review on the changes since the last review', async () => {
   }
 });
 
+test('moves drafts from older commits and flags the ones it cannot place', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      const head = 'abcdef1';
+      const base = 'abcdef0';
+      const draft = (id: number, line: number, headSha: string, outdated: boolean) => ({
+        id,
+        pullRequestId: 1,
+        headSha,
+        mergeBase: base,
+        path: 'a.ts',
+        side: 'modified',
+        startLine: null,
+        line,
+        outdated,
+        body: id === 1 ? 'Still fits.' : 'Code changed.',
+        createdAt: '2026-11-02T11:00:00.000Z',
+        updatedAt: '2026-11-02T11:00:00.000Z',
+      });
+      // Both drafts were written on an older commit. Reattaching moves one and flags the other.
+      let drafts = [draft(1, 1, 'f'.repeat(40), false), draft(2, 1, 'f'.repeat(40), false)];
+      const reattached: unknown[] = [];
+      Object.assign(globalThis, { reattached });
+      const handlers: Record<string, (input: never) => unknown> = {
+        'pullRequests.list': () => ({
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Moved drafts',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: head,
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        }),
+        'pullRequestFiles.list': () => ({
+          headSha: head,
+          mergeBase: base,
+          files: [
+            {
+              path: 'a.ts',
+              blobSha: 'sha-a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: [{ originalStart: 1, originalCount: 1, modifiedStart: 1, modifiedCount: 1 }],
+            },
+          ],
+        }),
+        'pullRequestFiles.getDiff': () => ({
+          original: 'const a = 1;\n',
+          modified: 'const a = 2;\n',
+          unavailable: null,
+        }),
+        'reviewDrafts.list': () => drafts,
+        'reviewDrafts.reattach': (move: never) => {
+          reattached.push(move);
+          drafts = [draft(1, 1, head, false), draft(2, 1, head, true)];
+          return drafts;
+        },
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await mockFileReviewMarks(app);
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
+
+    await expect(page.getByLabel('Draft on new line 1').first()).toBeVisible();
+    await expect(page.getByText('Outdated')).toHaveCount(1);
+    expect(await app.evaluate(() => (globalThis as { reattached?: unknown[] }).reattached)).toEqual(
+      [{ pullRequestId: 1, headSha: 'abcdef1', mergeBase: 'abcdef0' }],
+    );
+
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(page.getByText('Publishes 1 line comment with this review.')).toBeVisible();
+    await expect(page.getByText('Drafts outside the diff stay here: 1.')).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
 test('shows one commit on its own without file decisions', async () => {
   const app = await launch();
   try {

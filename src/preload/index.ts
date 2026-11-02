@@ -57,6 +57,7 @@ const api: PreviewApi = {
     list: (pullRequestId) => invoke('reviewDrafts.list', { pullRequestId }),
     create: (draft) => invoke('reviewDrafts.create', draft),
     update: (draft) => invoke('reviewDrafts.update', draft),
+    reattach: (move) => invoke('reviewDrafts.reattach', move),
     delete: (pullRequestId, id) => invoke('reviewDrafts.delete', { pullRequestId, id }),
   },
   reviewFindings: {
