@@ -25,6 +25,7 @@ import type {
   SetFindingResolutionInput,
   UpdateReviewFindingInput,
 } from './review-findings.ts';
+import type { ReviewSession, SaveReviewSessionInput } from './review-sessions.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
 
@@ -95,5 +96,12 @@ export interface PreviewApi {
     update(finding: UpdateReviewFindingInput): Promise<ReviewFinding[]>;
     setResolution(change: SetFindingResolutionInput): Promise<ReviewFinding[]>;
     delete(pullRequestId: number, id: number): Promise<ReviewFinding[]>;
+  };
+  reviewSessions: {
+    get(pullRequestId: number): Promise<ReviewSession | null>;
+    save(session: SaveReviewSessionInput): Promise<ReviewSession>;
+    getActive(): Promise<number | null>;
+    // Null when no review is on show.
+    setActive(pullRequestId: number | null): Promise<null>;
   };
 }

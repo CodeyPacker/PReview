@@ -9,8 +9,9 @@ import {
   ListChecks,
   Maximize2,
   Minimize2,
+  RefreshCw,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { useSidebar } from '../app/SidebarContext.ts';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { cx } from '../lib/cx.ts';
@@ -42,6 +43,8 @@ import { Count } from '../components/Count/Count.tsx';
 import { useReviewFindings } from '../hooks/useReviewFindings.ts';
 import type { DraftComposerState } from '../app/DraftComments.tsx';
 import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
+import { useReviewSession } from '../hooks/useReviewSession.ts';
+import type { ReviewSession } from '../../shared/contracts/review-sessions.ts';
 import { useReviewThreads } from '../hooks/useReviewThreads.ts';
 import { useThreadActions } from '../hooks/useThreadActions.ts';
 import { inOneHunk } from '../lib/diffComments.ts';
@@ -72,8 +75,25 @@ function ReviewPage() {
     (item) => item.id === pullRequest?.repositoryId,
   );
 
-  const files = usePullRequestFiles(pullRequestId, pullRequest?.headSha, pullRequest?.baseBranch);
+  // The diff stays at the commits it opened with. New commits show when the reviewer asks.
+  const [shownRefs, setShownRefs] = useState<{ headSha: string; baseBranch: string }>();
+  if (pullRequest && !shownRefs) {
+    setShownRefs({ headSha: pullRequest.headSha, baseBranch: pullRequest.baseBranch });
+  }
+  const files = usePullRequestFiles(pullRequestId, shownRefs?.headSha, shownRefs?.baseBranch);
   const changedFiles = files.data?.files;
+  // The list can be read after a push the last sync hadn't seen, so it counts as shown too.
+  const newCommits =
+    pullRequest !== undefined &&
+    shownRefs !== undefined &&
+    files.data !== undefined &&
+    (pullRequest.baseBranch !== shownRefs.baseBranch ||
+      (pullRequest.headSha !== shownRefs.headSha && pullRequest.headSha !== files.data.headSha));
+  const reviewSession = useReviewSession(pullRequestId);
+  // Undefined until the saved session is read, then null when there was none.
+  const [restored, setRestored] = useState<ReviewSession | null>();
+  // The saved scroll position, until the reviewer picks another file.
+  const [restoredScroll, setRestoredScroll] = useState<{ path: string; top: number }>();
   const [chosenPath, setChosenPath] = useState<string>();
   const [fileFilter, setFileFilter] = useState<FileReviewFilter>('all');
   const [fileSearch, setFileSearch] = useState('');
@@ -112,6 +132,15 @@ function ReviewPage() {
       ),
     ) ?? [];
   const [mode, setMode] = useState<DiffMode>('split');
+  if (restored === undefined && reviewSession.session.isFetched) {
+    const saved = reviewSession.session.data ?? null;
+    setRestored(saved);
+    if (saved?.selectedPath) {
+      setChosenPath(saved.selectedPath);
+      setRestoredScroll({ path: saved.selectedPath, top: saved.scrollTop });
+    }
+    if (saved) setMode(saved.diffMode);
+  }
   const [lineNumberOffset, setLineNumberOffset] = useState(52);
   const {
     collapsed: sidebarCollapsed,
@@ -134,12 +163,23 @@ function ReviewPage() {
     return () => setSidebarCollapsed(wasCollapsed);
   }, [setSidebarCollapsed, setFilesCollapsed]);
 
+  // The unified layout opens the panels, as choosing it does.
+  const restoredUnified = restored?.diffMode === 'unified';
+  useEffect(() => {
+    if (!restoredUnified) return;
+    setFilesCollapsed(false);
+    setSidebarCollapsed(false);
+  }, [restoredUnified, setSidebarCollapsed, setFilesCollapsed]);
+
   function changeMode(next: DiffMode) {
     setMode(next);
     setFilesCollapsed(next === 'split');
     setSidebarCollapsed(next === 'split');
   }
-  const selected = visibleFiles?.find((file) => file.path === chosenPath) ?? visibleFiles?.[0];
+  const selected =
+    restored === undefined
+      ? undefined
+      : (visibleFiles?.find((file) => file.path === chosenPath) ?? visibleFiles?.[0]);
   const selectedIndex = visibleFiles?.findIndex((file) => file.path === selected?.path) ?? -1;
   const previousFile = visibleFiles?.[selectedIndex - 1];
   const nextFile = selectedIndex >= 0 ? visibleFiles?.[selectedIndex + 1] : undefined;
@@ -147,7 +187,21 @@ function ReviewPage() {
 
   function selectFile(path: string) {
     setChosenPath(path);
+    setRestoredScroll(undefined);
   }
+
+  const selectedPath = selected?.path;
+  const initialScrollTop =
+    restoredScroll && restoredScroll.path === selectedPath ? restoredScroll.top : 0;
+  const saveSession = reviewSession.save;
+  const sessionReady = restored !== undefined;
+  // Only a new file or layout is saved here. Scrolling saves itself.
+  const saveSelection = useEffectEvent((path: string) =>
+    saveSession({ selectedPath: path, scrollTop: initialScrollTop, diffMode: mode }),
+  );
+  useEffect(() => {
+    if (sessionReady && selectedPath !== undefined) saveSelection(selectedPath);
+  }, [sessionReady, selectedPath, mode]);
 
   function toggleReviewState(state: FileReviewState) {
     if (!selected) return;
@@ -259,7 +313,7 @@ function ReviewPage() {
   else if (diff.isError) diffMessage = 'Could not load the file. Try again later.';
   else if (diff.data?.unavailable === 'binary') diffMessage = 'This file is binary.';
   else if (diff.data?.unavailable === 'too-large') diffMessage = 'This file is too large to show.';
-  else if (!selected && !files.isPending)
+  else if (!selected && !files.isPending && restored !== undefined)
     diffMessage = search.searching
       ? 'Searching file contents…'
       : searchTerm
@@ -285,6 +339,20 @@ function ReviewPage() {
           </span>
         </div>
         <div className={styles.headerActions}>
+          <span role="status" className={styles.newCommits}>
+            {newCommits && 'New commits were pushed.'}
+          </span>
+          {newCommits && (
+            <Button
+              size="sm"
+              iconStart={<RefreshCw aria-hidden />}
+              onClick={() =>
+                setShownRefs({ headSha: pullRequest.headSha, baseBranch: pullRequest.baseBranch })
+              }
+            >
+              Show new commits
+            </Button>
+          )}
           <Button
             size="sm"
             iconStart={<ListChecks aria-hidden />}
@@ -465,6 +533,10 @@ function ReviewPage() {
                 modified={diff.data.modified}
                 mode={effectiveMode}
                 onLineNumberOffsetChange={setLineNumberOffset}
+                initialScrollTop={initialScrollTop}
+                onScrollChange={(scrollTop) =>
+                  saveSession({ selectedPath: selected.path, scrollTop })
+                }
                 searchQuery={fileSearch.trim()}
                 searchMatch={selected ? search.matches.get(selected.path) : undefined}
                 threads={{
