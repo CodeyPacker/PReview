@@ -289,6 +289,11 @@ test('keeps split view at window size and toggles review panels independently', 
     const nav = page.locator('#main-sidebar');
     const original = page.locator('.original-in-monaco-diff-editor');
     const modified = page.locator('.modified-in-monaco-diff-editor');
+    // A review opens with both panels expanded.
+    await expect(nav).toBeVisible();
+    await expect(files).toBeVisible();
+    await page.getByRole('button', { name: 'Collapse navigation' }).click();
+    await page.getByRole('button', { name: 'Collapse changed files' }).click();
     await expect(page.getByRole('button', { name: 'Expand navigation' })).toBeVisible();
     await expect(files).toBeHidden();
     await expect
@@ -550,7 +555,6 @@ test('keeps split view at window size and toggles review panels independently', 
     await flag.click();
     await expect(title).toHaveText('new.ts');
     await page.reload();
-    await page.getByRole('button', { name: 'Expand changed files' }).click();
     await expect(allFiles).toBeChecked();
     await expect(title).toHaveText('a.ts');
     await expect(removeFlag).toHaveAttribute('aria-pressed', 'true');
@@ -719,8 +723,7 @@ test('configures review shortcuts and scrolls without focusing the code', async 
     await expect.poll(thumbTop).toBe(startTop);
     await page.keyboard.up('k');
 
-    // The file search lives in the files panel, which starts collapsed here.
-    await page.keyboard.press('Control+t');
+    // The file search lives in the files panel, which starts expanded.
     await expect(files).toBeVisible();
     await search.fill('');
     await search.press('j');
@@ -785,7 +788,6 @@ test('configures review shortcuts and scrolls without focusing the code', async 
       'aria-pressed',
       'true',
     );
-    await page.keyboard.press('Control+b');
     await expect(nav).toBeVisible();
     await page.keyboard.press('Control+t');
     await expect(files).toBeVisible();
@@ -1284,7 +1286,6 @@ test('opens a re-review on the changes since the last review', async () => {
     await mockReReview(app);
     await openReview(app, page);
     const files = page.locator('#review-files');
-    await page.getByRole('button', { name: 'Expand changed files' }).click();
 
     await expect(page.getByText('Round 2')).toBeVisible();
     await expect(files.getByRole('combobox', { name: 'Commit' })).toHaveText(/Since last review/);
@@ -1326,7 +1327,6 @@ test('browses a file the pull request does not change', async () => {
     });
     await openReview(app, page);
     const files = page.locator('#review-files');
-    await page.getByRole('button', { name: 'Expand changed files' }).click();
 
     // The list sits under the search and totals, not at the bottom of the panel.
     const search = await files
@@ -1398,7 +1398,6 @@ test('searches the text of every file in the repository and opens a match', asyn
     });
     await openReview(app, page);
     const files = page.locator('#review-files');
-    await page.getByRole('button', { name: 'Expand changed files' }).click();
     await files.getByRole('radio', { name: 'Repository' }).click();
 
     await files.getByRole('radio', { name: 'Text' }).click();
@@ -1437,7 +1436,6 @@ test('reopens a re-review on the changes the reviewer chose', async () => {
     });
     await openReview(app, page);
     const files = page.locator('#review-files');
-    await page.getByRole('button', { name: 'Expand changed files' }).click();
 
     await expect(page.getByText('Round 2')).toBeVisible();
     await expect(files.getByRole('combobox', { name: 'Commit' })).toHaveText(/All changes/);
@@ -1546,7 +1544,6 @@ test('shows one commit on its own without file decisions', async () => {
     });
     await openReview(app, page);
     const files = page.locator('#review-files');
-    await page.getByRole('button', { name: 'Expand changed files' }).click();
     await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
     await expect(files.getByRole('button', { name: /b.ts/ })).toBeVisible();
 
@@ -1616,7 +1613,6 @@ test('folds unchanged lines and reveals a search match inside them', async () =>
     await openReview(app, page);
     await expect(page.locator('.diff-hidden-lines')).not.toHaveCount(0);
 
-    await page.getByRole('button', { name: 'Expand changed files' }).click();
     await page.getByRole('searchbox', { name: 'Search files or text' }).fill('line90');
     await expect(page.locator('.modified-in-monaco-diff-editor')).toContainText(
       'const line90 = 0;',

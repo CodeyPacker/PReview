@@ -174,8 +174,8 @@ function ReviewPage() {
 
   useEffect(() => {
     const wasCollapsed = initialSidebarCollapsed.current;
-    setSidebarCollapsed(true);
-    setFilesCollapsed(true);
+    setSidebarCollapsed(false);
+    setFilesCollapsed(false);
     return () => setSidebarCollapsed(wasCollapsed);
   }, [setSidebarCollapsed, setFilesCollapsed]);
 
