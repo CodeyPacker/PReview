@@ -337,4 +337,17 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 18,
+    name: 'agent_task_results',
+    // result is the agent's closing report as JSON, null until a run completes. error says why
+    // the last run failed or couldn't start. cost_usd is Claude Code's own estimate.
+    sql: `
+      ALTER TABLE agent_tasks ADD COLUMN result TEXT;
+      ALTER TABLE agent_tasks ADD COLUMN error TEXT;
+      ALTER TABLE agent_tasks ADD COLUMN cost_usd REAL;
+      ALTER TABLE agent_tasks ADD COLUMN started_at TEXT;
+      ALTER TABLE agent_tasks ADD COLUMN finished_at TEXT;
+    `,
+  },
 ];

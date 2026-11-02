@@ -78,6 +78,22 @@ export interface ProviderReview {
   comments: ProviderReviewComment[];
 }
 
+export interface ProviderPullRequestDetails {
+  // Empty when it has none.
+  description: string;
+  files: ProviderFilePatch[];
+}
+
+export interface ProviderFilePatch {
+  path: string;
+  previousPath: string | null;
+  status: PullRequestFile['status'];
+  additions: number;
+  deletions: number;
+  // The unified diff. null when the provider shows none, for example for a large file.
+  patch: string | null;
+}
+
 export interface ProviderPublishedReview {
   id: string;
   // Empty when the review has none.
@@ -153,6 +169,11 @@ export interface GitProvider {
     number: number,
     review: ProviderReview,
   ): Promise<{ id: string }>;
+  // The pull request's description and each changed file's diff, for an agent's task.
+  getPullRequestDetails(
+    repositoryFullName: string,
+    number: number,
+  ): Promise<ProviderPullRequestDetails>;
   // The pull request's published reviews, oldest first.
   getReviews(repositoryFullName: string, number: number): Promise<ProviderPublishedReview[]>;
   // Merges the pull request if its head is still headSha. Rejects with the provider's

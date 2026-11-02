@@ -21,7 +21,7 @@
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-16);
   /* Wide enough for all four actions on your own pull request, spinner included. */
-  width: min(600px,calc(100vw - 2 * var(--space-32)));
+  width: min(600px, calc(100vw - 2 * var(--space-32)));
   padding: var(--space-24);
   border: 1px solid var(--border);
   border-radius: var(--radius-2xl);

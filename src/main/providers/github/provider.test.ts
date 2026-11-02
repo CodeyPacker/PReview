@@ -502,6 +502,47 @@ describe('GitHubProvider submitReview', () => {
   });
 });
 
+describe('GitHubProvider getPullRequestDetails', () => {
+  it("reads the description and each file's diff", async () => {
+    const { provider } = setup([
+      json({ body: 'Adds login.' }),
+      json([
+        {
+          filename: 'a.ts',
+          sha: '1',
+          status: 'modified',
+          additions: 1,
+          deletions: 1,
+          patch: '@@ -1 +1 @@\n-a\n+b',
+        },
+        { filename: 'b.png', sha: '2', status: 'added', additions: 0, deletions: 0 },
+      ]),
+    ]);
+
+    await expect(provider.getPullRequestDetails('octo/app', 7)).resolves.toEqual({
+      description: 'Adds login.',
+      files: [
+        {
+          path: 'a.ts',
+          previousPath: null,
+          status: 'modified',
+          additions: 1,
+          deletions: 1,
+          patch: '@@ -1 +1 @@\n-a\n+b',
+        },
+        {
+          path: 'b.png',
+          previousPath: null,
+          status: 'added',
+          additions: 0,
+          deletions: 0,
+          patch: null,
+        },
+      ],
+    });
+  });
+});
+
 describe('GitHubProvider getReviews', () => {
   it("lists the pull request's reviews with their bodies", async () => {
     const { fetch, provider } = setup([

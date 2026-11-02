@@ -67,6 +67,16 @@ export class AgentWorktrees {
       .run(taskId);
   }
 
+  // Frees every worktree. At startup no task is running, so none is in use.
+  releaseAll(): void {
+    this.deps.db
+      .prepare(
+        `UPDATE agent_worktrees SET writer_task_id = NULL, updated_at = ${NOW}
+         WHERE writer_task_id IS NOT NULL`,
+      )
+      .run();
+  }
+
   // Removes the worktrees of pull requests that closed. One with changes PReview hasn't
   // saved, or with a task working in it, stays. Resolves with the paths kept.
   async cleanUp(): Promise<string[]> {

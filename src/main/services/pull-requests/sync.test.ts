@@ -82,6 +82,7 @@ function setup(getPullRequests: Mock<GitProvider['getPullRequests']>) {
     mergePullRequest: vi.fn(),
     deleteBranch: vi.fn(),
     getReviews: vi.fn(),
+    getPullRequestDetails: vi.fn(),
   };
   const log = { info: vi.fn(), warn: vi.fn() };
   return { sync: new PullRequestSync({ db, provider, log }), getPullRequests };
