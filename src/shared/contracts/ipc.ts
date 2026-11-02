@@ -35,6 +35,7 @@ import {
   setFindingResolutionInputSchema,
   updateReviewFindingInputSchema,
 } from './review-findings.ts';
+import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
 export const appInfoSchema = z.object({
@@ -160,6 +161,21 @@ export const ipcContract = {
   'reviewFindings.delete': {
     input: z.object({ pullRequestId: z.number().int(), id: z.number().int() }),
     output: z.array(reviewFindingSchema),
+  },
+  // Where the reviewer left off in a pull request. Null before it was first opened.
+  'reviewSessions.get': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: reviewSessionSchema.nullable(),
+  },
+  'reviewSessions.save': {
+    input: saveReviewSessionInputSchema,
+    output: reviewSessionSchema,
+  },
+  // The pull request whose review was open when the app last closed.
+  'reviewSessions.getActive': { input: z.undefined(), output: z.number().int().nullable() },
+  'reviewSessions.setActive': {
+    input: z.object({ pullRequestId: z.number().int().nullable() }),
+    output: z.null(),
   },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 

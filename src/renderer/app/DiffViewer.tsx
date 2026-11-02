@@ -32,8 +32,9 @@ import {
 } from '../lib/diffComments.ts';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
 import { createFileScroller } from '../lib/fileScroller.ts';
+import type { DiffMode } from '../../shared/contracts/review-sessions.ts';
 
-export type DiffMode = 'split' | 'unified';
+export type { DiffMode };
 
 export interface DiffViewerHandle {
   startScroll: (direction: -1 | 1) => void;
@@ -69,6 +70,9 @@ export interface DiffViewerProps {
   modified: string;
   mode: DiffMode;
   onLineNumberOffsetChange?: (offset: number) => void;
+  // Where a newly shown file starts, in pixels from the top.
+  initialScrollTop?: number;
+  onScrollChange?: (scrollTop: number) => void;
   searchQuery?: string;
   searchMatch?: FileSearchMatch;
   drafts?: DiffViewerDrafts;
@@ -118,6 +122,8 @@ export function DiffViewer({
   modified,
   mode,
   onLineNumberOffsetChange,
+  initialScrollTop = 0,
+  onScrollChange,
   searchQuery = '',
   searchMatch,
   drafts,
@@ -156,6 +162,8 @@ export function DiffViewer({
     });
   };
   const commentOnGutter = useEffectEvent(commentOnLines);
+  const startScrollTop = useEffectEvent(() => initialScrollTop);
+  const reportScroll = useEffectEvent((top: number) => onScrollChange?.(top));
   const isCommentable = useEffectEvent(canComment);
 
   useImperativeHandle(ref, () => ({
@@ -221,6 +229,9 @@ export function DiffViewer({
     const diffUpdate = diffEditor.onDidUpdateDiff(() =>
       setLineChanges(diffEditor.getLineChanges() ?? []),
     );
+    const scrollChange = code.onDidScrollChange((event) => {
+      if (event.scrollTopChanged) reportScroll(Math.round(Math.max(0, event.scrollTop)));
+    });
     // A plus in the gutter of a line that can take a comment, under the pointer. Dragging
     // from it up or down picks several lines.
     const gutters = (['original', 'modified'] as const).map((side) => {
@@ -320,6 +331,7 @@ export function DiffViewer({
       }
       modelChange.dispose();
       diffUpdate.dispose();
+      scrollChange.dispose();
       inputObserver.disconnect();
       fileScroller.cancel();
       scroller.current = null;
@@ -343,11 +355,20 @@ export function DiffViewer({
       original: createModel('original', previousPath ?? path, original),
       modified: createModel('modified', path, modified),
     };
-    editor.current.setModel(next);
+    const diffEditor = editor.current;
+    diffEditor.setModel(next);
     const previous = models.current;
     models.current = next;
     previous?.original.dispose();
     previous?.modified.dispose();
+    // The diff decides the file's height, so the start position waits for it.
+    const top = startScrollTop();
+    if (top === 0) return;
+    const subscription = diffEditor.onDidUpdateDiff(() => {
+      subscription.dispose();
+      diffEditor.getModifiedEditor().setScrollTop(top, monaco.editor.ScrollType.Immediate);
+    });
+    return () => subscription.dispose();
   }, [path, previousPath, original, modified]);
 
   useEffect(() => {

@@ -16,6 +16,12 @@ import {
   setReviewFindingResolution,
   updateReviewFinding,
 } from '../services/pull-requests/findings.ts';
+import {
+  getActiveReview,
+  getReviewSession,
+  saveReviewSession,
+  setActiveReview,
+} from '../services/pull-requests/sessions.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
@@ -131,4 +137,12 @@ export function registerIpcHandlers(
   handle('reviewFindings.delete', ({ pullRequestId, id }) =>
     deleteReviewFinding(db, pullRequestId, id),
   );
+
+  handle('reviewSessions.get', ({ pullRequestId }) => getReviewSession(db, pullRequestId));
+  handle('reviewSessions.save', (session) => saveReviewSession(db, session));
+  handle('reviewSessions.getActive', () => getActiveReview(db));
+  handle('reviewSessions.setActive', ({ pullRequestId }) => {
+    setActiveReview(db, pullRequestId);
+    return null;
+  });
 }

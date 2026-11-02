@@ -13,6 +13,8 @@ export const pullRequestSchema = z.object({
   baseBranch: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  // Whether its review has been opened in PReview.
+  opened: z.boolean(),
 });
 export type PullRequest = z.infer<typeof pullRequestSchema>;
 

@@ -18,6 +18,7 @@ interface PullRequestRow {
   base_branch: string;
   created_at: string;
   updated_at: string;
+  opened: number;
 }
 
 // The open pull requests of monitored, available repositories, newest activity first.
@@ -27,9 +28,10 @@ export function listPullRequests(db: DatabaseSync): PullRequest[] {
     .prepare(
       `SELECT p.id, p.repository_id, p.number, p.title, p.draft, p.url, p.author_login,
               p.author_avatar_url, p.author_is_bot, p.head_branch, p.head_sha, p.base_branch, p.created_at,
-              p.updated_at
+              p.updated_at, s.pull_request_id IS NOT NULL AS opened
        FROM pull_requests p
        JOIN repositories r ON r.id = p.repository_id
+       LEFT JOIN review_sessions s ON s.pull_request_id = p.id
        WHERE r.monitored = 1 AND r.status = 'available'
          AND (r.include_drafts = 1 OR p.draft = 0)
          AND (r.include_automated = 1 OR p.author_is_bot = 0)
@@ -56,6 +58,7 @@ export function listPullRequests(db: DatabaseSync): PullRequest[] {
     baseBranch: row.base_branch,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    opened: row.opened === 1,
   }));
 }
 
