@@ -1540,6 +1540,13 @@ test('browses a file the pull request does not change', async () => {
     const files = page.locator('#review-files');
     await page.getByRole('button', { name: 'Expand changed files' }).click();
 
+    // The list sits under the search and totals, not at the bottom of the panel.
+    const search = await files
+      .getByRole('searchbox', { name: 'Search files or text' })
+      .boundingBox();
+    const first = await files.getByRole('button', { name: /a.ts/ }).boundingBox();
+    expect((first?.y ?? 0) - ((search?.y ?? 0) + (search?.height ?? 0))).toBeLessThan(120);
+
     await files.getByRole('radio', { name: 'Repository' }).click();
     await expect(page.getByRole('heading', { name: 'Repository files' })).toBeVisible();
     await files.getByRole('searchbox', { name: 'Search repository files' }).fill('readme');
