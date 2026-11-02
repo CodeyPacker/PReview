@@ -29,6 +29,9 @@ function isSafeExternalUrl(url: string): boolean {
   }
 }
 
+// The end-to-end tests set this so their windows stay hidden. Playwright still drives them.
+const hiddenForTests = process.env.PREVIEW_HIDE_WINDOW === '1';
+
 function createWindow(): void {
   const win = new BrowserWindow({
     width: 1440,
@@ -47,10 +50,12 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      // A hidden window would otherwise be throttled like a background tab.
+      backgroundThrottling: !hiddenForTests,
     },
   });
 
-  win.once('ready-to-show', () => win.show());
+  if (!hiddenForTests) win.once('ready-to-show', () => win.show());
 
   // Links that try to open a window go to the system browser, https only.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -121,7 +126,8 @@ function openAppDatabase(): DatabaseSync {
 void app.whenReady().then(async () => {
   // Windows and Linux take the icon from the window. macOS shows the app's own icon in the
   // Dock, which is Electron's until the app is packaged.
-  app.dock?.setIcon(icon);
+  if (hiddenForTests) app.dock?.hide();
+  else app.dock?.setIcon(icon);
   let db: DatabaseSync;
   try {
     db = openAppDatabase();

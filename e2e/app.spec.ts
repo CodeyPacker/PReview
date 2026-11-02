@@ -21,8 +21,15 @@ test.afterEach(() => {
   rmSync(userDataDir, { recursive: true, force: true });
 });
 
+// The windows stay hidden so the tests don't flash on screen. Set SHOW_E2E_WINDOW=1 to watch.
 function launch(): Promise<ElectronApplication> {
-  return electron.launch({ args: ['.', `--user-data-dir=${userDataDir}`] });
+  return electron.launch({
+    args: ['.', `--user-data-dir=${userDataDir}`],
+    env: {
+      ...process.env,
+      PREVIEW_HIDE_WINDOW: process.env.SHOW_E2E_WINDOW ? '0' : '1',
+    },
+  });
 }
 
 // A fresh user-data folder has no GitHub connection, so the connect prompt opens first.
