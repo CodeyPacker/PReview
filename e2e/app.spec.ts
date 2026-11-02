@@ -1470,6 +1470,109 @@ test('opens a re-review on the changes since the last review', async () => {
   }
 });
 
+test('reopens a re-review on the changes the reviewer chose', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      const file = (path: string) => ({
+        path,
+        blobSha: `sha-${path}`,
+        previousPath: null,
+        status: 'modified',
+        additions: 1,
+        deletions: 1,
+        hunks: null,
+      });
+      const baseline = 'c'.repeat(40);
+      const responses: Record<string, unknown> = {
+        'pullRequests.list': {
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Second look',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        },
+        'pullRequestFiles.list': {
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [file('a.ts'), file('b.ts')],
+        },
+        'pullRequestFiles.listCommits': [
+          { sha: 'e'.repeat(40), subject: 'Touch b', authorLogin: 'octo' },
+        ],
+        'pullRequestFiles.listSince': {
+          headSha: 'abcdef1',
+          mergeBase: baseline,
+          files: [file('b.ts')],
+        },
+        'pullRequestFiles.getDiff': {
+          original: 'const a = 1;\n',
+          modified: 'const a = 2;\n',
+          unavailable: null,
+        },
+        'reviewSessions.get': {
+          pullRequestId: 1,
+          selectedPath: null,
+          scrollTop: 0,
+          diffMode: 'split',
+          view: 'all',
+        },
+        'reviewRounds.sync': [
+          {
+            number: 1,
+            headSha: 'd'.repeat(40),
+            baselineSha: null,
+            startedAt: '2026-11-01T11:00:00.000Z',
+            submittedAt: '2026-11-01T12:00:00.000Z',
+            finishedAt: null,
+          },
+          {
+            number: 2,
+            headSha: 'abcdef1',
+            baselineSha: baseline,
+            startedAt: '2026-11-02T11:00:00.000Z',
+            submittedAt: null,
+            finishedAt: null,
+          },
+        ],
+      };
+      for (const [channel, response] of Object.entries(responses)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, () => response);
+      }
+    });
+    await mockFileReviewMarks(app);
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
+    const files = page.locator('#review-files');
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+
+    await expect(page.getByText('Round 2')).toBeVisible();
+    await expect(files.getByRole('combobox', { name: 'Commit' })).toHaveText(/All changes/);
+    await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
 test('moves drafts from older commits and flags the ones it cannot place', async () => {
   const app = await launch();
   try {

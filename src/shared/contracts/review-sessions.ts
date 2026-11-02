@@ -12,6 +12,8 @@ export const reviewSessionSchema = z.object({
   // The selected file's scroll position in pixels.
   scrollTop: z.number().int().nonnegative(),
   diffMode: diffModeSchema,
+  // The changes on show: 'all', 'since-review' or a commit sha. Null until the reviewer picks.
+  view: z.string().nullable(),
 });
 export type ReviewSession = z.infer<typeof reviewSessionSchema>;
 

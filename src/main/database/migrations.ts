@@ -261,4 +261,13 @@ export const migrations: readonly Migration[] = [
         CHECK (outdated IN (0, 1));
     `,
   },
+  {
+    version: 15,
+    name: 'review_session_view',
+    // The changes the reviewer chose to look at: 'all', 'since-review' or a commit sha. Null
+    // until they pick, so a re-review opens on the changes since the last one.
+    sql: `
+      ALTER TABLE review_sessions ADD COLUMN view TEXT;
+    `,
+  },
 ];

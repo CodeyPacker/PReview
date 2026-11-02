@@ -36,6 +36,7 @@ export function useReviewSession(pullRequestId: number) {
       selectedPath: null,
       scrollTop: 0,
       diffMode: 'split',
+      view: null,
       ...saved,
       ...pending.current,
       ...change,

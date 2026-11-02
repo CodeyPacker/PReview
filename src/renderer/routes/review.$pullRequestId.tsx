@@ -103,7 +103,12 @@ function ReviewPage() {
   // the last one until they pick.
   const [chosenView, setChosenView] = useState<string>();
   const chosen = chosenView ?? (baselineSha ? SINCE_REVIEW : 'all');
-  const view = chosen === SINCE_REVIEW && !baselineSha ? 'all' : chosen;
+  // A saved commit is used once the list shows it is still part of the pull request.
+  const unknownCommit =
+    chosen !== 'all' &&
+    chosen !== SINCE_REVIEW &&
+    !commits.data?.some((commit) => commit.sha === chosen);
+  const view = (chosen === SINCE_REVIEW && !baselineSha) || unknownCommit ? 'all' : chosen;
   const sinceReview = view === SINCE_REVIEW;
   const commitSha = view === 'all' || sinceReview ? undefined : view;
   // The changes since the last review and one commit on its own are read-only: no file
@@ -198,6 +203,7 @@ function ReviewPage() {
       setRestoredScroll({ path: saved.selectedPath, top: saved.scrollTop });
     }
     if (saved) setMode(saved.diffMode);
+    if (saved?.view) setChosenView(saved.view);
   }
   const [lineNumberOffset, setLineNumberOffset] = useState(52);
   const {
@@ -255,11 +261,16 @@ function ReviewPage() {
   const sessionReady = restored !== undefined;
   // Only a new file or layout is saved here. Scrolling saves itself.
   const saveSelection = useEffectEvent((path: string) =>
-    saveSession({ selectedPath: path, scrollTop: initialScrollTop, diffMode: mode }),
+    saveSession({
+      selectedPath: path,
+      scrollTop: initialScrollTop,
+      diffMode: mode,
+      view: chosenView ?? null,
+    }),
   );
   useEffect(() => {
     if (sessionReady && selectedPath !== undefined) saveSelection(selectedPath);
-  }, [sessionReady, selectedPath, mode]);
+  }, [sessionReady, selectedPath, mode, chosenView]);
 
   function toggleReviewState(state: FileReviewState) {
     if (!selected || readOnlyView) return;
