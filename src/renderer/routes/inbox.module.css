@@ -28,6 +28,12 @@
   min-height: 200px;
 }
 
+.summary {
+  /* A long agent feed scrolls inside the panel instead of past the window. */
+  max-height: 100%;
+  overflow-y: auto;
+}
+
 .errors {
   display: grid;
   gap: var(--space-4);

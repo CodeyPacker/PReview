@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import type { AgentTask } from '../../shared/contracts/agent-tasks.ts';
 import { CircleAlert } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { filterPullRequests } from '../app/filterPullRequests.ts';
@@ -6,6 +7,7 @@ import { PageHeader } from '../app/PageHeader.tsx';
 import { PullRequestList } from '../app/PullRequestList.tsx';
 import { PullRequestSummary } from '../app/PullRequestSummary.tsx';
 import { repositoryName } from '../app/repositoryName.ts';
+import { useAgentTasks } from '../hooks/useAgentTasks.ts';
 import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { usePullRequests, useRefreshPullRequests } from '../hooks/usePullRequests.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
@@ -24,6 +26,19 @@ function InboxPage() {
   const [repositoryValue, setRepositoryValue] = useState(ALL_REPOSITORIES);
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<number>();
+  const { data: agentTasks } = useAgentTasks();
+  // The list is newest first, so the first task seen for a pull request is its latest.
+  const latestTasks = useMemo(() => {
+    const latest = new Map<number, AgentTask>();
+    for (const task of agentTasks ?? []) {
+      if (!latest.has(task.pullRequestId)) latest.set(task.pullRequestId, task);
+    }
+    return latest;
+  }, [agentTasks]);
+  const agentStatuses = useMemo(
+    () => new Map([...latestTasks].map(([id, task]) => [id, task.status])),
+    [latestTasks],
+  );
 
   // Opening the Inbox syncs right away instead of waiting for the next poll.
   useEffect(() => refresh(), [refresh]);
@@ -92,6 +107,7 @@ function InboxPage() {
           className={styles.list}
           pullRequests={pullRequests}
           repositoryNames={repositoryNames}
+          agentStatuses={agentStatuses}
           emptyMessage={emptyMessage}
           selectedId={selected?.id}
           onSelect={setSelectedId}
@@ -104,8 +120,10 @@ function InboxPage() {
           onRefresh={() => refresh()}
         />
         <PullRequestSummary
+          className={styles.summary}
           pullRequest={selected}
           repositoryName={selected && repositoryNames.get(selected.repositoryId)}
+          agentTask={selected && latestTasks.get(selected.id)}
           onOpenReview={() => {
             if (selected) {
               void navigate({

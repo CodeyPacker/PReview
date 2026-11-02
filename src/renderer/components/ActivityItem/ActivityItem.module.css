@@ -1,1 +1,89 @@
-/* ActivityItem styles. Read values from tokens.css custom properties only. */
+/* ActivityItem. Read values from tokens.css custom properties only. */
+
+.item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: var(--space-8);
+  list-style: none;
+  font-family: var(--font-sans);
+}
+
+.rail {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.rail::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-border);
+}
+
+.item:first-child .rail::before {
+  top: 22px;
+}
+
+.last .rail::before {
+  bottom: calc(100% - 22px);
+}
+
+.node {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  margin-top: 18px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.card {
+  display: flex;
+  gap: var(--space-12);
+  min-width: 0;
+  padding: var(--space-8) var(--space-12);
+  border-radius: var(--radius-lg);
+}
+
+.highlighted .card {
+  background: var(--surface-selected);
+}
+
+.body {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+}
+
+.author {
+  color: var(--ink);
+  font: 600 var(--text-md) / 18px var(--font-sans);
+}
+
+.head time {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
+
+.text {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+  overflow-wrap: anywhere;
+}
+
+.text code {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}

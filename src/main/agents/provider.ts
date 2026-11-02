@@ -1,27 +1,18 @@
 // The agent interface the runner talks to. Claude Code is the only adapter in the MVP.
-import { z } from 'zod';
+import type {
+  AgentEventKind,
+  AgentQuestionItem,
+  AgentReport,
+} from '../../shared/contracts/agent-tasks.ts';
 
-// The agent's closing report. Items are named by the ids the task gives them, C1 for line
-// comments and F1 for findings.
-export const agentReportSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      outcome: z.enum(['fixed', 'not_fixed', 'needs_input']),
-      // What was done, or why not.
-      note: z.string(),
-    }),
-  ),
-  tests: z.array(
-    z.object({
-      command: z.string(),
-      passed: z.boolean(),
-      summary: z.string(),
-    }),
-  ),
-  summary: z.string(),
-});
-export type AgentReport = z.infer<typeof agentReportSchema>;
+export { agentReportSchema, type AgentReport } from '../../shared/contracts/agent-tasks.ts';
+
+// One entry for the activity feed. detail is the technical log behind summary.
+export interface AgentActivity {
+  kind: AgentEventKind;
+  summary: string;
+  detail?: string;
+}
 
 export interface AgentRunInput {
   // The worktree, as a real path.
@@ -35,6 +26,14 @@ export interface AgentRunInput {
   resume: boolean;
   // The pull request's diff of one file, for the agent to ask for.
   getFileDiff: (path: string) => string;
+  // Called with each step worth showing in the activity feed.
+  onActivity: (activity: AgentActivity) => void;
+  // Asks the user. Resolves with answers keyed by question text, or null when the question
+  // was withdrawn, such as when the task stopped.
+  ask: (
+    questions: AgentQuestionItem[],
+    signal: AbortSignal,
+  ) => Promise<Record<string, string> | null>;
 }
 
 export type AgentRunResult =

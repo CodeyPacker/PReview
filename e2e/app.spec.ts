@@ -1623,3 +1623,150 @@ test('folds unchanged lines and reveals a search match inside them', async () =>
     await app.close();
   }
 });
+
+test("shows an agent's work in the Inbox and answers its question", async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain, BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(1280, 900);
+      const answers: unknown[] = [];
+      Object.assign(globalThis, { agentAnswers: answers });
+      const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+      let task: Record<string, unknown> = {
+        id: 5,
+        pullRequestId: 1,
+        status: 'waiting',
+        attempts: 1,
+        error: null,
+        report: null,
+        costUsd: null,
+        question: {
+          id: 9,
+          createdAt: minutesAgo(1),
+          questions: [
+            {
+              question: 'Should the old endpoint keep working?',
+              header: 'API',
+              multiSelect: false,
+              options: [
+                { label: 'Keep it', description: 'Clients still call it.' },
+                { label: 'Remove it', description: null },
+              ],
+            },
+          ],
+        },
+        createdAt: minutesAgo(10),
+        startedAt: minutesAgo(10),
+        finishedAt: null,
+      };
+      const handlers: Record<string, (input: never) => unknown> = {
+        'github.getAuth': () => ({
+          status: 'connected',
+          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+        }),
+        'repositories.list': () => ({
+          repositories: [
+            {
+              id: 1,
+              path: '/code/app',
+              name: 'app',
+              remoteUrl: 'https://github.com/octo/app.git',
+              github: { owner: 'octo', name: 'app' },
+              status: 'available',
+              settings: { monitored: true, includeDrafts: true, includeAutomated: true },
+            },
+          ],
+          scanning: false,
+        }),
+        'pullRequests.list': () => ({
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Add login',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              reviewState: 'feedback-submitted',
+              createdAt: minutesAgo(60),
+              updatedAt: minutesAgo(60),
+            },
+          ],
+          errors: [],
+          syncing: false,
+        }),
+        'pullRequests.refresh': () => handlers['pullRequests.list']!(undefined as never),
+        'agentTasks.list': () => [task],
+        'agentTasks.listActivity': () => [
+          {
+            id: 1,
+            kind: 'status',
+            summary: 'Started working',
+            detail: null,
+            createdAt: minutesAgo(10),
+          },
+          {
+            id: 2,
+            kind: 'file',
+            summary: 'Edited src/api.ts',
+            detail: null,
+            createdAt: minutesAgo(5),
+          },
+          {
+            id: 3,
+            kind: 'test',
+            summary: 'Tests passed',
+            detail: '12 passed',
+            createdAt: minutesAgo(3),
+          },
+          {
+            id: 4,
+            kind: 'question',
+            summary: 'Should the old endpoint keep working?',
+            detail: null,
+            createdAt: minutesAgo(1),
+          },
+        ],
+        'agentTasks.answer': (input) => {
+          answers.push(input);
+          task = { ...task, status: 'running', question: null };
+          return true;
+        },
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Inbox' })
+      .click();
+
+    const list = page.getByRole('list').filter({ hasText: 'Add login' }).first();
+    await expect(list.getByText('Agent Has a Question')).toBeVisible();
+    const agent = page.getByRole('region', { name: 'Agent activity' });
+    await expect(agent.getByText('Edited src/api.ts')).toBeVisible();
+    await expect(agent.getByText('Clients still call it.')).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('agent-question.png') });
+
+    const send = agent.getByRole('button', { name: 'Send Answer' });
+    await expect(send).toBeDisabled();
+    await agent.getByRole('radio', { name: /Keep it/ }).click();
+    await send.click();
+
+    await expect(agent.getByText('Agent Running')).toBeVisible();
+    await expect(agent.getByRole('button', { name: 'Send Answer' })).toBeHidden();
+    expect(
+      await app.evaluate(() => (globalThis as { agentAnswers?: unknown[] }).agentAnswers),
+    ).toEqual([{ questionId: 9, answers: { 'Should the old endpoint keep working?': 'Keep it' } }]);
+  } finally {
+    await app.close();
+  }
+});

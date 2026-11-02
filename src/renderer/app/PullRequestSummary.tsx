@@ -1,25 +1,32 @@
+import type { AgentTask } from '../../shared/contracts/agent-tasks.ts';
 import type { PullRequest } from '../../shared/contracts/pull-requests.ts';
 import { Button } from '../components/Button/Button.tsx';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
+import { AgentActivity } from './AgentActivity.tsx';
 import styles from './PullRequestSummary.module.css';
 import { relativeTime } from './relativeTime.ts';
 
 export interface PullRequestSummaryProps {
+  className?: string;
   pullRequest: PullRequest | undefined;
   repositoryName: string | undefined;
+  // The pull request's latest agent task, if it has one.
+  agentTask: AgentTask | undefined;
   onOpenReview: () => void;
 }
 
 export function PullRequestSummary({
+  className,
   pullRequest,
   repositoryName,
+  agentTask,
   onOpenReview,
 }: PullRequestSummaryProps) {
   if (!pullRequest) {
     return (
-      <Panel title="Summary">
+      <Panel className={className} title="Summary">
         <p className={styles.empty}>Select a pull request to see its details.</p>
       </Panel>
     );
@@ -28,6 +35,7 @@ export function PullRequestSummary({
   const { author } = pullRequest;
   return (
     <Panel
+      className={className}
       title={`${repositoryName ?? 'Repository'} #${pullRequest.number}`}
       action={<StatusPill status={pullRequest.draft ? 'draft' : 'open'} />}
     >
@@ -50,6 +58,7 @@ export function PullRequestSummary({
       <Button variant="primary" onClick={onOpenReview}>
         Open review
       </Button>
+      {agentTask && <AgentActivity key={agentTask.id} task={agentTask} />}
     </Panel>
   );
 }

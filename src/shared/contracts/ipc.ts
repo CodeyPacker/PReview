@@ -1,4 +1,10 @@
 import { z } from 'zod';
+import {
+  agentEventSchema,
+  agentTaskIdInputSchema,
+  agentTaskSchema,
+  answerAgentQuestionInputSchema,
+} from './agent-tasks.ts';
 import { githubAuthStateSchema } from './github.ts';
 import {
   repositoriesStateSchema,
@@ -242,6 +248,18 @@ export const ipcContract = {
     input: z.object({ pullRequestId: z.number().int().nullable() }),
     output: z.null(),
   },
+  // Every agent task, newest first, with the question it waits on.
+  'agentTasks.list': { input: z.undefined(), output: z.array(agentTaskSchema) },
+  // A task's activity feed, oldest first.
+  'agentTasks.listActivity': { input: agentTaskIdInputSchema, output: z.array(agentEventSchema) },
+  // Stops a task after its current step.
+  'agentTasks.stop': { input: agentTaskIdInputSchema, output: z.null() },
+  // Ends a running task's agent at once.
+  'agentTasks.forceStop': { input: agentTaskIdInputSchema, output: z.null() },
+  // Queues a stopped or failed task again.
+  'agentTasks.resume': { input: agentTaskIdInputSchema, output: z.null() },
+  // Answers an agent's question. false when it was no longer waiting.
+  'agentTasks.answer': { input: answerAgentQuestionInputSchema, output: z.boolean() },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;
 
 export type IpcChannel = keyof typeof ipcContract;

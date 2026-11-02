@@ -1,3 +1,4 @@
+import type { AgentEvent, AgentTask, AnswerAgentQuestionInput } from './agent-tasks.ts';
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type {
@@ -136,5 +137,14 @@ export interface PreviewApi {
     getActive(): Promise<number | null>;
     // Null when no review is on show.
     setActive(pullRequestId: number | null): Promise<null>;
+  };
+  agentTasks: {
+    list(): Promise<AgentTask[]>;
+    listActivity(taskId: number): Promise<AgentEvent[]>;
+    stop(taskId: number): Promise<null>;
+    forceStop(taskId: number): Promise<null>;
+    resume(taskId: number): Promise<null>;
+    // false when the agent was no longer waiting for this answer.
+    answer(answer: AnswerAgentQuestionInput): Promise<boolean>;
   };
 }

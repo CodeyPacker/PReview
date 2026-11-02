@@ -89,6 +89,14 @@ const api: PreviewApi = {
     getActive: () => invoke('reviewSessions.getActive', undefined),
     setActive: (pullRequestId) => invoke('reviewSessions.setActive', { pullRequestId }),
   },
+  agentTasks: {
+    list: () => invoke('agentTasks.list', undefined),
+    listActivity: (taskId) => invoke('agentTasks.listActivity', { taskId }),
+    stop: (taskId) => invoke('agentTasks.stop', { taskId }),
+    forceStop: (taskId) => invoke('agentTasks.forceStop', { taskId }),
+    resume: (taskId) => invoke('agentTasks.resume', { taskId }),
+    answer: (answer) => invoke('agentTasks.answer', answer),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);

@@ -47,8 +47,12 @@ export const statusPresets = {
   validated: { tone: 'success', icon: ShieldCheck, label: 'Validated' },
   rejected: { tone: 'neutral', icon: ShieldX, label: 'Not Confirmed' },
   // Agent state.
+  'agent-queued': { tone: 'neutral', icon: Clock, label: 'Agent Queued' },
   'agent-running': { tone: 'info', icon: Bot, label: 'Agent Running' },
+  'agent-waiting': { tone: 'warning', icon: MessageSquare, label: 'Agent Has a Question' },
+  'agent-stopped': { tone: 'neutral', icon: Bot, label: 'Agent Stopped' },
   'agent-failed': { tone: 'danger', icon: Bot, label: 'Agent Failed' },
+  'agent-completed': { tone: 'success', icon: Bot, label: 'Agent Finished' },
   // Achievements and characters.
   blocked: { tone: 'danger', icon: Lock, label: 'Blocked' },
   unlocked: { tone: 'success', icon: CircleCheck, label: 'Unlocked' },
