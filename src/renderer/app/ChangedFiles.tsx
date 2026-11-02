@@ -13,6 +13,7 @@ import { Panel } from '../components/Panel/Panel.tsx';
 import { SearchField } from '../components/SearchField/SearchField.tsx';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
+import { FileListSwitch } from './FileListSwitch.tsx';
 import type { FileReviewFilter, FileReviewState } from '../lib/fileReview.ts';
 import styles from './ChangedFiles.module.css';
 
@@ -91,19 +92,7 @@ export function ChangedFiles({
       count={totalFiles}
       padding="sm"
     >
-      {onBrowseChange && (
-        <ToggleGroup
-          aria-label="File list"
-          size="sm"
-          block
-          value="changed"
-          onValueChange={(value) => onBrowseChange(value === 'repository')}
-          options={[
-            { value: 'changed', label: 'Changed' },
-            { value: 'repository', label: 'Repository' },
-          ]}
-        />
-      )}
+      {onBrowseChange && <FileListSwitch browsing={false} onBrowseChange={onBrowseChange} />}
       {commits && commits.length > 0 && (
         <Select
           block
