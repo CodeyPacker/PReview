@@ -50,6 +50,8 @@ const api: PreviewApi = {
       invoke('pullRequestFiles.listCommit', { pullRequestId, sha }),
     listSince: (pullRequestId, baselineSha, headSha) =>
       invoke('pullRequestFiles.listSince', { pullRequestId, baselineSha, headSha }),
+    listRepositoryFiles: (pullRequestId, headSha) =>
+      invoke('pullRequestFiles.listRepositoryFiles', { pullRequestId, headSha }),
     getDiff: (pullRequestId, headSha, mergeBase, path, previousPath) =>
       invoke('pullRequestFiles.getDiff', { pullRequestId, headSha, mergeBase, path, previousPath }),
   },

@@ -113,6 +113,12 @@ export interface GitProvider {
     baseSha: string,
     headSha: string,
   ): Promise<ProviderChangedFile[]>;
+  // The paths of every file in the repository at a commit. truncated when the provider's
+  // listing is cut short, so the paths are not all of them.
+  getRepositoryFiles(
+    repositoryFullName: string,
+    ref: string,
+  ): Promise<{ paths: string[]; truncated: boolean }>;
   // The commit the pull request branched from, which its diff is taken against.
   getMergeBase(repositoryFullName: string, baseBranch: string, headSha: string): Promise<string>;
   // A file's text at a commit. undefined when the file does not exist there.

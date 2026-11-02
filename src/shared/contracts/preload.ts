@@ -2,6 +2,7 @@ import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type {
   PullRequestChanges,
+  RepositoryFiles,
   PullRequestCommit,
   PullRequestFileDiff,
 } from './pull-request-files.ts';
@@ -81,6 +82,7 @@ export interface PreviewApi {
       baselineSha: string,
       headSha: string,
     ): Promise<PullRequestChanges>;
+    listRepositoryFiles(pullRequestId: number, headSha: string): Promise<RepositoryFiles>;
     getDiff(
       pullRequestId: number,
       headSha: string,

@@ -10,6 +10,7 @@ import {
   commitShaSchema,
   pullRequestCommitSchema,
   pullRequestChangesSchema,
+  repositoryFilesSchema,
   pullRequestFileDiffSchema,
 } from './pull-request-files.ts';
 import {
@@ -105,6 +106,11 @@ export const ipcContract = {
       headSha: commitShaSchema,
     }),
     output: pullRequestChangesSchema,
+  },
+  // Every file of the repository at a commit of the pull request.
+  'pullRequestFiles.listRepositoryFiles': {
+    input: z.object({ pullRequestId: z.number().int(), headSha: commitShaSchema }),
+    output: repositoryFilesSchema,
   },
   // One file at the commits that list returned.
   'pullRequestFiles.getDiff': {
