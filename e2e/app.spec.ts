@@ -22,12 +22,13 @@ test.afterEach(() => {
 });
 
 // The windows stay hidden so the tests don't flash on screen. Set SHOW_E2E_WINDOW=1 to watch.
+// CI shows them, because a hidden window can't take focus there and it has no screen to flash.
 function launch(): Promise<ElectronApplication> {
   return electron.launch({
     args: ['.', `--user-data-dir=${userDataDir}`],
     env: {
       ...process.env,
-      PREVIEW_HIDE_WINDOW: process.env.SHOW_E2E_WINDOW ? '0' : '1',
+      PREVIEW_HIDE_WINDOW: process.env.SHOW_E2E_WINDOW || process.env.CI ? '0' : '1',
     },
   });
 }
