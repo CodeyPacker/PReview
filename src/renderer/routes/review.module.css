@@ -137,10 +137,18 @@
   font: 600 var(--text-lg) / 22px var(--font-sans);
 }
 
+/* The panel's rows come and go (commit picker, totals, messages), so the list takes what is left
+   instead of a fixed grid row. */
 .files {
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-width: 240px;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.files > ul {
+  flex: 1 1 0;
   min-height: 0;
 }
 

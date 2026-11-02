@@ -90,3 +90,18 @@ export function usePullRequestFileDiff(
     enabled: changes !== undefined && path !== undefined,
   });
 }
+
+// Every file of the repository at the head, read when the reviewer browses it.
+export function useRepositoryFiles(
+  pullRequestId: number,
+  headSha: string | undefined,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['repositoryFiles', pullRequestId, headSha],
+    queryFn: () =>
+      window.preview.pullRequestFiles.listRepositoryFiles(pullRequestId, headSha ?? ''),
+    enabled: enabled && headSha !== undefined,
+    staleTime: Infinity,
+  });
+}

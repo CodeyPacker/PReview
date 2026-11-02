@@ -338,6 +338,26 @@ describe('GitHubProvider changed files', () => {
     expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/compare/base1...head1');
   });
 
+  it('lists the files of the repository at a commit, without folders', async () => {
+    const { fetch, provider } = setup([
+      json({
+        tree: [
+          { path: 'src', type: 'tree' },
+          { path: 'src/a.ts', type: 'blob' },
+          { path: 'vendor/lib', type: 'commit' },
+        ],
+        truncated: true,
+      }),
+    ]);
+
+    await expect(provider.getRepositoryFiles('octo/app', 'head1')).resolves.toEqual({
+      paths: ['src/a.ts'],
+      truncated: true,
+    });
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/git/trees/head1');
+    expect(urlOf(fetch, 0).searchParams.get('recursive')).toBe('1');
+  });
+
   it('finds the merge base of a pull request', async () => {
     const { fetch, provider } = setup([json({ merge_base_commit: { sha: 'abc123' } })]);
 

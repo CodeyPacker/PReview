@@ -38,6 +38,15 @@ export const pullRequestChangesSchema = z.object({
 });
 export type PullRequestChanges = z.infer<typeof pullRequestChangesSchema>;
 
+// Every file of the repository at the pull request's head, for reading files it doesn't change.
+export const repositoryFilesSchema = z.object({
+  headSha: commitShaSchema,
+  paths: z.array(z.string()),
+  // The provider cut its listing short, so some files are missing.
+  truncated: z.boolean(),
+});
+export type RepositoryFiles = z.infer<typeof repositoryFilesSchema>;
+
 // A commit of the pull request.
 export const pullRequestCommitSchema = z.object({
   sha: commitShaSchema,

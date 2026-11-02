@@ -52,6 +52,7 @@ function setup() {
     getPullRequestCommits: vi.fn(),
     getCommitChanges: vi.fn(),
     getChangesBetween,
+    getRepositoryFiles: vi.fn<GitProvider['getRepositoryFiles']>(),
     getMergeBase: vi.fn(),
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),

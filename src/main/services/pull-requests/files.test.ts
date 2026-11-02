@@ -44,6 +44,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
     getPullRequestCommits: vi.fn<GitProvider['getPullRequestCommits']>().mockResolvedValue([]),
     getCommitChanges: vi.fn<GitProvider['getCommitChanges']>(),
     getChangesBetween: vi.fn<GitProvider['getChangesBetween']>(),
+    getRepositoryFiles: vi.fn<GitProvider['getRepositoryFiles']>(),
     getMergeBase: vi.fn<GitProvider['getMergeBase']>().mockResolvedValue(BASE),
     getFileContent: vi.fn<GitProvider['getFileContent']>((_repository, path, ref) =>
       Promise.resolve(contents[`${ref}:${path}`]),
@@ -97,6 +98,23 @@ describe('PullRequestFiles listSince', () => {
       files: [file],
     });
     expect(provider.getChangesBetween).toHaveBeenCalledWith('octo/app', BASE, HEAD);
+  });
+});
+
+describe('PullRequestFiles listRepositoryFiles', () => {
+  it('returns the repository paths at the head', async () => {
+    const { provider, files } = setup();
+    provider.getRepositoryFiles.mockResolvedValue({
+      paths: ['a.ts', 'src/b.ts'],
+      truncated: false,
+    });
+
+    await expect(files.listRepositoryFiles(pullRequestId, HEAD)).resolves.toEqual({
+      headSha: HEAD,
+      paths: ['a.ts', 'src/b.ts'],
+      truncated: false,
+    });
+    expect(provider.getRepositoryFiles).toHaveBeenCalledWith('octo/app', HEAD);
   });
 });
 

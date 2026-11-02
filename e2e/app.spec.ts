@@ -1470,6 +1470,99 @@ test('opens a re-review on the changes since the last review', async () => {
   }
 });
 
+test('browses a file the pull request does not change', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      const file = (path: string) => ({
+        path,
+        blobSha: `sha-${path}`,
+        previousPath: null,
+        status: 'modified',
+        additions: 1,
+        deletions: 1,
+        hunks: null,
+      });
+      const responses: Record<string, unknown> = {
+        'pullRequests.list': {
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Second look',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        },
+        'pullRequestFiles.list': {
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [file('a.ts'), file('b.ts')],
+        },
+        'pullRequestFiles.listCommits': [
+          { sha: 'e'.repeat(40), subject: 'Touch b', authorLogin: 'octo' },
+        ],
+        'pullRequestFiles.listRepositoryFiles': {
+          headSha: 'abcdef1',
+          paths: ['a.ts', 'b.ts', 'docs/README.md'],
+          truncated: false,
+        },
+        'pullRequestFiles.getDiff': {
+          original: 'const a = 1;\n',
+          modified: 'const a = 2;\n',
+          unavailable: null,
+        },
+        'reviewRounds.sync': [],
+      };
+      for (const [channel, response] of Object.entries(responses)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, () => response);
+      }
+    });
+    await mockFileReviewMarks(app);
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
+    const files = page.locator('#review-files');
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+
+    // The list sits under the search and totals, not at the bottom of the panel.
+    const search = await files
+      .getByRole('searchbox', { name: 'Search files or text' })
+      .boundingBox();
+    const first = await files.getByRole('button', { name: /a.ts/ }).boundingBox();
+    expect((first?.y ?? 0) - ((search?.y ?? 0) + (search?.height ?? 0))).toBeLessThan(120);
+
+    await files.getByRole('radio', { name: 'Repository' }).click();
+    await expect(page.getByRole('heading', { name: 'Repository files' })).toBeVisible();
+    await files.getByRole('searchbox', { name: 'Search repository files' }).fill('readme');
+    await expect(files.getByRole('button', { name: /a.ts/ })).toBeHidden();
+    await files.getByRole('button', { name: /README.md/ }).click();
+    await expect(page.getByRole('heading', { name: 'docs/README.md' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeDisabled();
+    await expect(page.getByRole('radio', { name: 'Split' })).toBeDisabled();
+
+    await files.getByRole('radio', { name: 'Changed' }).click();
+    await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
 test('reopens a re-review on the changes the reviewer chose', async () => {
   const app = await launch();
   try {
