@@ -7,6 +7,7 @@ import { reconcileRepositories } from '../repositories/registry.ts';
 import { createReviewDraft, listReviewDrafts } from './drafts.ts';
 import { createReviewFinding, listReviewFindings } from './findings.ts';
 import { PullRequestReviews } from './reviews.ts';
+import { syncReviewRounds } from './rounds.ts';
 
 let db: ReturnType<typeof openDatabase>;
 let pullRequestId: number;
@@ -49,6 +50,7 @@ function setup() {
     getPullRequestFiles: vi.fn(),
     getPullRequestCommits: vi.fn(),
     getCommitChanges: vi.fn(),
+    getChangesBetween: vi.fn(),
     getMergeBase: vi.fn(),
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),
@@ -223,6 +225,27 @@ describe('PullRequestReviews', () => {
       kept.id,
       otherVersion.id,
     ]);
+  });
+
+  it('ends the round when GitHub takes the review, and not when it refuses it', async () => {
+    const { submitReview, reviews } = setup();
+    syncReviewRounds(db, pullRequestId, HEAD);
+    const input = {
+      pullRequestId,
+      headSha: HEAD,
+      mergeBase: BASE,
+      draftIds: [],
+      findingIds: [],
+      verdict: 'comment' as const,
+      body: 'Notes.',
+    };
+
+    submitReview.mockRejectedValueOnce(new GitHubApiError(422, '/reviews', 'No.'));
+    await reviews.submit(input);
+    expect(syncReviewRounds(db, pullRequestId, HEAD)[0]?.submittedAt).toBeNull();
+
+    await reviews.submit(input);
+    expect(syncReviewRounds(db, pullRequestId, HEAD)[0]?.submittedAt).not.toBeNull();
   });
 
   it('keeps drafts when GitHub refuses the review', async () => {

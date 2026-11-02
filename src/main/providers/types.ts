@@ -107,6 +107,12 @@ export interface GitProvider {
   getPullRequestCommits(repositoryFullName: string, number: number): Promise<ProviderCommit[]>;
   // The files one commit changes, against its first parent.
   getCommitChanges(repositoryFullName: string, sha: string): Promise<ProviderCommitChanges>;
+  // The files that differ between two commits.
+  getChangesBetween(
+    repositoryFullName: string,
+    baseSha: string,
+    headSha: string,
+  ): Promise<ProviderChangedFile[]>;
   // The commit the pull request branched from, which its diff is taken against.
   getMergeBase(repositoryFullName: string, baseBranch: string, headSha: string): Promise<string>;
   // A file's text at a commit. undefined when the file does not exist there.

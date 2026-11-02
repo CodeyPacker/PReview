@@ -16,6 +16,7 @@ import { GitHubApiError } from '../../providers/github/client.ts';
 import type { GitProvider } from '../../providers/types.ts';
 import { listReviewDrafts } from './drafts.ts';
 import { findingsMarkdown, listReviewFindings } from './findings.ts';
+import { endReviewRound } from './rounds.ts';
 
 export interface PullRequestReviewsDeps {
   db: DatabaseSync;
@@ -53,7 +54,7 @@ export class PullRequestReviews {
   }
 
   // Publishes the review with the chosen drafts as line comments and the chosen findings in
-  // its body. Then it deletes those drafts and marks those findings published.
+  // its body. Then it deletes those drafts, marks those findings published and ends the round.
   async submit({
     pullRequestId,
     headSha,
@@ -125,6 +126,7 @@ export class PullRequestReviews {
       drafts.forEach((draft) => remove.run(draft.id));
       findings.forEach((finding) => publish.run(finding.id));
     });
+    endReviewRound(this.deps.db, pullRequestId, headSha);
     return { status: 'submitted' };
   }
 

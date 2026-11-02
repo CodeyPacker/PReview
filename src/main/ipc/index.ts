@@ -24,6 +24,7 @@ import {
   saveReviewSession,
   setActiveReview,
 } from '../services/pull-requests/sessions.ts';
+import { syncReviewRounds } from '../services/pull-requests/rounds.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
@@ -116,6 +117,9 @@ export function registerIpcHandlers(
   handle('pullRequestFiles.listCommit', ({ pullRequestId, sha }) =>
     pullRequestFiles.listCommit(pullRequestId, sha),
   );
+  handle('pullRequestFiles.listSince', ({ pullRequestId, baselineSha, headSha }) =>
+    pullRequestFiles.listSince(pullRequestId, baselineSha, headSha),
+  );
   handle('pullRequestFiles.getDiff', ({ pullRequestId, headSha, mergeBase, path, previousPath }) =>
     pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
   );
@@ -148,6 +152,9 @@ export function registerIpcHandlers(
 
   handle('fileReviewMarks.list', ({ pullRequestId }) => listFileReviewMarks(db, pullRequestId));
   handle('fileReviewMarks.set', (mark) => setFileReviewMark(db, mark));
+  handle('reviewRounds.sync', ({ pullRequestId, headSha }) =>
+    syncReviewRounds(db, pullRequestId, headSha),
+  );
   handle('reviewCompletions.get', ({ pullRequestId }) => getReviewCompletion(db, pullRequestId));
   handle('reviewCompletions.finish', ({ pullRequestId }) => finishReview(db, pullRequestId));
   handle('reviewSessions.get', ({ pullRequestId }) => getReviewSession(db, pullRequestId));

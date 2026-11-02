@@ -317,6 +317,27 @@ describe('GitHubProvider changed files', () => {
     expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/commits/a1');
   });
 
+  it('reads the files that differ between two commits', async () => {
+    const { fetch, provider } = setup([
+      json({
+        files: [{ filename: 'a.ts', sha: 's1', status: 'modified', additions: 2, deletions: 1 }],
+      }),
+    ]);
+
+    await expect(provider.getChangesBetween('octo/app', 'base1', 'head1')).resolves.toEqual([
+      {
+        path: 'a.ts',
+        blobSha: 's1',
+        previousPath: null,
+        status: 'modified',
+        additions: 2,
+        deletions: 1,
+        hunks: null,
+      },
+    ]);
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/compare/base1...head1');
+  });
+
   it('finds the merge base of a pull request', async () => {
     const { fetch, provider } = setup([json({ merge_base_commit: { sha: 'abc123' } })]);
 

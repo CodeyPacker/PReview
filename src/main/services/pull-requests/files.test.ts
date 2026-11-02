@@ -43,6 +43,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
     getPullRequestFiles: vi.fn<GitProvider['getPullRequestFiles']>().mockResolvedValue([]),
     getPullRequestCommits: vi.fn<GitProvider['getPullRequestCommits']>().mockResolvedValue([]),
     getCommitChanges: vi.fn<GitProvider['getCommitChanges']>(),
+    getChangesBetween: vi.fn<GitProvider['getChangesBetween']>(),
     getMergeBase: vi.fn<GitProvider['getMergeBase']>().mockResolvedValue(BASE),
     getFileContent: vi.fn<GitProvider['getFileContent']>((_repository, path, ref) =>
       Promise.resolve(contents[`${ref}:${path}`]),
@@ -82,6 +83,20 @@ describe('PullRequestFiles commits', () => {
       files: [file],
     });
     expect(provider.getCommitChanges).toHaveBeenCalledWith('octo/app', HEAD);
+  });
+});
+
+describe('PullRequestFiles listSince', () => {
+  it('returns the files between the reviewed commit and the head, taken against the reviewed one', async () => {
+    const { provider, files } = setup();
+    provider.getChangesBetween.mockResolvedValue([file]);
+
+    await expect(files.listSince(pullRequestId, BASE, HEAD)).resolves.toEqual({
+      headSha: HEAD,
+      mergeBase: BASE,
+      files: [file],
+    });
+    expect(provider.getChangesBetween).toHaveBeenCalledWith('octo/app', BASE, HEAD);
   });
 });
 

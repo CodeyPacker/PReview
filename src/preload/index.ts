@@ -48,6 +48,8 @@ const api: PreviewApi = {
     listCommits: (pullRequestId) => invoke('pullRequestFiles.listCommits', { pullRequestId }),
     listCommit: (pullRequestId, sha) =>
       invoke('pullRequestFiles.listCommit', { pullRequestId, sha }),
+    listSince: (pullRequestId, baselineSha, headSha) =>
+      invoke('pullRequestFiles.listSince', { pullRequestId, baselineSha, headSha }),
     getDiff: (pullRequestId, headSha, mergeBase, path, previousPath) =>
       invoke('pullRequestFiles.getDiff', { pullRequestId, headSha, mergeBase, path, previousPath }),
   },
@@ -67,6 +69,9 @@ const api: PreviewApi = {
   fileReviewMarks: {
     list: (pullRequestId) => invoke('fileReviewMarks.list', { pullRequestId }),
     set: (mark) => invoke('fileReviewMarks.set', mark),
+  },
+  reviewRounds: {
+    sync: (pullRequestId, headSha) => invoke('reviewRounds.sync', { pullRequestId, headSha }),
   },
   reviewCompletions: {
     get: (pullRequestId) => invoke('reviewCompletions.get', { pullRequestId }),

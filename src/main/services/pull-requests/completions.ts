@@ -1,5 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import type { ReviewCompletion } from '../../../shared/contracts/review-completions.ts';
+import { transaction } from '../../database/connection.ts';
+import { finishReviewRound } from './rounds.ts';
 
 export function getReviewCompletion(
   db: DatabaseSync,
@@ -11,10 +13,14 @@ export function getReviewCompletion(
   return row ? { completedAt: row.completed_at } : null;
 }
 
-// Records the review as finished. Finishing again keeps the first completion.
+// Records the review as finished, and its latest round with it. Finishing again keeps the
+// first completion, so the pull request is counted once however many rounds it takes.
 export function finishReview(db: DatabaseSync, pullRequestId: number): ReviewCompletion {
-  db.prepare('INSERT OR IGNORE INTO review_completions (pull_request_id) VALUES (?)').run(
-    pullRequestId,
-  );
+  transaction(db, () => {
+    db.prepare('INSERT OR IGNORE INTO review_completions (pull_request_id) VALUES (?)').run(
+      pullRequestId,
+    );
+    finishReviewRound(db, pullRequestId);
+  });
   return getReviewCompletion(db, pullRequestId) as ReviewCompletion;
 }

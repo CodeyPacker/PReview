@@ -73,6 +73,8 @@ const pullRequestRefsSchema = z.object({
   base: z.object({ ref: z.string() }),
 });
 
+const comparedFilesSchema = z.object({ files: z.array(changedFileSchema).optional() });
+
 const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
 
 function toChangedFile(file: z.infer<typeof changedFileSchema>): ProviderChangedFile {
@@ -270,6 +272,17 @@ export class GitHubProvider implements GitProvider {
     const parent = commit.parents[0];
     if (!parent) throw new Error('This commit has no parent to compare with.');
     return { parentSha: parent.sha, files: (commit.files ?? []).map(toChangedFile) };
+  }
+
+  async getChangesBetween(
+    repositoryFullName: string,
+    baseSha: string,
+    headSha: string,
+  ): Promise<ProviderChangedFile[]> {
+    const comparison = comparedFilesSchema.parse(
+      await this.client.getJson(`/repos/${repositoryFullName}/compare/${baseSha}...${headSha}`),
+    );
+    return (comparison.files ?? []).map(toChangedFile);
   }
 
   async getMergeBase(
