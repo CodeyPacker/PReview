@@ -36,8 +36,8 @@
 
 .chevron {
   flex: none;
-  width: var(--icon-sm, 14px);
-  height: var(--icon-sm, 14px);
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   color: var(--ink-secondary);
   transition: transform 120ms ease;
 }
