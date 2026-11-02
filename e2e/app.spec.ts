@@ -1362,6 +1362,64 @@ test('browses a file the pull request does not change', async () => {
   }
 });
 
+test('searches the text of every file in the repository and opens a match', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Search it'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.listCommits': [],
+      'pullRequestFiles.listRepositoryFiles': {
+        headSha: 'abcdef1',
+        paths: ['a.ts', 'docs/guide.md'],
+        truncated: false,
+      },
+      'pullRequestFiles.getDiff': {
+        original: 'first line\nsecond line\n',
+        modified: 'first line\nsecond line\n',
+        unavailable: null,
+      },
+      'repositorySearch.search': {
+        headSha: 'abcdef1',
+        source: 'clone',
+        matches: [
+          { path: 'docs/guide.md', line: 2, preview: 'second line' },
+          { path: 'docs/guide.md', line: 9, preview: 'second use' },
+        ],
+        partial: false,
+      },
+      'reviewRounds.sync': [],
+    });
+    await openReview(app, page);
+    const files = page.locator('#review-files');
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+    await files.getByRole('radio', { name: 'Repository' }).click();
+
+    await files.getByRole('radio', { name: 'Text' }).click();
+    const field = files.getByRole('searchbox', { name: 'Search text in the repository' });
+    await field.fill('s');
+    await expect(files.getByText('Type at least two characters.')).toBeVisible();
+    await field.fill('second');
+    await expect(files.getByText('2 matches in 1 file.')).toBeVisible();
+
+    await files.getByRole('button', { name: /9\s+second use/ }).click();
+    await expect(page.getByRole('heading', { name: 'docs/guide.md' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeDisabled();
+    await expect(files.getByRole('button', { name: /9\s+second use/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+  } finally {
+    await app.close();
+  }
+});
+
 test('reopens a re-review on the changes the reviewer chose', async () => {
   const app = await launch();
   try {

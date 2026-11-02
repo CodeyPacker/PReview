@@ -155,7 +155,7 @@
   min-height: 0;
 }
 
-.files > :is(ul, [role='tree']) {
+.files > :is(ul, [role='tree'], [role='list']) {
   flex: 1 1 0;
   min-height: 0;
 }
