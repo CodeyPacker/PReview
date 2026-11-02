@@ -63,6 +63,8 @@
   grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-16);
+  /* Room for the files toggle, which stays at the left edge whether the files are open or not. */
+  padding-left: 22px;
   min-height: 0;
   transition:
     grid-template-columns 200ms ease,
@@ -102,11 +104,9 @@
 
 .treeToggle {
   position: absolute;
-  grid-column: 2 / 3;
-  grid-row: 1 / 2;
   z-index: 1;
   top: var(--space-16);
-  left: 1px;
+  left: 0;
   width: 22px;
   height: 28px;
   padding: 0;

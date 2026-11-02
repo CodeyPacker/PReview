@@ -35,19 +35,17 @@
   position: absolute;
   z-index: 1;
   top: var(--space-32);
-  left: calc(var(--space-16) + 232px - 23px);
+  left: 0;
   width: 22px;
   height: 28px;
   padding: 0;
   border: 1px solid var(--border);
-  border-right: 0;
-  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--surface-raised);
   color: var(--ink-secondary);
   -webkit-app-region: no-drag;
-  transition:
-    left 200ms ease,
-    background 200ms ease;
+  transition: background 200ms ease;
 }
 
 .sidebarToggle > svg {
@@ -58,13 +56,6 @@
 .sidebarToggle:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
-}
-
-.collapsed .sidebarToggle {
-  left: 0;
-  border-right: 1px solid var(--border);
-  border-left: 0;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .sidebar {

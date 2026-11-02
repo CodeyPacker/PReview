@@ -325,9 +325,9 @@ test('keeps split view at window size and toggles review panels independently', 
       .poll(async () => {
         const tab = await page.getByRole('button', { name: 'Expand changed files' }).boundingBox();
         const panel = await page.getByRole('region', { name: 'a.ts', exact: true }).boundingBox();
-        return tab && panel ? Math.abs(tab.x - (panel.x + 1)) : 999;
+        return !!tab && !!panel && tab.x + tab.width <= panel.x + 1;
       })
-      .toBeLessThan(1);
+      .toBe(true);
     await expect
       .poll(async () => {
         const before = await original.boundingBox();
@@ -344,21 +344,40 @@ test('keeps split view at window size and toggles review panels independently', 
 
     await page.getByRole('button', { name: 'Expand navigation' }).click();
     await expect(nav).toBeVisible();
+    // The tabs stay where they were while the panels open and close.
     await expect
-      .poll(async () => {
-        const tab = await page.getByRole('button', { name: 'Collapse navigation' }).boundingBox();
-        const panel = await nav.boundingBox();
-        return tab && panel ? Math.abs(tab.x + tab.width - (panel.x + panel.width - 1)) : 999;
-      })
-      .toBeLessThan(1);
+      .poll(
+        async () =>
+          (await page.getByRole('button', { name: 'Collapse navigation' }).boundingBox())?.x,
+      )
+      .toBe(0);
     // A sibling tab cannot exclude a native drag region covering the whole sidebar.
     expect(
       await nav.evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region')),
     ).not.toBe('drag');
     await page.screenshot({ path: test.info().outputPath('navigation-expanded.png') });
     await expect(files).toBeHidden();
+    const filesTabOpen = page.getByRole('button', { name: 'Expand changed files' });
+    // The panels slide for a moment, so wait until the tab stops moving.
+    await expect
+      .poll(async () => {
+        const first = await filesTabOpen.boundingBox();
+        await page.waitForTimeout(250);
+        const second = await filesTabOpen.boundingBox();
+        return first?.x === second?.x;
+      })
+      .toBe(true);
+    const filesTabClosed = await filesTabOpen.boundingBox();
     await page.getByRole('button', { name: 'Expand changed files' }).click();
     await expect(files).toBeVisible();
+    await expect
+      .poll(async () => {
+        const tab = await page
+          .getByRole('button', { name: 'Collapse changed files' })
+          .boundingBox();
+        return tab && filesTabClosed && tab.x === filesTabClosed.x && tab.y === filesTabClosed.y;
+      })
+      .toBe(true);
     await page.getByRole('button', { name: 'Collapse navigation' }).click();
     await expect(nav).toBeHidden();
     await expect
@@ -459,10 +478,10 @@ test('keeps split view at window size and toggles review panels independently', 
         const tab = await page
           .getByRole('button', { name: 'Collapse changed files' })
           .boundingBox();
-        const panel = await page.getByRole('region', { name: 'a.ts', exact: true }).boundingBox();
-        return tab && panel ? Math.abs(tab.x - (panel.x + 1)) : 999;
+        const panel = await files.boundingBox();
+        return !!tab && !!panel && tab.x + tab.width <= panel.x + 1;
       })
-      .toBeLessThan(1);
+      .toBe(true);
     await expect.poll(indicatorAlignment).toBeLessThan(1);
     await page.screenshot({ path: test.info().outputPath('review-header.png') });
 
