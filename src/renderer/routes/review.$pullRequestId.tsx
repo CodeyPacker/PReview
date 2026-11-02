@@ -340,7 +340,7 @@ function ReviewPage() {
         </div>
         <div className={styles.headerActions}>
           <span role="status" className={styles.newCommits}>
-            {newCommits && 'New commits were pushed.'}
+            {newCommits && 'New commits'}
           </span>
           {newCommits && (
             <Button
