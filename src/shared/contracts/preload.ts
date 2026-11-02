@@ -32,6 +32,7 @@ import type {
   UpdateReviewFindingInput,
 } from './review-findings.ts';
 import type { FileReviewMark, SetFileReviewMarkInput } from './file-review-marks.ts';
+import type { RepositorySearchInput, RepositorySearchResult } from './repository-search.ts';
 import type { ReviewCompletion } from './review-completions.ts';
 import type { ReviewRound } from './review-rounds.ts';
 import type { ReviewSession, SaveReviewSessionInput } from './review-sessions.ts';
@@ -122,6 +123,9 @@ export interface PreviewApi {
   reviewCompletions: {
     get(pullRequestId: number): Promise<ReviewCompletion | null>;
     finish(pullRequestId: number): Promise<ReviewCompletion>;
+  };
+  repositorySearch: {
+    search(input: RepositorySearchInput): Promise<RepositorySearchResult>;
   };
   reviewRounds: {
     sync(pullRequestId: number, headSha: string): Promise<ReviewRound[]>;

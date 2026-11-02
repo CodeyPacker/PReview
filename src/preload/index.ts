@@ -73,6 +73,9 @@ const api: PreviewApi = {
     list: (pullRequestId) => invoke('fileReviewMarks.list', { pullRequestId }),
     set: (mark) => invoke('fileReviewMarks.set', mark),
   },
+  repositorySearch: {
+    search: (input) => invoke('repositorySearch.search', input),
+  },
   reviewRounds: {
     sync: (pullRequestId, headSha) => invoke('reviewRounds.sync', { pullRequestId, headSha }),
   },

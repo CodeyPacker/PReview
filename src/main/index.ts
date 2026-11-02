@@ -12,9 +12,11 @@ import { createCredentialStore, type Encryptor } from './services/github/credent
 import { GitHubClient } from './providers/github/client.ts';
 import { GitHubProvider } from './providers/github/provider.ts';
 import { PullRequestFiles } from './services/pull-requests/files.ts';
+import { RepositorySearch } from './services/pull-requests/repository-search.ts';
 import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
+import { runGitGrep } from './services/repositories/git-grep.ts';
 import { runGit } from './services/repositories/git-info.ts';
 import icon from '../../build/icon.png?asset';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
@@ -149,12 +151,14 @@ void app.whenReady().then(async () => {
   const pullRequests = new PullRequestSync({ db, provider, log });
   const pullRequestFiles = new PullRequestFiles({ db, provider });
   const pullRequestReviews = new PullRequestReviews({ db, provider });
+  const repositorySearch = new RepositorySearch({ db, provider, git: runGit, grep: runGitGrep });
   registerIpcHandlers(db, {
     github,
     discovery,
     pullRequests,
     pullRequestFiles,
     pullRequestReviews,
+    repositorySearch,
     pickFolder,
   });
   void discovery.scan();

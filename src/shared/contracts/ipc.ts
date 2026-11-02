@@ -40,6 +40,7 @@ import {
 } from './review-findings.ts';
 import { fileReviewMarkSchema, setFileReviewMarkInputSchema } from './file-review-marks.ts';
 import { reviewCompletionSchema } from './review-completions.ts';
+import { repositorySearchInputSchema, repositorySearchResultSchema } from './repository-search.ts';
 import { reviewRoundSchema } from './review-rounds.ts';
 import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
@@ -220,6 +221,11 @@ export const ipcContract = {
   'reviewRounds.sync': {
     input: z.object({ pullRequestId: z.number().int(), headSha: commitShaSchema }),
     output: z.array(reviewRoundSchema),
+  },
+  // Text search in every file of the repository at a commit of the pull request.
+  'repositorySearch.search': {
+    input: repositorySearchInputSchema,
+    output: repositorySearchResultSchema,
   },
   // Where the reviewer left off in a pull request. Null before it was first opened.
   'reviewSessions.get': {

@@ -36,6 +36,7 @@ import {
   setWatchedFolderScanDepth,
 } from '../services/repositories/watched-folders.ts';
 import { getSettings, updateSettings } from '../services/settings.ts';
+import type { RepositorySearch } from '../services/pull-requests/repository-search.ts';
 import { handle } from './handle.ts';
 
 export interface IpcServices {
@@ -44,6 +45,7 @@ export interface IpcServices {
   pullRequests: PullRequestSync;
   pullRequestFiles: PullRequestFiles;
   pullRequestReviews: PullRequestReviews;
+  repositorySearch: RepositorySearch;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
@@ -56,6 +58,7 @@ export function registerIpcHandlers(
     pullRequests,
     pullRequestFiles,
     pullRequestReviews,
+    repositorySearch,
     pickFolder,
   }: IpcServices,
 ): void {
@@ -127,6 +130,7 @@ export function registerIpcHandlers(
     pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
   );
 
+  handle('repositorySearch.search', (input) => repositorySearch.search(input));
   handle('pullRequestReviews.listThreads', ({ pullRequestId }) =>
     pullRequestReviews.listThreads(pullRequestId),
   );

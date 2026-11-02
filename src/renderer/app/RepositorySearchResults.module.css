@@ -1,0 +1,72 @@
+/* Repository search results. Read values from tokens.css custom properties only. */
+
+.message {
+  margin: 0;
+  padding: 0 var(--space-12);
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.results {
+  display: grid;
+  align-content: start;
+  gap: var(--space-8);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.path {
+  overflow: hidden;
+  padding: 0 var(--space-8);
+  color: var(--ink-secondary);
+  font: 600 var(--text-sm) / 16px var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.match {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  width: 100%;
+  padding: var(--space-4) var(--space-8);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
+  font: 400 var(--text-md) / 18px var(--font-mono);
+  text-align: start;
+  cursor: pointer;
+}
+
+.match:hover {
+  background: var(--surface-hover);
+}
+
+.match[aria-current='true'] {
+  background: var(--surface-selected);
+}
+
+.match:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.line {
+  flex: none;
+  min-width: 3ch;
+  color: var(--ink-secondary);
+  text-align: end;
+}
+
+.preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

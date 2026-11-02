@@ -12,12 +12,13 @@ import {
   Minimize2,
   RefreshCw,
 } from 'lucide-react';
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { useSidebar } from '../app/SidebarContext.ts';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { cx } from '../lib/cx.ts';
 import { ChangedFiles } from '../app/ChangedFiles.tsx';
 import type { PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
+import type { RepositorySearchMatch } from '../../shared/contracts/repository-search.ts';
 import { RepositoryFiles } from '../app/RepositoryFiles.tsx';
 import { ImageDiff } from '../app/ImageDiff.tsx';
 import { DiffViewer, type DiffMode, type DiffViewerHandle } from '../app/DiffViewer.tsx';
@@ -32,7 +33,7 @@ import { usePullRequestFileDiff } from '../hooks/usePullRequestFiles.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
 import { useFileSearch } from '../hooks/useFileSearch.ts';
-import { matchesFilePath } from '../lib/fileSearch.ts';
+import { matchesFilePath, type FileSearchMatch } from '../lib/fileSearch.ts';
 import { useFileReviewStates } from '../hooks/useFileReviewStates.ts';
 import {
   matchesFileReviewFilter,
@@ -269,6 +270,22 @@ function ReviewPage() {
     },
   );
 
+  // The match of a text search of the repository that is open, so the diff shows its line.
+  const [repositoryMatch, setRepositoryMatch] = useState<{
+    match: RepositorySearchMatch;
+    query: string;
+  }>();
+  const openMatch = repositoryMatch?.match.path === selected?.path ? repositoryMatch : undefined;
+  const openMatchInFile = useMemo<FileSearchMatch | undefined>(
+    () =>
+      openMatch && {
+        side: 'modified',
+        line: openMatch.match.line,
+        preview: openMatch.match.preview,
+      },
+    [openMatch],
+  );
+
   const unifiedOnly = selected?.status === 'added' || unchanged;
   const effectiveMode = unifiedOnly ? 'unified' : mode;
   // Generated and large files wait for the reviewer, so their diffs are not read before then.
@@ -449,6 +466,13 @@ function ReviewPage() {
               error={repositoryFiles.isError}
               selectedPath={selected?.path}
               onSelect={selectFile}
+              pullRequestId={pullRequestId}
+              headSha={files.data?.headSha}
+              selectedMatch={openMatch?.match}
+              onSelectMatch={(match, query) => {
+                selectFile(match.path);
+                setRepositoryMatch({ match, query });
+              }}
               onBrowseChange={setBrowsing}
             />
           ) : (
@@ -589,8 +613,14 @@ function ReviewPage() {
                 onScrollChange={(scrollTop) =>
                   saveSession({ selectedPath: selected.path, scrollTop })
                 }
-                searchQuery={fileSearch.trim()}
-                searchMatch={selected ? search.matches.get(selected.path) : undefined}
+                searchQuery={browsing ? (openMatch?.query ?? '') : fileSearch.trim()}
+                searchMatch={
+                  browsing
+                    ? openMatchInFile
+                    : selected
+                      ? search.matches.get(selected.path)
+                      : undefined
+                }
                 threads={
                   readOnlyView
                     ? undefined
