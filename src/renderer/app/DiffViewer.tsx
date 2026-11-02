@@ -195,6 +195,8 @@ export function DiffViewer({
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
       renderOverviewRuler: false,
+      // Unchanged stretches fold away, and the reviewer expands them for more context.
+      hideUnchangedRegions: { enabled: true },
       fontFamily: monoFont(),
       fontSize: 13,
     });
@@ -421,6 +423,11 @@ export function DiffViewer({
     const subscription = numberEditor.onDidLayoutChange(alignHeader);
     return () => subscription.dispose();
   }, [mode, original, onLineNumberOffsetChange]);
+
+  // A search match can sit in folded lines, so the folds open while searching.
+  useEffect(() => {
+    editor.current?.updateOptions({ hideUnchangedRegions: { enabled: !searchQuery } });
+  }, [searchQuery]);
 
   useEffect(() => {
     const diffEditor = editor.current;

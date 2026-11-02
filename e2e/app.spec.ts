@@ -1129,6 +1129,9 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
       return { x: box!.x - 8, y: box!.y + box!.height / 2 };
     };
 
+    // Unchanged lines are folded. Expanding them shows the lines between the hunks.
+    await page.getByRole('button', { name: 'Click or drag to show more below' }).first().click();
+
     // Lines outside the diff's hunks can't take a comment, because GitHub would refuse it.
     const far = await gutterPoint(7);
     await page.mouse.move(far.x, far.y);
@@ -1358,6 +1361,81 @@ test('shows one commit on its own without file decisions', async () => {
     await page.getByRole('button', { name: 'Show diff' }).click();
     await expect(page.getByText('This file looks generated')).toBeHidden();
     await expect(page.locator('.monaco-diff-editor')).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test('folds unchanged lines and reveals a search match inside them', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      const lines = (value: number) =>
+        Array.from({ length: 120 }, (_, i) =>
+          i === 10 ? `const changed = ${value};` : `const line${i} = 0;`,
+        );
+      const responses: Record<string, unknown> = {
+        'pullRequests.list': {
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Fold context',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        },
+        'pullRequestFiles.list': {
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [
+            {
+              path: 'a.ts',
+              blobSha: 'sha-a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
+          ],
+        },
+        'pullRequestFiles.getDiff': {
+          original: lines(1).join('\n'),
+          modified: lines(2).join('\n'),
+          unavailable: null,
+        },
+      };
+      for (const [channel, response] of Object.entries(responses)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, () => response);
+      }
+    });
+    await mockFileReviewMarks(app);
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
+    await expect(page.locator('.diff-hidden-lines')).not.toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+    await page.getByRole('searchbox', { name: 'Search files or text' }).fill('line90');
+    await expect(page.locator('.modified-in-monaco-diff-editor')).toContainText(
+      'const line90 = 0;',
+    );
   } finally {
     await app.close();
   }
