@@ -6,3 +6,4 @@ storybook-static
 out
 test-results
 playwright-report
+release

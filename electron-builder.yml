@@ -1,0 +1,18 @@
+# Packages the electron-vite build in out/. `pnpm package` makes an unpacked app in release/.
+appId: com.codeypacker.preview
+productName: PReview
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+# The Claude Code binary can't run from inside the asar archive, so it ships next to it.
+asarUnpack:
+  - '**/node_modules/@anthropic-ai/claude-agent-sdk-*/**'
+mac:
+  target: dir
+  # Unsigned until release signing is set up.
+  identity: null
+win:
+  target: dir
