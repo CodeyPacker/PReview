@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+// Where the reviewer is in a pull request, from what is stored on this machine. It doesn't
+// include the GitHub state or any agent state.
+export const reviewStateSchema = z.enum([
+  'needs-review',
+  'in-progress',
+  'draft-feedback',
+  'feedback-submitted',
+  'ready-for-rereview',
+  'completed',
+]);
+export type ReviewState = z.infer<typeof reviewStateSchema>;
+
 export const pullRequestSchema = z.object({
   id: z.number().int(),
   repositoryId: z.number().int(),
@@ -15,6 +27,7 @@ export const pullRequestSchema = z.object({
   updatedAt: z.string(),
   // Whether its review has been opened in PReview.
   opened: z.boolean(),
+  reviewState: reviewStateSchema,
 });
 export type PullRequest = z.infer<typeof pullRequestSchema>;
 

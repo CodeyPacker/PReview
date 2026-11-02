@@ -14,6 +14,7 @@ export function useSubmitReview() {
         queryClient.invalidateQueries({ queryKey: ['reviewThreads', review.pullRequestId] }),
         queryClient.invalidateQueries({ queryKey: ['reviewFindings', review.pullRequestId] }),
         queryClient.invalidateQueries({ queryKey: ['reviewRounds', review.pullRequestId] }),
+        queryClient.invalidateQueries({ queryKey: ['pullRequests'] }),
       ]),
   });
 }

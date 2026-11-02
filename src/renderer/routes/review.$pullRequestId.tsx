@@ -404,6 +404,7 @@ function ReviewPage() {
             {repository ? repositoryName(repository) : 'Repository'} #{pullRequest.number}
           </h1>
           <StatusPill status={pullRequest.draft ? 'draft' : 'open'} />
+          <StatusPill status={pullRequest.reviewState} />
           {round && <Tag size="sm">Round {round.number}</Tag>}
           <span className={styles.branches}>
             {pullRequest.headBranch} → {pullRequest.baseBranch}
