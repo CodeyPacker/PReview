@@ -61,6 +61,12 @@ const api: PreviewApi = {
     setResolution: (change) => invoke('reviewFindings.setResolution', change),
     delete: (pullRequestId, id) => invoke('reviewFindings.delete', { pullRequestId, id }),
   },
+  reviewSessions: {
+    get: (pullRequestId) => invoke('reviewSessions.get', { pullRequestId }),
+    save: (session) => invoke('reviewSessions.save', session),
+    getActive: () => invoke('reviewSessions.getActive', undefined),
+    setActive: (pullRequestId) => invoke('reviewSessions.setActive', { pullRequestId }),
+  },
 };
 
 contextBridge.exposeInMainWorld('preview', api);

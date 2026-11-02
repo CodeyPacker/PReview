@@ -183,4 +183,23 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX review_findings_pull_request ON review_findings (pull_request_id);
     `,
   },
+  {
+    version: 10,
+    name: 'review_sessions',
+    // Where the reviewer left off in each pull request. selected_path is null until a file is
+    // shown. scroll_top is the selected file's scroll position in pixels. At most one session
+    // is active: the review open when the app last closed.
+    sql: `
+      CREATE TABLE review_sessions (
+        pull_request_id INTEGER PRIMARY KEY REFERENCES pull_requests (id) ON DELETE CASCADE,
+        selected_path TEXT,
+        scroll_top INTEGER NOT NULL DEFAULT 0 CHECK (scroll_top >= 0),
+        diff_mode TEXT NOT NULL DEFAULT 'split' CHECK (diff_mode IN ('split', 'unified')),
+        active INTEGER NOT NULL DEFAULT 0 CHECK (active IN (0, 1)),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+
+      CREATE UNIQUE INDEX review_sessions_active ON review_sessions (active) WHERE active = 1;
+    `,
+  },
 ];

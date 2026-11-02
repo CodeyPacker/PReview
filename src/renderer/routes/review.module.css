@@ -190,3 +190,12 @@
 .zen .branches {
   display: none;
 }
+
+.newCommits {
+  color: var(--warning);
+  font-weight: 500;
+}
+
+.newCommits:empty {
+  display: none;
+}
