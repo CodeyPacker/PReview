@@ -1,4 +1,4 @@
-import { CircleAlert, Pencil, Trash2 } from 'lucide-react';
+import { CircleAlert, History, Pencil, Trash2 } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import type { DiffSide, ReviewDraft } from '../../shared/contracts/review-drafts.ts';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
@@ -113,9 +113,16 @@ export function DraftCard({ draft, author, onEdit, onDelete, deleting }: DraftCa
       avatar={<Avatar name={author.name} src={author.avatarUrl} size="md" />}
       time={relativeTime(draft.updatedAt)}
       status={
-        <StatusPill tone="neutral" icon={<Pencil aria-hidden />} size="sm">
-          Draft
-        </StatusPill>
+        <>
+          <StatusPill tone="neutral" icon={<Pencil aria-hidden />} size="sm">
+            Draft
+          </StatusPill>
+          {draft.outdated && (
+            <StatusPill tone="warning" icon={<History aria-hidden />} size="sm">
+              Outdated
+            </StatusPill>
+          )}
+        </>
       }
       actions={
         <>

@@ -14,6 +14,7 @@ interface ReviewDraftRow {
   side: ReviewDraft['side'];
   start_line: number | null;
   line: number;
+  outdated: number;
   body: string;
   created_at: string;
   updated_at: string;
@@ -29,6 +30,7 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
     side: row.side,
     startLine: row.start_line,
     line: row.line,
+    outdated: row.outdated === 1,
     body: row.body,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -39,9 +41,8 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
 export function listReviewDrafts(db: DatabaseSync, pullRequestId: number): ReviewDraft[] {
   const rows = db
     .prepare(
-      `SELECT id, pull_request_id, head_sha, merge_base, path, side, start_line, line, body,
-              created_at,
-              updated_at
+      `SELECT id, pull_request_id, head_sha, merge_base, path, side, start_line, line, outdated,
+              body, created_at, updated_at
        FROM review_drafts
        WHERE pull_request_id = ?
        ORDER BY created_at, id`,

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
 import { GitHubApiError } from '../../providers/github/client.ts';
-import type { GitProvider } from '../../providers/types.ts';
+import type { GitProvider, ProviderChangedFile } from '../../providers/types.ts';
 import { reconcileRepositories } from '../repositories/registry.ts';
 import { createReviewDraft, listReviewDrafts } from './drafts.ts';
 import { createReviewFinding, listReviewFindings } from './findings.ts';
@@ -43,6 +43,7 @@ function setup() {
   const getReviewThreads = vi.fn<GitProvider['getReviewThreads']>().mockResolvedValue([]);
   const replyToThread = vi.fn<GitProvider['replyToThread']>().mockResolvedValue(undefined);
   const setThreadResolved = vi.fn<GitProvider['setThreadResolved']>().mockResolvedValue(undefined);
+  const getChangesBetween = vi.fn<GitProvider['getChangesBetween']>().mockResolvedValue([]);
   const provider = {
     getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
@@ -50,7 +51,7 @@ function setup() {
     getPullRequestFiles: vi.fn(),
     getPullRequestCommits: vi.fn(),
     getCommitChanges: vi.fn(),
-    getChangesBetween: vi.fn(),
+    getChangesBetween,
     getMergeBase: vi.fn(),
     getFileContent: vi.fn(),
     getFileBytes: vi.fn(),
@@ -62,6 +63,7 @@ function setup() {
     deleteBranch,
   } satisfies GitProvider;
   return {
+    getChangesBetween,
     getReviewThreads,
     replyToThread,
     setThreadResolved,
@@ -540,5 +542,163 @@ describe('PullRequestReviews thread changes', () => {
     replyToThread.mockRejectedValue(new GitHubApiError(502, '/graphql'));
 
     await expect(reviews.reply({ threadId: 'T1', body: 'Fixed.' })).rejects.toThrow();
+  });
+});
+
+describe('PullRequestReviews reattachDrafts', () => {
+  const NEW_HEAD = 'c'.repeat(40);
+  const NEW_BASE = 'd'.repeat(40);
+  const changed = (path: string, hunks: ProviderChangedFile['hunks']): ProviderChangedFile => ({
+    path,
+    blobSha: 'sha',
+    previousPath: null,
+    status: 'modified',
+    additions: 1,
+    deletions: 1,
+    hunks,
+  });
+
+  function draftOn(
+    path: string,
+    line: number,
+    overrides: { side?: 'original' | 'modified'; mergeBase?: string; startLine?: number } = {},
+  ) {
+    const drafts = createReviewDraft(db, {
+      pullRequestId,
+      headSha: HEAD,
+      mergeBase: overrides.mergeBase ?? BASE,
+      path,
+      side: overrides.side ?? 'modified',
+      startLine: overrides.startLine ?? null,
+      line,
+      body: 'Check.',
+    });
+    return drafts.at(-1)!;
+  }
+
+  const move = (reviews: PullRequestReviews, mergeBase = BASE) =>
+    reviews.reattachDrafts({ pullRequestId, headSha: NEW_HEAD, mergeBase });
+
+  it('moves drafts in files the new commits left alone, and shifts the ones below a change', async () => {
+    const { getChangesBetween, reviews } = setup();
+    getChangesBetween.mockResolvedValue([
+      changed('b.ts', [{ originalStart: 1, originalCount: 5, modifiedStart: 1, modifiedCount: 8 }]),
+    ]);
+    draftOn('a.ts', 12);
+    draftOn('b.ts', 40, { startLine: 38 });
+
+    const drafts = await move(reviews);
+
+    expect(
+      drafts.map(({ path, startLine, line, outdated, headSha }) => ({
+        path,
+        startLine,
+        line,
+        outdated,
+        headSha,
+      })),
+    ).toEqual([
+      { path: 'a.ts', startLine: null, line: 12, outdated: false, headSha: NEW_HEAD },
+      { path: 'b.ts', startLine: 41, line: 43, outdated: false, headSha: NEW_HEAD },
+    ]);
+    expect(getChangesBetween).toHaveBeenCalledTimes(1);
+    expect(getChangesBetween).toHaveBeenCalledWith('octo/app', HEAD, NEW_HEAD);
+  });
+
+  it('marks a draft outdated when a change touches its lines, and keeps it where it was', async () => {
+    const { getChangesBetween, reviews } = setup();
+    getChangesBetween.mockResolvedValue([
+      changed('a.ts', [
+        { originalStart: 10, originalCount: 6, modifiedStart: 10, modifiedCount: 2 },
+      ]),
+    ]);
+    draftOn('a.ts', 12);
+
+    const [draft] = await move(reviews);
+
+    expect(draft).toMatchObject({ line: 12, outdated: true, headSha: NEW_HEAD });
+  });
+
+  it('marks a draft outdated when its file was renamed, removed or has no diff', async () => {
+    const { getChangesBetween, reviews } = setup();
+    getChangesBetween.mockResolvedValue([
+      { ...changed('new.ts', null), previousPath: 'renamed.ts', status: 'renamed' },
+      { ...changed('removed.ts', null), status: 'removed' },
+      changed('big.ts', null),
+    ]);
+    draftOn('renamed.ts', 3);
+    draftOn('removed.ts', 3);
+    draftOn('big.ts', 3);
+
+    const drafts = await move(reviews);
+
+    expect(drafts.map((draft) => draft.outdated)).toEqual([true, true, true]);
+  });
+
+  it('marks drafts outdated when the base moved, but keeps old-side drafts when it did not', async () => {
+    const { getChangesBetween, reviews } = setup();
+    draftOn('a.ts', 5, { side: 'original' });
+    expect((await move(reviews))[0]).toMatchObject({ line: 5, outdated: false });
+    expect(getChangesBetween).not.toHaveBeenCalled();
+
+    const [rebased] = await reviews.reattachDrafts({
+      pullRequestId,
+      headSha: 'e'.repeat(40),
+      mergeBase: NEW_BASE,
+    });
+    expect(rebased).toMatchObject({ outdated: true, mergeBase: NEW_BASE });
+  });
+
+  it('marks drafts outdated when GitHub no longer has the commit they were written on', async () => {
+    const { getChangesBetween, reviews } = setup();
+    getChangesBetween.mockRejectedValue(new GitHubApiError(404, '/compare', 'Not Found'));
+    draftOn('a.ts', 5);
+
+    expect((await move(reviews))[0]).toMatchObject({ outdated: true });
+  });
+
+  it('marks drafts outdated when the comparison may be cut short', async () => {
+    const { getChangesBetween, reviews } = setup();
+    getChangesBetween.mockResolvedValue(
+      Array.from({ length: 300 }, (_, index) => changed(`f${index}.ts`, [])),
+    );
+    draftOn('a.ts', 5);
+
+    expect((await move(reviews))[0]).toMatchObject({ outdated: true });
+  });
+
+  it('throws when GitHub cannot be reached and leaves the drafts as they were', async () => {
+    const { getChangesBetween, reviews } = setup();
+    getChangesBetween.mockRejectedValue(new GitHubApiError(500, '/compare', 'Down'));
+    draftOn('a.ts', 5);
+
+    await expect(move(reviews)).rejects.toThrow();
+    expect(listReviewDrafts(db, pullRequestId)[0]).toMatchObject({
+      headSha: HEAD,
+      outdated: false,
+    });
+  });
+
+  it('keeps an outdated draft with the commits on show and never sends it', async () => {
+    const { getChangesBetween, submitReview, reviews } = setup();
+    getChangesBetween.mockResolvedValue([
+      changed('a.ts', [{ originalStart: 4, originalCount: 3, modifiedStart: 4, modifiedCount: 3 }]),
+    ]);
+    const draft = draftOn('a.ts', 5);
+    await move(reviews);
+    expect(await move(reviews)).toHaveLength(1);
+
+    await expect(
+      reviews.submit({
+        pullRequestId,
+        headSha: NEW_HEAD,
+        mergeBase: BASE,
+        draftIds: [draft.id],
+        findingIds: [],
+        verdict: 'comment',
+        body: 'Notes.',
+      }),
+    ).resolves.toMatchObject({ status: 'rejected' });
+    expect(submitReview).not.toHaveBeenCalled();
   });
 });

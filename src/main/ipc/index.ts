@@ -138,6 +138,7 @@ export function registerIpcHandlers(
   handle('reviewDrafts.list', ({ pullRequestId }) => listReviewDrafts(db, pullRequestId));
   handle('reviewDrafts.create', (draft) => createReviewDraft(db, draft));
   handle('reviewDrafts.update', (draft) => updateReviewDraft(db, draft));
+  handle('reviewDrafts.reattach', (move) => pullRequestReviews.reattachDrafts(move));
   handle('reviewDrafts.delete', ({ pullRequestId, id }) =>
     deleteReviewDraft(db, pullRequestId, id),
   );

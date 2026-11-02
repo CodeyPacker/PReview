@@ -19,6 +19,9 @@ export const reviewDraftSchema = z.object({
   // Set when the comment covers several lines. It runs from startLine to line.
   startLine: z.number().int().positive().nullable(),
   line: z.number().int().positive(),
+  // True when newer commits changed these lines, so the comment can't be placed on them for
+  // sure. It stays at its old line and is not sent.
+  outdated: z.boolean(),
   body: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -47,3 +50,11 @@ export const updateReviewDraftInputSchema = z.object({
   body: draftBodySchema,
 });
 export type UpdateReviewDraftInput = z.infer<typeof updateReviewDraftInputSchema>;
+
+// The commits a pull request is now at, which its drafts from older commits are moved to.
+export const reattachReviewDraftsInputSchema = z.object({
+  pullRequestId: z.number().int(),
+  headSha: commitShaSchema,
+  mergeBase: commitShaSchema,
+});
+export type ReattachReviewDraftsInput = z.infer<typeof reattachReviewDraftsInputSchema>;
