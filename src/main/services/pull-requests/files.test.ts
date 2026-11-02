@@ -58,6 +58,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
 
 const file: ProviderChangedFile = {
   path: 'a.ts',
+  blobSha: 'sha-a.ts',
   previousPath: null,
   status: 'added',
   additions: 1,

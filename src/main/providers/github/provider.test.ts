@@ -227,6 +227,7 @@ describe('GitHubProvider changed files', () => {
       json([
         {
           filename: 'src/a.ts',
+          sha: 'sha-a',
           status: 'modified',
           additions: 3,
           deletions: 1,
@@ -234,18 +235,21 @@ describe('GitHubProvider changed files', () => {
         },
         {
           filename: 'src/b.ts',
+          sha: 'sha-b',
           previous_filename: 'src/old.ts',
           status: 'renamed',
           additions: 0,
           deletions: 0,
         },
-        { filename: 'src/c.ts', status: 'unchanged', additions: 0, deletions: 0 },
+        { filename: 'src/c.ts',
+          sha: 'sha-c', status: 'unchanged', additions: 0, deletions: 0 },
       ]),
     ]);
 
     await expect(provider.getPullRequestFiles('octo/app', 7)).resolves.toEqual([
       {
         path: 'src/a.ts',
+        blobSha: 'sha-a',
         previousPath: null,
         status: 'modified',
         additions: 3,
@@ -254,6 +258,7 @@ describe('GitHubProvider changed files', () => {
       },
       {
         path: 'src/b.ts',
+        blobSha: 'sha-b',
         previousPath: 'src/old.ts',
         status: 'renamed',
         additions: 0,
@@ -262,6 +267,7 @@ describe('GitHubProvider changed files', () => {
       },
       {
         path: 'src/c.ts',
+        blobSha: 'sha-c',
         previousPath: null,
         status: 'changed',
         additions: 0,

@@ -12,6 +12,8 @@ export type DiffHunk = z.infer<typeof diffHunkSchema>;
 
 export const pullRequestFileSchema = z.object({
   path: z.string(),
+  // The file's id at the pull request head. Changes when the file's content changes.
+  blobSha: z.string(),
   // The path before a rename or copy.
   previousPath: z.string().nullable(),
   status: z.enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed']),

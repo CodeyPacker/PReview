@@ -16,6 +16,7 @@ import {
   setReviewFindingResolution,
   updateReviewFinding,
 } from '../services/pull-requests/findings.ts';
+import { listFileReviewMarks, setFileReviewMark } from '../services/pull-requests/marks.ts';
 import {
   getActiveReview,
   getReviewSession,
@@ -138,6 +139,8 @@ export function registerIpcHandlers(
     deleteReviewFinding(db, pullRequestId, id),
   );
 
+  handle('fileReviewMarks.list', ({ pullRequestId }) => listFileReviewMarks(db, pullRequestId));
+  handle('fileReviewMarks.set', (mark) => setFileReviewMark(db, mark));
   handle('reviewSessions.get', ({ pullRequestId }) => getReviewSession(db, pullRequestId));
   handle('reviewSessions.save', (session) => saveReviewSession(db, session));
   handle('reviewSessions.getActive', () => getActiveReview(db));
