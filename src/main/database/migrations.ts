@@ -270,4 +270,48 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE review_sessions ADD COLUMN view TEXT;
     `,
   },
+  {
+    version: 16,
+    name: 'review_submissions_and_agent_tasks',
+    // A review on its way to GitHub. It is saved before sending, and its id goes in the body,
+    // so after a crash or lost connection PReview can tell whether GitHub already has it.
+    // comments keeps the published drafts as JSON, since the drafts themselves are deleted.
+    // An agent task is the work one submission sends to the agent. It waits in the queue
+    // until a runner picks it up.
+    sql: `
+      CREATE TABLE review_submissions (
+        id TEXT PRIMARY KEY,
+        pull_request_id INTEGER NOT NULL REFERENCES pull_requests (id) ON DELETE CASCADE,
+        head_sha TEXT NOT NULL,
+        verdict TEXT NOT NULL CHECK (verdict IN ('approve', 'request-changes', 'comment')),
+        body TEXT NOT NULL,
+        comments TEXT NOT NULL,
+        draft_ids TEXT NOT NULL,
+        finding_ids TEXT NOT NULL,
+        send_to_agent INTEGER NOT NULL CHECK (send_to_agent IN (0, 1)),
+        state TEXT NOT NULL DEFAULT 'publishing'
+          CHECK (state IN ('publishing', 'published', 'failed')),
+        provider_review_id TEXT,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        published_at TEXT
+      ) STRICT;
+
+      CREATE INDEX review_submissions_pull_request ON review_submissions (pull_request_id);
+
+      CREATE TABLE agent_tasks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        submission_id TEXT NOT NULL UNIQUE
+          REFERENCES review_submissions (id) ON DELETE CASCADE,
+        pull_request_id INTEGER NOT NULL REFERENCES pull_requests (id) ON DELETE CASCADE,
+        status TEXT NOT NULL DEFAULT 'queued'
+          CHECK (status IN ('queued', 'running', 'waiting', 'stopped', 'failed', 'completed')),
+        session_id TEXT,
+        attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+
+      CREATE INDEX agent_tasks_pull_request ON agent_tasks (pull_request_id);
+    `,
+  },
 ];

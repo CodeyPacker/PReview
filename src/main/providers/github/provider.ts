@@ -6,6 +6,7 @@ import type {
   ProviderCommit,
   ProviderCommitChanges,
   ProviderPullRequest,
+  ProviderPublishedReview,
   ProviderPullRequestRefs,
   ProviderReview,
   MergeMethod,
@@ -61,6 +62,14 @@ const commitSchema = z.object({
   sha: z.string(),
   commit: z.object({ message: z.string() }),
   author: z.object({ login: z.string() }).nullable(),
+});
+
+// GitHub's answer to a new review. Only its id is used.
+const postedReviewSchema = z.object({ id: z.number() });
+
+const reviewSchema = z.object({
+  id: z.number(),
+  body: z.string().nullable(),
 });
 
 const commitChangesSchema = z.object({
@@ -378,21 +387,33 @@ export class GitHubProvider implements GitProvider {
     repositoryFullName: string,
     number: number,
     review: ProviderReview,
-  ): Promise<void> {
-    await this.client.postJson(`/repos/${repositoryFullName}/pulls/${number}/reviews`, {
-      commit_id: review.headSha,
-      body: review.body,
-      event: reviewEvents[review.verdict],
-      comments: review.comments.map((comment) => {
-        const side = comment.side === 'original' ? 'LEFT' : 'RIGHT';
-        return {
-          path: comment.path,
-          body: comment.body,
-          line: comment.line,
-          side,
-          ...(comment.startLine !== null && { start_line: comment.startLine, start_side: side }),
-        };
-      }),
+  ): Promise<{ id: string }> {
+    const posted = await this.client.postJson(
+      `/repos/${repositoryFullName}/pulls/${number}/reviews`,
+      {
+        commit_id: review.headSha,
+        body: review.body,
+        event: reviewEvents[review.verdict],
+        comments: review.comments.map((comment) => {
+          const side = comment.side === 'original' ? 'LEFT' : 'RIGHT';
+          return {
+            path: comment.path,
+            body: comment.body,
+            line: comment.line,
+            side,
+            ...(comment.startLine !== null && { start_line: comment.startLine, start_side: side }),
+          };
+        }),
+      },
+    );
+    return { id: String(postedReviewSchema.parse(posted).id) };
+  }
+
+  async getReviews(repositoryFullName: string, number: number): Promise<ProviderPublishedReview[]> {
+    const items = await this.client.getAll(`/repos/${repositoryFullName}/pulls/${number}/reviews`);
+    return items.map((item) => {
+      const review = reviewSchema.parse(item);
+      return { id: String(review.id), body: review.body ?? '' };
     });
   }
 

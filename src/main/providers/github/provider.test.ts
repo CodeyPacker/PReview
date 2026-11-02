@@ -487,6 +487,36 @@ describe('GitHubProvider submitReview', () => {
       }),
     ).rejects.toMatchObject({ status: 422, detail: 'Can not approve your own pull request' });
   });
+
+  it("resolves with the review's id", async () => {
+    const { provider } = setup([json({ id: 42 })]);
+
+    await expect(
+      provider.submitReview('octo/app', 7, {
+        verdict: 'comment',
+        body: 'Notes.',
+        headSha: 'abc',
+        comments: [],
+      }),
+    ).resolves.toEqual({ id: '42' });
+  });
+});
+
+describe('GitHubProvider getReviews', () => {
+  it("lists the pull request's reviews with their bodies", async () => {
+    const { fetch, provider } = setup([
+      json([
+        { id: 1, body: 'Looks good.' },
+        { id: 2, body: null },
+      ]),
+    ]);
+
+    await expect(provider.getReviews('octo/app', 7)).resolves.toEqual([
+      { id: '1', body: 'Looks good.' },
+      { id: '2', body: '' },
+    ]);
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/reviews');
+  });
 });
 
 function threadsPage(nodes: unknown[], endCursor: string | null = null) {
