@@ -11,7 +11,11 @@ import type {
 export function useReviewDrafts(pullRequestId: number) {
   const queryClient = useQueryClient();
   const queryKey = ['reviewDrafts', pullRequestId] as const;
-  const replace = (drafts: ReviewDraft[]) => queryClient.setQueryData(queryKey, drafts);
+  // The pull request's review state depends on whether it has drafts.
+  const replace = (drafts: ReviewDraft[]) => {
+    queryClient.setQueryData(queryKey, drafts);
+    void queryClient.invalidateQueries({ queryKey: ['pullRequests'] });
+  };
 
   const drafts = useQuery({
     queryKey,

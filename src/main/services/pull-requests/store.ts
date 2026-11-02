@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { PullRequest } from '../../../shared/contracts/pull-requests.ts';
+import type { PullRequest, ReviewState } from '../../../shared/contracts/pull-requests.ts';
 import { transaction } from '../../database/connection.ts';
 import type { ProviderPullRequest } from '../../providers/types.ts';
 
@@ -19,6 +19,28 @@ interface PullRequestRow {
   created_at: string;
   updated_at: string;
   opened: number;
+  has_drafts: number;
+  submitted_head_sha: string | null;
+  finished_at: string | null;
+}
+
+// The latest round decides: a submitted review waits for new commits, then for the next
+// round, and a finished one is done. Before a submit, unsent drafts mean feedback is in the
+// making.
+export function reviewStateOf(row: {
+  opened: boolean;
+  hasDrafts: boolean;
+  headSha: string;
+  submittedHeadSha: string | null;
+  finishedAt: string | null;
+}): ReviewState {
+  if (row.submittedHeadSha !== null && row.submittedHeadSha !== row.headSha) {
+    return 'ready-for-rereview';
+  }
+  if (row.finishedAt !== null) return 'completed';
+  if (row.submittedHeadSha !== null) return 'feedback-submitted';
+  if (row.hasDrafts) return 'draft-feedback';
+  return row.opened ? 'in-progress' : 'needs-review';
 }
 
 // The open pull requests of monitored, available repositories, newest activity first.
@@ -28,10 +50,14 @@ export function listPullRequests(db: DatabaseSync): PullRequest[] {
     .prepare(
       `SELECT p.id, p.repository_id, p.number, p.title, p.draft, p.url, p.author_login,
               p.author_avatar_url, p.author_is_bot, p.head_branch, p.head_sha, p.base_branch, p.created_at,
-              p.updated_at, s.pull_request_id IS NOT NULL AS opened
+              p.updated_at, s.pull_request_id IS NOT NULL AS opened,
+              EXISTS (SELECT 1 FROM review_drafts d WHERE d.pull_request_id = p.id) AS has_drafts,
+              rr.submitted_head_sha, rr.finished_at
        FROM pull_requests p
        JOIN repositories r ON r.id = p.repository_id
        LEFT JOIN review_sessions s ON s.pull_request_id = p.id
+       LEFT JOIN review_rounds rr ON rr.pull_request_id = p.id
+         AND rr.number = (SELECT MAX(number) FROM review_rounds WHERE pull_request_id = p.id)
        WHERE r.monitored = 1 AND r.status = 'available'
          AND (r.include_drafts = 1 OR p.draft = 0)
          AND (r.include_automated = 1 OR p.author_is_bot = 0)
@@ -59,6 +85,13 @@ export function listPullRequests(db: DatabaseSync): PullRequest[] {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     opened: row.opened === 1,
+    reviewState: reviewStateOf({
+      opened: row.opened === 1,
+      hasDrafts: row.has_drafts === 1,
+      headSha: row.head_sha,
+      submittedHeadSha: row.submitted_head_sha,
+      finishedAt: row.finished_at,
+    }),
   }));
 }
 

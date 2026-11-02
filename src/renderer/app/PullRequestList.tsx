@@ -98,7 +98,10 @@ export function PullRequestList({
                     {relativeTime(pull.updatedAt)}
                   </span>
                 </span>
-                {pull.draft && <StatusPill status="draft" />}
+                <span className={styles.states}>
+                  {pull.draft && <StatusPill status="draft" />}
+                  <StatusPill status={pull.reviewState} />
+                </span>
               </button>
             </li>
           ))}

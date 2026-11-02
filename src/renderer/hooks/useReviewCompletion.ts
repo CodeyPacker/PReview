@@ -13,7 +13,10 @@ export function useReviewCompletion(pullRequestId: number) {
     mutationFn: () => window.preview.reviewCompletions.finish(pullRequestId),
     onSuccess: (saved) => {
       queryClient.setQueryData(queryKey, saved);
-      return queryClient.invalidateQueries({ queryKey: ['reviewRounds', pullRequestId] });
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['reviewRounds', pullRequestId] }),
+        queryClient.invalidateQueries({ queryKey: ['pullRequests'] }),
+      ]);
     },
   });
   return { completion, finish };
