@@ -628,6 +628,19 @@ describe('PullRequestReviews merge', () => {
     );
   });
 
+  it('explains a 404 as an account without write access', async () => {
+    const { mergePullRequest, reviews } = setup();
+    mergePullRequest.mockRejectedValue(new GitHubApiError(404, '/merge', 'Not Found'));
+
+    await expect(reviews.merge({ pullRequestId, headSha: HEAD, method: 'merge' })).resolves.toEqual(
+      {
+        status: 'rejected',
+        message:
+          'Your GitHub account can’t merge in this repository. Check that it has write access.',
+      },
+    );
+  });
+
   it('throws when GitHub cannot be reached', async () => {
     const { mergePullRequest, reviews } = setup();
     mergePullRequest.mockRejectedValue(new GitHubApiError(502, '/merge'));
