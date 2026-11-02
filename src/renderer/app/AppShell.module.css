@@ -35,17 +35,20 @@
   position: absolute;
   z-index: 1;
   top: var(--space-32);
-  left: 0;
+  /* Open, the tab sits inside the sidebar at its right edge. */
+  left: calc(var(--space-16) + 232px - 23px);
   width: 22px;
   height: 28px;
   padding: 0;
   border: 1px solid var(--border);
-  border-left: 0;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-right: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   background: var(--surface-raised);
   color: var(--ink-secondary);
   -webkit-app-region: no-drag;
-  transition: background 200ms ease;
+  transition:
+    left 200ms ease,
+    background 200ms ease;
 }
 
 .sidebarToggle > svg {
@@ -56,6 +59,14 @@
 .sidebarToggle:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
+}
+
+/* Closed, the tab sits on the window's left edge. */
+.collapsed .sidebarToggle {
+  left: 0;
+  border-right: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .sidebar {

@@ -218,6 +218,13 @@ function ReviewPage() {
   const leader = settings?.reviewLeader ?? defaultSettings.reviewLeader;
   const shortcut = (key: string) => reviewShortcutLabel(leader, key, isMac);
   const diffViewer = useRef<DiffViewerHandle>(null);
+  // The toggle moves to the other panel, so it is a new element and takes focus back after a click.
+  const refocusFilesToggle = useRef(false);
+  useEffect(() => {
+    if (!refocusFilesToggle.current) return;
+    refocusFilesToggle.current = false;
+    document.getElementById('review-files-toggle')?.focus();
+  }, [filesCollapsed]);
   const initialSidebarCollapsed = useRef(sidebarCollapsed);
 
   useEffect(() => {
@@ -396,6 +403,25 @@ function ReviewPage() {
           ? 'There are no files to show.'
           : 'No files match this filter.';
 
+  // Open, the toggle sits inside the files panel. Closed, it sits inside the review panel.
+  const filesToggle = (
+    <IconButton
+      id="review-files-toggle"
+      className={cx(styles.treeToggle, filesCollapsed && styles.treeToggleClosed)}
+      variant="plain"
+      size="sm"
+      icon={filesCollapsed ? <ChevronRight /> : <ChevronLeft />}
+      label={filesCollapsed ? 'Expand changed files' : 'Collapse changed files'}
+      shortcut={shortcut('t')}
+      aria-expanded={!filesCollapsed}
+      aria-controls="review-files"
+      onClick={() => {
+        refocusFilesToggle.current = true;
+        setFilesCollapsed((value) => !value);
+      }}
+    />
+  );
+
   return (
     <div className={cx(styles.page, zen && styles.zen)}>
       <header className={styles.header}>
@@ -489,22 +515,12 @@ function ReviewPage() {
         />
       )}
       <div className={cx(styles.workspace, filesCollapsed && styles.filesCollapsed)}>
-        <IconButton
-          className={styles.treeToggle}
-          variant="plain"
-          size="sm"
-          icon={filesCollapsed ? <ChevronRight /> : <ChevronLeft />}
-          label={filesCollapsed ? 'Expand changed files' : 'Collapse changed files'}
-          shortcut={shortcut('t')}
-          aria-expanded={!filesCollapsed}
-          aria-controls="review-files"
-          onClick={() => setFilesCollapsed((value) => !value)}
-        />
         <div
           className={styles.filesSlot}
           inert={filesCollapsed}
           aria-hidden={filesCollapsed || undefined}
         >
+          {!filesCollapsed && filesToggle}
           <ChangedFiles
             id="review-files"
             className={styles.files}
@@ -530,6 +546,7 @@ function ReviewPage() {
           />
         </div>
         <Panel className={styles.diff} padding="sm" aria-labelledby="review-file-title">
+          {filesCollapsed && filesToggle}
           <header
             className={styles.diffHeader}
             style={{ gridTemplateColumns: `${lineNumberOffset}px minmax(0, 1fr) auto` }}
