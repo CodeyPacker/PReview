@@ -3,7 +3,12 @@ import { CircleAlert, ExternalLink, GitPullRequest } from 'lucide-react';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { IconTile } from '../components/IconTile/IconTile.tsx';
-import { useCancelGitHub, useConnectGitHub, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
+import {
+  useCancelGitHub,
+  useConnectGitHub,
+  useConnectGitHubCli,
+  useGitHubAuth,
+} from '../hooks/useGitHubAuth.ts';
 import styles from './GitHubConnectDialog.module.css';
 
 export interface GitHubConnectDialogProps {
@@ -12,10 +17,12 @@ export interface GitHubConnectDialogProps {
 }
 
 // Walks the user through GitHub's device flow: connect, enter the code in the browser,
-// done. Closing the dialog while a code is showing cancels the flow.
+// done. Or signs in with the GitHub CLI's account in one step. Closing the dialog while a
+// code is showing cancels the flow.
 export function GitHubConnectDialog({ open, onOpenChange }: GitHubConnectDialogProps) {
   const { data: auth } = useGitHubAuth();
   const connect = useConnectGitHub();
+  const connectCli = useConnectGitHubCli();
   const cancel = useCancelGitHub();
 
   const close = () => {
@@ -64,7 +71,8 @@ export function GitHubConnectDialog({ open, onOpenChange }: GitHubConnectDialogP
               />
               <Dialog.Title className="title-2">GitHub is connected</Dialog.Title>
               <Dialog.Description className={styles.description}>
-                Signed in as @{auth.user.login}.
+                Signed in as @{auth.user.login}
+                {auth.source === 'cli' ? ' through the GitHub CLI.' : '.'}
               </Dialog.Description>
               <div className={styles.actions}>
                 <Button variant="primary" onClick={close}>
@@ -89,6 +97,13 @@ export function GitHubConnectDialog({ open, onOpenChange }: GitHubConnectDialogP
               <div className={styles.actions}>
                 <Button variant="plain" onClick={close}>
                   Not now
+                </Button>
+                <Button
+                  variant="outline"
+                  loading={connectCli.isPending}
+                  onClick={() => connectCli.mutate()}
+                >
+                  Use GitHub CLI
                 </Button>
                 <Button
                   variant="primary"

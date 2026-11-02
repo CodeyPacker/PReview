@@ -14,10 +14,13 @@ import {
   type Fetch,
   type Sleep,
 } from './device-flow.ts';
+import { GhCliError, type GhToken } from './gh-cli.ts';
 
 export interface GitHubAuthDeps {
   store: CredentialStore;
   fetch: Fetch;
+  // Reads the GitHub CLI's token, for connections made with the CLI.
+  ghToken: GhToken;
   sleep: Sleep;
   // Opens GitHub's device page in the system browser.
   openUrl: (url: string) => void;
@@ -28,8 +31,8 @@ export interface GitHubAuthDeps {
 
 const SIGNED_OUT = 'GitHub signed you out. Connect again to keep syncing pull requests.';
 
-// Owns the GitHub connection: the device flow, the stored token and the state the
-// renderer reads. Holds at most one device flow at a time.
+// Owns the GitHub connection: the device flow or the GitHub CLI, the stored credentials
+// and the state the renderer reads. Holds at most one device flow at a time.
 export class GitHubAuth {
   private state: GitHubAuthState = { status: 'disconnected' };
   private flow: AbortController | undefined;
@@ -38,10 +41,10 @@ export class GitHubAuth {
     private readonly deps: GitHubAuthDeps,
     stored?: GitHubCredentials,
   ) {
-    if (stored) this.state = { status: 'connected', user: stored.user };
+    if (stored) this.state = { status: 'connected', source: stored.source, user: stored.user };
   }
 
-  // Starts connected when the store holds a token.
+  // Starts connected when the store holds credentials.
   static async restore(deps: GitHubAuthDeps): Promise<GitHubAuth> {
     return new GitHubAuth(deps, await deps.store.load());
   }
@@ -50,27 +53,37 @@ export class GitHubAuth {
     return this.state;
   }
 
-  // The stored token, or undefined when GitHub is not connected.
+  // The token for the current connection, or undefined when GitHub is not connected or
+  // the GitHub CLI can't hand one out.
   async getToken(): Promise<string | undefined> {
     if (this.state.status !== 'connected') return undefined;
-    return (await this.deps.store.load())?.token;
+    const stored = await this.deps.store.load();
+    if (!stored) return undefined;
+    if (stored.source === 'oauth') return stored.token;
+    try {
+      return await this.deps.ghToken();
+    } catch (error) {
+      this.deps.log.warn('Could not read the GitHub CLI token', error);
+      return undefined;
+    }
   }
 
-  // Checks the stored token with GitHub and refreshes the profile. A rejected token is
-  // removed. A network failure keeps the connection as it is.
+  // Checks the token with GitHub and refreshes the profile. A rejected token disconnects.
+  // A network failure, or a CLI that can't hand out a token, keeps the connection.
   async verify(): Promise<void> {
     const stored = await this.deps.store.load();
     if (!stored) return;
     try {
-      const user = await fetchUser(this.deps.fetch, stored.token);
-      await this.deps.store.save({ token: stored.token, user });
-      if (this.state.status === 'connected') this.state = { status: 'connected', user };
+      const token = stored.source === 'oauth' ? stored.token : await this.deps.ghToken();
+      const user = await fetchUser(this.deps.fetch, token);
+      await this.deps.store.save({ ...stored, user });
+      if (this.state.status === 'connected') this.state = { ...this.state, user };
     } catch (error) {
       if (!(error instanceof GitHubUnauthorizedError)) {
         this.deps.log.warn('Could not verify the GitHub connection', error);
         return;
       }
-      this.deps.log.info('GitHub rejected the stored token. Disconnecting.');
+      this.deps.log.info('GitHub rejected the token. Disconnecting.');
       this.deps.store.clear();
       if (this.state.status === 'connected')
         this.state = { status: 'disconnected', error: SIGNED_OUT };
@@ -106,6 +119,26 @@ export class GitHubAuth {
     return this.state;
   }
 
+  // Connects with the GitHub CLI's active account. Stores only the profile, since gh
+  // keeps the token. Cancels a device flow in progress.
+  async connectWithCli(): Promise<GitHubAuthState> {
+    this.flow?.abort();
+    this.flow = undefined;
+    try {
+      const user = await fetchUser(this.deps.fetch, await this.deps.ghToken());
+      await this.deps.store.save({ source: 'cli', user });
+      this.state = { status: 'connected', source: 'cli', user };
+      this.deps.log.info(`Connected GitHub through the CLI as ${user.login}`);
+    } catch (error) {
+      this.state = this.failure(
+        error instanceof GitHubUnauthorizedError
+          ? new GhCliError('GitHub rejected the GitHub CLI’s token. Run gh auth login again.')
+          : error,
+      );
+    }
+    return this.state;
+  }
+
   cancel(): GitHubAuthState {
     if (this.state.status !== 'pending') return this.state;
     this.flow?.abort();
@@ -114,8 +147,9 @@ export class GitHubAuth {
     return this.state;
   }
 
-  // Forgets the token on this computer. The authorization stays listed on GitHub until
-  // the user revokes it there, since revoking needs the client secret.
+  // Forgets the credentials on this computer. An OAuth authorization stays listed on
+  // GitHub until the user revokes it there, since revoking needs the client secret. A
+  // CLI connection leaves gh signed in.
   disconnect(): GitHubAuthState {
     this.flow?.abort();
     this.flow = undefined;
@@ -130,8 +164,8 @@ export class GitHubAuth {
       const token = await pollForToken(this.deps.fetch, this.deps.sleep, code, flow.signal);
       const user = await fetchUser(this.deps.fetch, token);
       if (this.flow !== flow) return;
-      await this.deps.store.save({ token, user });
-      this.state = { status: 'connected', user };
+      await this.deps.store.save({ source: 'oauth', token, user });
+      this.state = { status: 'connected', source: 'oauth', user };
       this.deps.log.info(`Connected GitHub as ${user.login}`);
     } catch (error) {
       if (this.flow === flow && !flow.signal.aborted) this.state = this.failure(error);
@@ -143,7 +177,9 @@ export class GitHubAuth {
   private failure(error: unknown): GitHubAuthState {
     this.deps.log.warn('GitHub connection failed', error);
     const message =
-      error instanceof DeviceFlowError || error instanceof SecureStorageUnavailableError
+      error instanceof DeviceFlowError ||
+      error instanceof SecureStorageUnavailableError ||
+      error instanceof GhCliError
         ? error.message
         : 'Could not reach GitHub. Check your connection and try again.';
     return { status: 'disconnected', error: message };

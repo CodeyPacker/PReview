@@ -72,7 +72,7 @@ function GitHubPanel() {
           </p>
           <p className={styles.detail}>
             {connected
-              ? `@${connected.user.login}`
+              ? `@${connected.user.login}${connected.source === 'cli' ? ' · GitHub CLI' : ''}`
               : 'Connect to bring in pull requests and post reviews.'}
           </p>
           {auth?.status === 'disconnected' && auth.error && (

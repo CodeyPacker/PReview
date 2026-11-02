@@ -61,6 +61,7 @@ export const ipcContract = {
   'settings.update': { input: settingsPatchSchema, output: settingsSchema },
   'github.getAuth': { input: z.undefined(), output: githubAuthStateSchema },
   'github.connect': { input: z.undefined(), output: githubAuthStateSchema },
+  'github.connectWithCli': { input: z.undefined(), output: githubAuthStateSchema },
   'github.cancel': { input: z.undefined(), output: githubAuthStateSchema },
   'github.disconnect': { input: z.undefined(), output: githubAuthStateSchema },
   'folders.list': { input: z.undefined(), output: z.array(watchedFolderSchema) },

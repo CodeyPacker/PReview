@@ -2,7 +2,16 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { z } from 'zod';
 import { githubUserSchema } from '../../../shared/contracts/github.ts';
 
-const credentialsSchema = z.object({ token: z.string(), user: githubUserSchema });
+// A CLI connection stores no token, since gh keeps it. Files saved before the CLI option
+// have no source and read as oauth.
+const credentialsSchema = z.union([
+  z.object({ source: z.literal('cli'), user: githubUserSchema }),
+  z.object({
+    source: z.literal('oauth').default('oauth'),
+    token: z.string(),
+    user: githubUserSchema,
+  }),
+]);
 export type GitHubCredentials = z.infer<typeof credentialsSchema>;
 
 // The parts of Electron's safeStorage this store uses. On macOS the encryption key lives

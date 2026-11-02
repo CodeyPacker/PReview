@@ -367,13 +367,16 @@ export class PullRequestReviews {
     } catch (error) {
       // These are GitHub refusing the merge, such as failing checks, a method the repository
       // turns off, or no permission. 409 is the branch having moved past the reviewed commit.
-      if (error instanceof GitHubApiError && [403, 405, 409, 422].includes(error.status)) {
+      // 404 is GitHub hiding the repository from an account that can't push to it.
+      if (error instanceof GitHubApiError && [403, 404, 405, 409, 422].includes(error.status)) {
         return {
           status: 'rejected',
           message:
             error.status === 409
               ? 'The branch has new commits since you reviewed it. Reload and review them first.'
-              : (error.detail ?? 'GitHub did not merge this pull request.'),
+              : error.status === 404
+                ? 'Your GitHub account can’t merge in this repository. Check that it has write access.'
+                : (error.detail ?? 'GitHub did not merge this pull request.'),
         };
       }
       throw error;
