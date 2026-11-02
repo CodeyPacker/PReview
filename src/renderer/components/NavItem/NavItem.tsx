@@ -1,6 +1,7 @@
 // NavItem: Main sidebar link.
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import type { Tone } from '../../styles/tones.ts';
 import { Count } from '../Count/Count.tsx';
 import styles from './NavItem.module.css';
 
@@ -10,17 +11,19 @@ export interface NavItemProps {
   label: string;
   // Unread or pending work. Hidden when 0.
   count?: number;
+  // The count's color while the link isn't the current page.
+  countTone?: Tone;
 }
 
 // Active state comes from the router: the link gets aria-current="page".
-export function NavItem({ to, icon, label, count }: NavItemProps) {
+export function NavItem({ to, icon, label, count, countTone = 'danger' }: NavItemProps) {
   return (
     <Link to={to} className={styles.item} activeProps={{ className: styles.active }}>
       {({ isActive }) => (
         <>
           <span className={styles.icon}>{icon}</span>
           <span className={styles.label}>{label}</span>
-          {count ? <Count value={count} tone={isActive ? 'accent' : 'danger'} /> : null}
+          {count ? <Count value={count} tone={isActive ? 'accent' : countTone} /> : null}
         </>
       )}
     </Link>

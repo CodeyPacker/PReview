@@ -13,6 +13,7 @@ import {
 import { useCallback, useMemo, useState, type SetStateAction } from 'react';
 import wordmarkDark from '../assets/wordmark-dark.png';
 import wordmarkLight from '../assets/wordmark-light.png';
+import { usePullRequests } from '../hooks/usePullRequests.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
 import { reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
@@ -31,6 +32,9 @@ interface PanelVisibility {
 }
 
 export function AppShell() {
+  const { data: pullRequestState } = usePullRequests();
+  // Pull requests whose review hasn't been opened yet.
+  const unopened = pullRequestState?.pullRequests.filter((pull) => !pull.opened).length;
   const [layout, setLayout] = useState<PanelVisibility & { beforeZen: PanelVisibility | null }>({
     collapsed: false,
     filesCollapsed: true,
@@ -101,7 +105,13 @@ export function AppShell() {
             </div>
             <nav aria-label="Main" className={styles.nav}>
               <NavItem to="/dashboard" icon={<House />} label="Dashboard" />
-              <NavItem to="/inbox" icon={<Inbox />} label="Inbox" />
+              <NavItem
+                to="/inbox"
+                icon={<Inbox />}
+                label="Inbox"
+                count={unopened}
+                countTone="warning"
+              />
               <NavItem to="/characters" icon={<Smile />} label="Characters" />
               <NavItem to="/achievements" icon={<Trophy />} label="Achievements" />
               <NavItem to="/integrations" icon={<Plug />} label="Integrations" />

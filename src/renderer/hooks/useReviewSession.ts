@@ -45,12 +45,15 @@ export function useReviewSession(pullRequestId: number) {
   }
 
   useEffect(() => {
-    void window.preview.reviewSessions.setActive(pullRequestId);
+    // Opening a review marks it opened in the pull request list.
+    void window.preview.reviewSessions
+      .setActive(pullRequestId)
+      .then(() => queryClient.invalidateQueries({ queryKey: ['pullRequests'] }));
     return () => {
       flush();
       void window.preview.reviewSessions.setActive(null);
     };
-  }, [pullRequestId, flush]);
+  }, [pullRequestId, flush, queryClient]);
 
   return { session, save };
 }
