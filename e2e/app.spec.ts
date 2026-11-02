@@ -1308,7 +1308,7 @@ test('shows one commit on its own without file decisions', async () => {
         'pullRequestFiles.list': {
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
-          files: [file('a.ts'), file('b.ts')],
+          files: [file('a.ts'), file('b.ts'), file('pnpm-lock.yaml')],
         },
         'pullRequestFiles.listCommits': [{ sha: commit, subject: 'Touch b', authorLogin: 'octo' }],
         'pullRequestFiles.listCommit': {
@@ -1349,6 +1349,15 @@ test('shows one commit on its own without file decisions', async () => {
     await page.getByRole('option', { name: 'All changes' }).click();
     await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeEnabled();
+
+    // Generated files wait for the reviewer.
+    await files.getByRole('button', { name: /pnpm-lock.yaml/ }).click();
+    await expect(
+      page.getByText('This file looks generated, so its diff is collapsed.'),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Show diff' }).click();
+    await expect(page.getByText('This file looks generated')).toBeHidden();
+    await expect(page.locator('.monaco-diff-editor')).toBeVisible();
   } finally {
     await app.close();
   }

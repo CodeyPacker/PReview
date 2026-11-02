@@ -58,6 +58,7 @@ import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
 import { reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
 import { isMac } from '../lib/platform.ts';
+import { collapseReason } from '../lib/collapsedFile.ts';
 import styles from './review.module.css';
 
 export const Route = createFileRoute('/review/$pullRequestId')({ component: ReviewPage });
@@ -251,10 +252,14 @@ function ReviewPage() {
 
   const isAdded = selected?.status === 'added';
   const effectiveMode = isAdded ? 'unified' : mode;
+  // Generated and large files wait for the reviewer, so their diffs are not read before then.
+  const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(new Set());
+  const collapsedReason =
+    selected && !expandedPaths.has(selected.path) ? collapseReason(selected) : undefined;
   const diff = usePullRequestFileDiff(
     pullRequestId,
     shown.data,
-    selected?.path,
+    collapsedReason ? undefined : selected?.path,
     selected?.previousPath ?? null,
   );
 
@@ -325,7 +330,8 @@ function ReviewPage() {
 
   const { author } = pullRequest;
   let diffMessage: string | undefined;
-  if (diff.isPending && selected) diffMessage = 'Loading the file…';
+  if (collapsedReason) diffMessage = undefined;
+  else if (diff.isPending && selected) diffMessage = 'Loading the file…';
   else if (diff.isError) diffMessage = 'Could not load the file. Try again later.';
   else if (diff.data?.unavailable === 'binary') diffMessage = 'This file is binary.';
   else if (diff.data?.unavailable === 'too-large') diffMessage = 'This file is too large to show.';
@@ -532,7 +538,21 @@ function ReviewPage() {
               />
             </div>
           </header>
-          {diffMessage ? (
+          {collapsedReason && selected ? (
+            <div className={styles.collapsed}>
+              <p className={styles.message}>
+                {collapsedReason === 'generated'
+                  ? 'This file looks generated, so its diff is collapsed.'
+                  : 'This diff is large, so it is collapsed.'}
+              </p>
+              <Button
+                size="sm"
+                onClick={() => setExpandedPaths((paths) => new Set(paths).add(selected.path))}
+              >
+                Show diff
+              </Button>
+            </div>
+          ) : diffMessage ? (
             <p className={styles.message}>{diffMessage}</p>
           ) : (
             selected &&

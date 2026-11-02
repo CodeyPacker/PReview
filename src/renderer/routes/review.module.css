@@ -149,6 +149,12 @@
   min-height: 0;
 }
 
+.collapsed {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-8);
+}
+
 .message {
   margin: 0;
   color: var(--ink-secondary);
