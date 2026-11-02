@@ -10,13 +10,14 @@ interface ReviewSessionRow {
   selected_path: string | null;
   scroll_top: number;
   diff_mode: ReviewSession['diffMode'];
+  view: string | null;
 }
 
 // The pull request's session, or null before it was first opened.
 export function getReviewSession(db: DatabaseSync, pullRequestId: number): ReviewSession | null {
   const row = db
     .prepare(
-      `SELECT pull_request_id, selected_path, scroll_top, diff_mode
+      `SELECT pull_request_id, selected_path, scroll_top, diff_mode, view
        FROM review_sessions
        WHERE pull_request_id = ?`,
     )
@@ -27,24 +28,26 @@ export function getReviewSession(db: DatabaseSync, pullRequestId: number): Revie
         selectedPath: row.selected_path,
         scrollTop: row.scroll_top,
         diffMode: row.diff_mode,
+        view: row.view,
       }
     : null;
 }
 
 export function saveReviewSession(
   db: DatabaseSync,
-  { pullRequestId, selectedPath, scrollTop, diffMode }: SaveReviewSessionInput,
+  { pullRequestId, selectedPath, scrollTop, diffMode, view }: SaveReviewSessionInput,
 ): ReviewSession {
   db.prepare(
-    `INSERT INTO review_sessions (pull_request_id, selected_path, scroll_top, diff_mode)
-     VALUES (?, ?, ?, ?)
+    `INSERT INTO review_sessions (pull_request_id, selected_path, scroll_top, diff_mode, view)
+     VALUES (?, ?, ?, ?, ?)
      ON CONFLICT (pull_request_id) DO UPDATE SET
        selected_path = excluded.selected_path,
        scroll_top = excluded.scroll_top,
        diff_mode = excluded.diff_mode,
+       view = excluded.view,
        updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`,
-  ).run(pullRequestId, selectedPath, scrollTop, diffMode);
-  return { pullRequestId, selectedPath, scrollTop, diffMode };
+  ).run(pullRequestId, selectedPath, scrollTop, diffMode, view);
+  return { pullRequestId, selectedPath, scrollTop, diffMode, view };
 }
 
 // The pull request whose review was open when the app last closed, if it is still stored.

@@ -54,12 +54,14 @@ describe('review sessions', () => {
       selectedPath: 'src/a.ts',
       scrollTop: 120,
       diffMode: 'unified',
+      view: 'abc123',
     });
     saveReviewSession(db, {
       pullRequestId: first,
       selectedPath: 'src/b.ts',
       scrollTop: 40,
       diffMode: 'split',
+      view: null,
     });
 
     expect(getReviewSession(db, first)).toEqual({
@@ -67,6 +69,7 @@ describe('review sessions', () => {
       selectedPath: 'src/b.ts',
       scrollTop: 40,
       diffMode: 'split',
+      view: null,
     });
     expect(getReviewSession(db, second)).toBeNull();
   });
@@ -82,6 +85,7 @@ describe('review sessions', () => {
       selectedPath: null,
       scrollTop: 0,
       diffMode: 'split',
+      view: null,
     });
 
     setActiveReview(db, null);
@@ -96,6 +100,7 @@ describe('review sessions', () => {
       selectedPath: 'a',
       scrollTop: 0,
       diffMode: 'split',
+      view: null,
     });
     expect(getActiveReview(db)).toBe(first);
   });
@@ -110,7 +115,13 @@ describe('review sessions', () => {
 
   it('rejects a negative scroll position and an unknown diff mode', () => {
     const save = ipcContract['reviewSessions.save'].input;
-    const session = { pullRequestId: 1, selectedPath: null, scrollTop: 0, diffMode: 'split' };
+    const session = {
+      pullRequestId: 1,
+      selectedPath: null,
+      scrollTop: 0,
+      diffMode: 'split',
+      view: null,
+    };
     expect(save.safeParse(session).success).toBe(true);
     expect(save.safeParse({ ...session, scrollTop: -1 }).success).toBe(false);
     expect(save.safeParse({ ...session, diffMode: 'inline' }).success).toBe(false);
