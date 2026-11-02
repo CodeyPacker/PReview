@@ -17,6 +17,7 @@ const api: PreviewApi = {
   github: {
     getAuth: () => invoke('github.getAuth', undefined),
     connect: () => invoke('github.connect', undefined),
+    connectWithCli: () => invoke('github.connectWithCli', undefined),
     cancel: () => invoke('github.cancel', undefined),
     disconnect: () => invoke('github.disconnect', undefined),
   },

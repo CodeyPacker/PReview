@@ -22,5 +22,7 @@ function useGitHubAction(action: () => Promise<GitHubAuthState>) {
 }
 
 export const useConnectGitHub = () => useGitHubAction(() => window.preview.github.connect());
+export const useConnectGitHubCli = () =>
+  useGitHubAction(() => window.preview.github.connectWithCli());
 export const useCancelGitHub = () => useGitHubAction(() => window.preview.github.cancel());
 export const useDisconnectGitHub = () => useGitHubAction(() => window.preview.github.disconnect());

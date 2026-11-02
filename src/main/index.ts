@@ -9,6 +9,7 @@ import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
 import { GitHubAuth } from './services/github/auth.ts';
 import { createCredentialStore, type Encryptor } from './services/github/credential-store.ts';
+import { readGhToken } from './services/github/gh-cli.ts';
 import { GitHubClient } from './providers/github/client.ts';
 import { GitHubProvider } from './providers/github/provider.ts';
 import { PullRequestFiles } from './services/pull-requests/files.ts';
@@ -92,6 +93,7 @@ async function createGitHubAuth(): Promise<GitHubAuth> {
   const auth = await GitHubAuth.restore({
     store: createCredentialStore(join(app.getPath('userData'), 'github-credentials'), encryptor),
     fetch,
+    ghToken: readGhToken,
     sleep: (ms, signal) => sleep(ms, undefined, { signal }),
     openUrl: (url) => {
       if (isSafeExternalUrl(url)) void shell.openExternal(url);

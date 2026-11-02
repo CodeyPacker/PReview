@@ -53,6 +53,8 @@ export interface PreviewApi {
     getAuth(): Promise<GitHubAuthState>;
     // Opens GitHub's device page and copies the code. Resolves once the code is ready.
     connect(): Promise<GitHubAuthState>;
+    // Signs in with the GitHub CLI's active account. Resolves once connected or failed.
+    connectWithCli(): Promise<GitHubAuthState>;
     cancel(): Promise<GitHubAuthState>;
     disconnect(): Promise<GitHubAuthState>;
   };

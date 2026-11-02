@@ -8,6 +8,7 @@ import {
   type Fetch,
   type Sleep,
 } from './device-flow.ts';
+import { GhCliError } from './gh-cli.ts';
 
 const user = { login: 'octo', name: 'Octo Cat', avatarUrl: 'https://avatars.example/octo' };
 const githubUser = { login: 'octo', name: 'Octo Cat', avatar_url: 'https://avatars.example/octo' };
@@ -49,11 +50,16 @@ function memoryStore(initial?: GitHubCredentials): CredentialStore & { value?: G
   };
 }
 
-async function setup(routes: Record<string, Response[]>, stored?: GitHubCredentials) {
+async function setup(
+  routes: Record<string, Response[]>,
+  stored?: GitHubCredentials,
+  ghToken: GitHubAuthDeps['ghToken'] = () => Promise.resolve('gho_cli'),
+) {
   const store = memoryStore(stored);
   const deps: GitHubAuthDeps = {
     store,
     fetch: fakeGitHub(routes),
+    ghToken,
     sleep: () => Promise.resolve(),
     openUrl: vi.fn(),
     copyText: vi.fn(),
@@ -104,7 +110,7 @@ describe('pollForToken', () => {
 
 describe('GitHubAuth', () => {
   it('hands out the stored token only while connected', async () => {
-    const connected = await setup({}, { token: 'gho_token', user });
+    const connected = await setup({}, { source: 'oauth', token: 'gho_token', user });
     expect(await connected.auth.getToken()).toBe('gho_token');
 
     connected.auth.disconnect();
@@ -127,8 +133,8 @@ describe('GitHubAuth', () => {
     expect(deps.openUrl).toHaveBeenCalledWith('https://github.com/login/device');
 
     await flush();
-    expect(auth.getState()).toEqual({ status: 'connected', user });
-    expect(store.value).toEqual({ token: 'gho_token', user });
+    expect(auth.getState()).toEqual({ status: 'connected', source: 'oauth', user });
+    expect(store.value).toEqual({ source: 'oauth', token: 'gho_token', user });
   });
 
   it('reports a denied authorization and stores nothing', async () => {
@@ -169,8 +175,8 @@ describe('GitHubAuth', () => {
   });
 
   it('starts connected from stored credentials and forgets them on disconnect', async () => {
-    const { auth, store } = await setup({}, { token: 'gho_token', user });
-    expect(auth.getState()).toEqual({ status: 'connected', user });
+    const { auth, store } = await setup({}, { source: 'oauth', token: 'gho_token', user });
+    expect(auth.getState()).toEqual({ status: 'connected', source: 'oauth', user });
     expect(auth.disconnect()).toEqual({ status: 'disconnected' });
     expect(store.value).toBeUndefined();
   });
@@ -178,7 +184,7 @@ describe('GitHubAuth', () => {
   it('disconnects when GitHub rejects the stored token', async () => {
     const { auth, store } = await setup(
       { 'https://api.github.com/user': [json({ message: 'Bad credentials' }, 401)] },
-      { token: 'gho_revoked', user },
+      { source: 'oauth', token: 'gho_revoked', user },
     );
     await auth.verify();
     expect(auth.getState()).toEqual({
@@ -189,9 +195,74 @@ describe('GitHubAuth', () => {
   });
 
   it('stays connected when GitHub cannot be reached', async () => {
-    const { auth, store } = await setup({}, { token: 'gho_token', user });
+    const { auth, store } = await setup({}, { source: 'oauth', token: 'gho_token', user });
     await auth.verify();
-    expect(auth.getState()).toEqual({ status: 'connected', user });
-    expect(store.value).toEqual({ token: 'gho_token', user });
+    expect(auth.getState()).toEqual({ status: 'connected', source: 'oauth', user });
+    expect(store.value).toEqual({ source: 'oauth', token: 'gho_token', user });
+  });
+});
+
+describe('GitHubAuth with the GitHub CLI', () => {
+  it('connects with the CLI token and stores no token', async () => {
+    const { auth, store, deps } = await setup({
+      'https://api.github.com/user': [json(githubUser)],
+    });
+
+    expect(await auth.connectWithCli()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(store.value).toEqual({ source: 'cli', user });
+    const headers = vi.mocked(deps.fetch).mock.calls[0]?.[1]?.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer gho_cli');
+  });
+
+  it('reads the token from the CLI on each request', async () => {
+    let token = 'gho_first';
+    const { auth } = await setup({}, { source: 'cli', user }, () => Promise.resolve(token));
+    expect(auth.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(await auth.getToken()).toBe('gho_first');
+    token = 'gho_second';
+    expect(await auth.getToken()).toBe('gho_second');
+  });
+
+  it('hands out no token when the CLI has none', async () => {
+    const { auth } = await setup({}, { source: 'cli', user }, () =>
+      Promise.reject(new GhCliError('The GitHub CLI is not signed in.')),
+    );
+    expect(await auth.getToken()).toBeUndefined();
+    expect(auth.getState()).toEqual({ status: 'connected', source: 'cli', user });
+  });
+
+  it('explains a CLI that is missing or signed out', async () => {
+    const { auth, store } = await setup({}, undefined, () =>
+      Promise.reject(new GhCliError('The GitHub CLI is not installed. Install gh and try again.')),
+    );
+    expect(await auth.connectWithCli()).toEqual({
+      status: 'disconnected',
+      error: 'The GitHub CLI is not installed. Install gh and try again.',
+    });
+    expect(store.value).toBeUndefined();
+  });
+
+  it('explains a CLI token that GitHub rejects', async () => {
+    const { auth } = await setup({
+      'https://api.github.com/user': [json({ message: 'Bad credentials' }, 401)],
+    });
+    expect(await auth.connectWithCli()).toEqual({
+      status: 'disconnected',
+      error: 'GitHub rejected the GitHub CLI’s token. Run gh auth login again.',
+    });
+  });
+
+  it('cancels a device flow in progress', async () => {
+    const { auth, store } = await setup({
+      'https://github.com/login/device/code': [json(deviceCode)],
+      'https://github.com/login/oauth/access_token': [json({ access_token: 'gho_token' })],
+      'https://api.github.com/user': [json(githubUser), json(githubUser)],
+    });
+
+    await auth.connect();
+    await auth.connectWithCli();
+    await flush();
+    expect(auth.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(store.value).toEqual({ source: 'cli', user });
   });
 });

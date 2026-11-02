@@ -11,10 +11,8 @@ const encryptor: Encryptor = {
   decryptString: (buffer) => Promise.resolve(Buffer.from(buffer).reverse().toString()),
 };
 
-const credentials = {
-  token: 'gho_secret',
-  user: { login: 'octo', name: null, avatarUrl: 'https://avatars.example/octo' },
-};
+const user = { login: 'octo', name: null, avatarUrl: 'https://avatars.example/octo' };
+const credentials = { source: 'oauth' as const, token: 'gho_secret', user };
 
 let dir: string;
 let path: string;
@@ -32,6 +30,21 @@ describe('credential store', () => {
     await store.save(credentials);
     expect(readFileSync(path, 'utf8')).not.toContain('gho_secret');
     expect(await store.load()).toEqual(credentials);
+  });
+
+  it('round-trips a CLI connection, which has no token', async () => {
+    const store = createCredentialStore(path, encryptor);
+    await store.save({ source: 'cli', user });
+    expect(await store.load()).toEqual({ source: 'cli', user });
+  });
+
+  it('reads a file saved before the CLI option as oauth', async () => {
+    writeFileSync(path, await encryptor.encryptString(JSON.stringify({ token: 'gho_old', user })));
+    expect(await createCredentialStore(path, encryptor).load()).toEqual({
+      source: 'oauth',
+      token: 'gho_old',
+      user,
+    });
   });
 
   it('reads nothing after clear, and clears a missing file', async () => {

@@ -74,6 +74,7 @@ export function registerIpcHandlers(
 
   handle('github.getAuth', () => github.getState());
   handle('github.connect', () => github.connect());
+  handle('github.connectWithCli', () => github.connectWithCli());
   handle('github.cancel', () => github.cancel());
   handle('github.disconnect', () => github.disconnect());
 
