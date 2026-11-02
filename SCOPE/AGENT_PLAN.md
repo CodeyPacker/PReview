@@ -68,7 +68,8 @@ The trigger is removed before the PR merges.
 ### 3. Runner and queue
 
 - `AgentProvider` interface (SCOPE 10.2) with the Claude adapter from slice 0.
-- Task context (10.3) built into the first prompt, plus `CLAUDE.md` (D4).
+- Task context (10.3) built into the first prompt, plus `CLAUDE.md` (D4). To save tokens, the prompt lists the PR's changed files but sends no diff. It carries the PR basics, the published line comments (saved in `review_submissions.comments`), the findings, the summary, earlier threads and earlier task outcomes. The agent reads files from the worktree. The sandbox blocks `git`, so if it needs more of the PR it asks PReview through a tool that returns one file's diff.
+- The closing report lists each comment and finding as fixed, not fixed with a reason, or needs input, plus the tests run. Check whether the SDK's structured output fits this.
 - Two concurrent tasks by default, FIFO with manual reordering, two automatic retries, then stop with the worktree kept.
 - Graceful stop with Force Stop, and resume by session id.
 - `rate_limit_event` handling: stop with the reset time, no automatic switch. Source: `receive()` in `src/agents/claude.ts`.
