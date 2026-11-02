@@ -314,4 +314,27 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX agent_tasks_pull_request ON agent_tasks (pull_request_id);
     `,
   },
+  {
+    version: 17,
+    name: 'agent_worktrees',
+    // The folder where agents work on one pull request, outside the user's checkout. It is
+    // keyed by repository and number rather than the pull request row, because that row is
+    // deleted once the pull request closes, and the folder must still be cleaned up then.
+    // head_sha is the commit PReview last put it on. writer_task_id is the one task allowed
+    // to change it, or null when none is.
+    sql: `
+      CREATE TABLE agent_worktrees (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repository_id INTEGER NOT NULL REFERENCES repositories (id) ON DELETE CASCADE,
+        number INTEGER NOT NULL,
+        path TEXT NOT NULL UNIQUE,
+        head_branch TEXT NOT NULL,
+        head_sha TEXT NOT NULL,
+        writer_task_id INTEGER REFERENCES agent_tasks (id) ON DELETE SET NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        UNIQUE (repository_id, number)
+      ) STRICT;
+    `,
+  },
 ];
