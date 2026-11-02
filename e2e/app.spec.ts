@@ -1267,3 +1267,89 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     await app.close();
   }
 });
+
+test('shows one commit on its own without file decisions', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      const file = (path: string) => ({
+        path,
+        blobSha: `sha-${path}`,
+        previousPath: null,
+        status: 'modified',
+        additions: 1,
+        deletions: 1,
+        hunks: null,
+      });
+      const commit = 'c'.repeat(40);
+      const responses: Record<string, unknown> = {
+        'pullRequests.list': {
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Review commits',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        },
+        'pullRequestFiles.list': {
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [file('a.ts'), file('b.ts')],
+        },
+        'pullRequestFiles.listCommits': [{ sha: commit, subject: 'Touch b', authorLogin: 'octo' }],
+        'pullRequestFiles.listCommit': {
+          headSha: commit,
+          mergeBase: 'd'.repeat(40),
+          files: [file('b.ts')],
+        },
+        'pullRequestFiles.getDiff': {
+          original: 'const a = 1;\n',
+          modified: 'const a = 2;\n',
+          unavailable: null,
+        },
+      };
+      for (const [channel, response] of Object.entries(responses)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, () => response);
+      }
+    });
+    await mockFileReviewMarks(app);
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
+    const files = page.locator('#review-files');
+    await page.getByRole('button', { name: 'Expand changed files' }).click();
+    await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
+    await expect(files.getByRole('button', { name: /b.ts/ })).toBeVisible();
+
+    await files.getByRole('combobox', { name: 'Commit' }).click();
+    await page.getByRole('option', { name: /Touch b/ }).click();
+    await expect(files.getByRole('button', { name: /a.ts/ })).toBeHidden();
+    await expect(files.getByRole('button', { name: /b.ts/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Flag file', exact: true })).toBeDisabled();
+
+    await files.getByRole('combobox', { name: 'Commit' }).click();
+    await page.getByRole('option', { name: 'All changes' }).click();
+    await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeEnabled();
+  } finally {
+    await app.close();
+  }
+});

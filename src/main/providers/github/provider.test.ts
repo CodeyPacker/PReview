@@ -241,8 +241,7 @@ describe('GitHubProvider changed files', () => {
           additions: 0,
           deletions: 0,
         },
-        { filename: 'src/c.ts',
-          sha: 'sha-c', status: 'unchanged', additions: 0, deletions: 0 },
+        { filename: 'src/c.ts', sha: 'sha-c', status: 'unchanged', additions: 0, deletions: 0 },
       ]),
     ]);
 
@@ -276,6 +275,46 @@ describe('GitHubProvider changed files', () => {
       },
     ]);
     expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/files');
+  });
+
+  it('lists the commits of a pull request', async () => {
+    const { fetch, provider } = setup([
+      json([
+        { sha: 'a1', commit: { message: 'Fix it\n\nLong body' }, author: { login: 'octo' } },
+        { sha: 'b2', commit: { message: 'Tidy' }, author: null },
+      ]),
+    ]);
+
+    await expect(provider.getPullRequestCommits('octo/app', 7)).resolves.toEqual([
+      { sha: 'a1', subject: 'Fix it', authorLogin: 'octo' },
+      { sha: 'b2', subject: 'Tidy', authorLogin: null },
+    ]);
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7/commits');
+  });
+
+  it('reads the files one commit changes against its first parent', async () => {
+    const { fetch, provider } = setup([
+      json({
+        parents: [{ sha: 'p1' }, { sha: 'p2' }],
+        files: [{ filename: 'a.ts', sha: 's1', status: 'added', additions: 1, deletions: 0 }],
+      }),
+    ]);
+
+    await expect(provider.getCommitChanges('octo/app', 'a1')).resolves.toEqual({
+      parentSha: 'p1',
+      files: [
+        {
+          path: 'a.ts',
+          blobSha: 's1',
+          previousPath: null,
+          status: 'added',
+          additions: 1,
+          deletions: 0,
+          hunks: null,
+        },
+      ],
+    });
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/commits/a1');
   });
 
   it('finds the merge base of a pull request', async () => {

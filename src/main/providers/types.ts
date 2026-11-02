@@ -78,6 +78,19 @@ export interface ProviderReview {
   comments: ProviderReviewComment[];
 }
 
+export interface ProviderCommit {
+  sha: string;
+  // The first line of the commit message.
+  subject: string;
+  authorLogin: string | null;
+}
+
+export interface ProviderCommitChanges {
+  // The commit's first parent, which its diff is taken against.
+  parentSha: string;
+  files: ProviderChangedFile[];
+}
+
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
 
 export interface GitProvider {
@@ -90,6 +103,10 @@ export interface GitProvider {
   getPullRequestRefs(repositoryFullName: string, number: number): Promise<ProviderPullRequestRefs>;
   // The files a pull request changes, in the order the provider lists them.
   getPullRequestFiles(repositoryFullName: string, number: number): Promise<ProviderChangedFile[]>;
+  // The pull request's commits, oldest first.
+  getPullRequestCommits(repositoryFullName: string, number: number): Promise<ProviderCommit[]>;
+  // The files one commit changes, against its first parent.
+  getCommitChanges(repositoryFullName: string, sha: string): Promise<ProviderCommitChanges>;
   // The commit the pull request branched from, which its diff is taken against.
   getMergeBase(repositoryFullName: string, baseBranch: string, headSha: string): Promise<string>;
   // A file's text at a commit. undefined when the file does not exist there.

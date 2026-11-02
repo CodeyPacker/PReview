@@ -2,9 +2,13 @@ import { FileDiff } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { useActiveItemRect } from '../lib/useActiveItemRect.ts';
 import { ActiveItemIndicator } from '../components/ActiveItemIndicator/ActiveItemIndicator.tsx';
-import type { PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
+import type {
+  PullRequestCommit,
+  PullRequestFile,
+} from '../../shared/contracts/pull-request-files.ts';
 import { DiffStat } from '../components/DiffStat/DiffStat.tsx';
 import { FileTreeItem } from '../components/FileTreeItem/FileTreeItem.tsx';
+import { Select } from '../components/Select/Select.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { SearchField } from '../components/SearchField/SearchField.tsx';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
@@ -12,9 +16,16 @@ import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import type { FileReviewFilter, FileReviewState } from '../lib/fileReview.ts';
 import styles from './ChangedFiles.module.css';
 
+const ALL_CHANGES = 'all';
+
 export interface ChangedFilesProps {
   id?: string;
   className?: string;
+  // The pull request's commits, oldest first. The files of one can be shown on their own.
+  commits?: readonly PullRequestCommit[];
+  // Undefined shows all changes of the pull request.
+  commitSha?: string;
+  onCommitChange?: (sha: string | undefined) => void;
   files: readonly PullRequestFile[] | undefined;
   totalFiles: number | undefined;
   reviewStates: Readonly<Record<string, FileReviewState>>;
@@ -35,6 +46,9 @@ export interface ChangedFilesProps {
 export function ChangedFiles({
   id,
   className,
+  commits,
+  commitSha,
+  onCommitChange,
   files,
   totalFiles,
   reviewStates,
@@ -69,6 +83,22 @@ export function ChangedFiles({
       count={totalFiles}
       padding="sm"
     >
+      {commits && commits.length > 0 && (
+        <Select
+          block
+          size="sm"
+          aria-label="Commit"
+          value={commitSha ?? ALL_CHANGES}
+          onValueChange={(value) => onCommitChange?.(value === ALL_CHANGES ? undefined : value)}
+          options={[
+            { value: ALL_CHANGES, label: 'All changes' },
+            ...commits.map((commit) => ({
+              value: commit.sha,
+              label: `${commit.sha.slice(0, 7)} ${commit.subject}`,
+            })),
+          ]}
+        />
+      )}
       <ToggleGroup
         className={styles.filter}
         aria-label="Filter files"

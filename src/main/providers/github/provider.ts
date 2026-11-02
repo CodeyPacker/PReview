@@ -3,6 +3,8 @@ import type { ReviewThread } from '../../../shared/contracts/pull-request-review
 import type {
   GitProvider,
   ProviderChangedFile,
+  ProviderCommit,
+  ProviderCommitChanges,
   ProviderPullRequest,
   ProviderPullRequestRefs,
   ProviderReview,
@@ -55,12 +57,36 @@ const changedFileSchema = z.object({
   patch: z.string().optional(),
 });
 
+const commitSchema = z.object({
+  sha: z.string(),
+  commit: z.object({ message: z.string() }),
+  author: z.object({ login: z.string() }).nullable(),
+});
+
+const commitChangesSchema = z.object({
+  parents: z.array(z.object({ sha: z.string() })),
+  files: z.array(changedFileSchema).optional(),
+});
+
 const pullRequestRefsSchema = z.object({
   head: z.object({ sha: z.string() }),
   base: z.object({ ref: z.string() }),
 });
 
 const comparisonSchema = z.object({ merge_base_commit: z.object({ sha: z.string() }) });
+
+function toChangedFile(file: z.infer<typeof changedFileSchema>): ProviderChangedFile {
+  return {
+    path: file.filename,
+    blobSha: file.sha,
+    previousPath: file.previous_filename ?? null,
+    // A file GitHub calls unchanged has no diff to show, same as a plain edit.
+    status: file.status === 'unchanged' ? 'changed' : file.status,
+    additions: file.additions,
+    deletions: file.deletions,
+    hunks: file.patch === undefined ? null : parseHunks(file.patch),
+  };
+}
 
 const REVIEW_THREADS_QUERY = `
   query ($owner: String!, $name: String!, $number: Int!, $cursor: String) {
@@ -218,19 +244,32 @@ export class GitHubProvider implements GitProvider {
     number: number,
   ): Promise<ProviderChangedFile[]> {
     const items = await this.client.getAll(`/repos/${repositoryFullName}/pulls/${number}/files`);
+    return items.map((item) => toChangedFile(changedFileSchema.parse(item)));
+  }
+
+  async getPullRequestCommits(
+    repositoryFullName: string,
+    number: number,
+  ): Promise<ProviderCommit[]> {
+    const items = await this.client.getAll(`/repos/${repositoryFullName}/pulls/${number}/commits`);
     return items.map((item) => {
-      const file = changedFileSchema.parse(item);
+      const commit = commitSchema.parse(item);
       return {
-        path: file.filename,
-        blobSha: file.sha,
-        previousPath: file.previous_filename ?? null,
-        // A file GitHub calls unchanged has no diff to show, same as a plain edit.
-        status: file.status === 'unchanged' ? 'changed' : file.status,
-        additions: file.additions,
-        deletions: file.deletions,
-        hunks: file.patch === undefined ? null : parseHunks(file.patch),
+        sha: commit.sha,
+        // The first line is the subject.
+        subject: commit.commit.message.split('\n')[0] ?? '',
+        authorLogin: commit.author?.login ?? null,
       };
     });
+  }
+
+  async getCommitChanges(repositoryFullName: string, sha: string): Promise<ProviderCommitChanges> {
+    const commit = commitChangesSchema.parse(
+      await this.client.getJson(`/repos/${repositoryFullName}/commits/${sha}`),
+    );
+    const parent = commit.parents[0];
+    if (!parent) throw new Error('This commit has no parent to compare with.');
+    return { parentSha: parent.sha, files: (commit.files ?? []).map(toChangedFile) };
   }
 
   async getMergeBase(

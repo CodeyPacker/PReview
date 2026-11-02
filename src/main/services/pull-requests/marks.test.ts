@@ -41,7 +41,12 @@ describe('file review marks', () => {
     setFileReviewMark(db, { pullRequestId: first, path: 'a.ts', state: 'approved', blobSha: 's1' });
     setFileReviewMark(db, { pullRequestId: second, path: 'a.ts', state: 'flagged', blobSha: 's9' });
     expect(
-      setFileReviewMark(db, { pullRequestId: first, path: 'a.ts', state: 'flagged', blobSha: 's2' }),
+      setFileReviewMark(db, {
+        pullRequestId: first,
+        path: 'a.ts',
+        state: 'flagged',
+        blobSha: 's2',
+      }),
     ).toEqual([{ path: 'a.ts', state: 'flagged', blobSha: 's2' }]);
     expect(listFileReviewMarks(db, second)).toHaveLength(1);
 

@@ -15,6 +15,25 @@ export function usePullRequestFiles(
   });
 }
 
+// The pull request's commits. The head commit is in the key, so a push reads them again.
+export function usePullRequestCommits(pullRequestId: number, headSha: string | undefined) {
+  return useQuery({
+    queryKey: ['pullRequestCommits', pullRequestId, headSha],
+    queryFn: () => window.preview.pullRequestFiles.listCommits(pullRequestId),
+    enabled: headSha !== undefined,
+  });
+}
+
+// The files one commit changes. A commit never changes, so it is read once.
+export function usePullRequestCommitFiles(pullRequestId: number, sha: string | undefined) {
+  return useQuery({
+    queryKey: ['pullRequestCommitFiles', pullRequestId, sha],
+    queryFn: () => window.preview.pullRequestFiles.listCommit(pullRequestId, sha ?? ''),
+    enabled: sha !== undefined,
+    staleTime: Infinity,
+  });
+}
+
 // Shared by the selected file and text search so each immutable diff is loaded once.
 export function pullRequestFileDiffOptions(
   pullRequestId: number,

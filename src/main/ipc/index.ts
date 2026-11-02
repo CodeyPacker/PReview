@@ -109,6 +109,12 @@ export function registerIpcHandlers(
   });
 
   handle('pullRequestFiles.list', ({ pullRequestId }) => pullRequestFiles.list(pullRequestId));
+  handle('pullRequestFiles.listCommits', ({ pullRequestId }) =>
+    pullRequestFiles.listCommits(pullRequestId),
+  );
+  handle('pullRequestFiles.listCommit', ({ pullRequestId, sha }) =>
+    pullRequestFiles.listCommit(pullRequestId, sha),
+  );
   handle('pullRequestFiles.getDiff', ({ pullRequestId, headSha, mergeBase, path, previousPath }) =>
     pullRequestFiles.getDiff(pullRequestId, headSha, mergeBase, path, previousPath),
   );
