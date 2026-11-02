@@ -217,4 +217,16 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 12,
+    name: 'review_completions',
+    // A pull request the reviewer finished reviewing. One row per pull request, so finishing
+    // again changes nothing and the completion is counted once.
+    sql: `
+      CREATE TABLE review_completions (
+        pull_request_id INTEGER PRIMARY KEY REFERENCES pull_requests (id) ON DELETE CASCADE,
+        completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+    `,
+  },
 ];

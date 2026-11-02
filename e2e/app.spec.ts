@@ -1271,6 +1271,66 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
   }
 });
 
+test('finishes a review once and keeps it finished', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      const responses: Record<string, unknown> = {
+        'pullRequests.list': {
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Finish this',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        },
+        'pullRequestFiles.list': { headSha: 'abcdef1', mergeBase: 'abcdef0', files: [] },
+      };
+      for (const [channel, response] of Object.entries(responses)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, () => response);
+      }
+      // The mocked pull request is not in the database, so the completion is kept in memory.
+      let completion: { completedAt: string } | null = null;
+      ipcMain.removeHandler('reviewCompletions.get');
+      ipcMain.handle('reviewCompletions.get', () => completion);
+      ipcMain.removeHandler('reviewCompletions.finish');
+      ipcMain.handle('reviewCompletions.finish', () => {
+        completion ??= { completedAt: '2026-11-02T12:00:00.000Z' };
+        return completion;
+      });
+    });
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    // The sidebar read the pull requests before they were mocked.
+    await page.reload();
+
+    await page.getByRole('button', { name: 'Finish review' }).click();
+    const finished = page.getByRole('button', { name: 'Review finished' });
+    await expect(finished).toBeDisabled();
+
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Review finished' })).toBeDisabled();
+  } finally {
+    await app.close();
+  }
+});
+
 test('shows one commit on its own without file decisions', async () => {
   const app = await launch();
   try {
