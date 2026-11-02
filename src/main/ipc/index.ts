@@ -37,6 +37,7 @@ import {
 } from '../services/repositories/watched-folders.ts';
 import { getSettings, updateSettings } from '../services/settings.ts';
 import type { RepositorySearch } from '../services/pull-requests/repository-search.ts';
+import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
 
 export interface IpcServices {
@@ -46,6 +47,7 @@ export interface IpcServices {
   pullRequestFiles: PullRequestFiles;
   pullRequestReviews: PullRequestReviews;
   repositorySearch: RepositorySearch;
+  agentRunner: Pick<AgentRunner, 'wake'>;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
@@ -59,6 +61,7 @@ export function registerIpcHandlers(
     pullRequestFiles,
     pullRequestReviews,
     repositorySearch,
+    agentRunner,
     pickFolder,
   }: IpcServices,
 ): void {
@@ -139,7 +142,11 @@ export function registerIpcHandlers(
   handle('pullRequestReviews.setThreadResolved', (change) =>
     pullRequestReviews.setThreadResolved(change),
   );
-  handle('pullRequestReviews.submit', (review) => pullRequestReviews.submit(review));
+  handle('pullRequestReviews.submit', async (review) => {
+    const result = await pullRequestReviews.submit(review);
+    if (review.sendToAgent && result.status === 'submitted') agentRunner.wake();
+    return result;
+  });
   handle('pullRequestReviews.merge', (merge) => pullRequestReviews.merge(merge));
   handle('pullRequestReviews.deleteBranch', (branch) => pullRequestReviews.deleteBranch(branch));
 

@@ -1,9 +1,12 @@
-import { app, BrowserWindow, clipboard, dialog, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, Notification, safeStorage, shell } from 'electron';
 import type { DatabaseSync } from 'node:sqlite';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { openDatabase } from './database/connection.ts';
+import { ClaudeAgent } from './agents/claude/agent.ts';
+import { AgentRunner } from './services/agents/runner.ts';
+import { AgentWorktrees } from './services/agents/worktrees.ts';
 import { migrate } from './database/migrate.ts';
 import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
@@ -18,7 +21,7 @@ import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
-import { runGit } from './services/repositories/git-info.ts';
+import { createGit, runGit } from './services/repositories/git-info.ts';
 import icon from '../../build/icon.png?asset';
 import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
 
@@ -154,6 +157,20 @@ void app.whenReady().then(async () => {
   const pullRequestFiles = new PullRequestFiles({ db, provider });
   const pullRequestReviews = new PullRequestReviews({ db, provider });
   const repositorySearch = new RepositorySearch({ db, provider, git: runGit, grep: runGitGrep });
+  // Fetching a pull request's branch can take a while on a large repository.
+  const worktrees = new AgentWorktrees({
+    db,
+    git: createGit(120_000),
+    root: join(app.getPath('userData'), 'worktrees'),
+  });
+  const agentRunner = new AgentRunner({
+    db,
+    provider,
+    agent: new ClaudeAgent(app.isPackaged),
+    worktrees,
+    notify: (title, body) => new Notification({ title, body }).show(),
+    log,
+  });
   registerIpcHandlers(db, {
     github,
     discovery,
@@ -161,11 +178,27 @@ void app.whenReady().then(async () => {
     pullRequestFiles,
     pullRequestReviews,
     repositorySearch,
+    agentRunner,
     pickFolder,
   });
   void discovery.scan();
   pullRequests.start();
+  agentRunner.recover();
+  agentRunner.wake();
+  void pullRequestReviews
+    .recoverSubmissions()
+    // A review confirmed now may have queued an agent task.
+    .then(() => agentRunner.wake())
+    .catch((error: unknown) => log.warn('Could not check unconfirmed reviews', error));
+  void worktrees
+    .cleanUp()
+    .then((kept) => {
+      if (kept.length > 0) log.info('Kept agent worktrees with unsaved changes', kept);
+    })
+    .catch((error: unknown) => log.warn('Could not clean up agent worktrees', error));
+
   app.on('will-quit', () => {
+    agentRunner.shutdown();
     pullRequests.stop();
     db.close();
   });

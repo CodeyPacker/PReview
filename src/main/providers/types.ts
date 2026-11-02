@@ -78,6 +78,28 @@ export interface ProviderReview {
   comments: ProviderReviewComment[];
 }
 
+export interface ProviderPullRequestDetails {
+  // Empty when it has none.
+  description: string;
+  files: ProviderFilePatch[];
+}
+
+export interface ProviderFilePatch {
+  path: string;
+  previousPath: string | null;
+  status: PullRequestFile['status'];
+  additions: number;
+  deletions: number;
+  // The unified diff. null when the provider shows none, for example for a large file.
+  patch: string | null;
+}
+
+export interface ProviderPublishedReview {
+  id: string;
+  // Empty when the review has none.
+  body: string;
+}
+
 export interface ProviderCommit {
   sha: string;
   // The first line of the commit message.
@@ -139,9 +161,21 @@ export interface GitProvider {
   replyToThread(threadId: string, body: string): Promise<void>;
   // Resolves a review thread, or reopens it.
   setThreadResolved(threadId: string, resolved: boolean): Promise<void>;
-  // Publishes a review of the pull request. Rejects with the provider's explanation when the
-  // provider refuses it, for example when the author tries to approve their own pull request.
-  submitReview(repositoryFullName: string, number: number, review: ProviderReview): Promise<void>;
+  // Publishes a review of the pull request and resolves with its id. Rejects with the
+  // provider's explanation when the provider refuses it, for example when the author tries to
+  // approve their own pull request.
+  submitReview(
+    repositoryFullName: string,
+    number: number,
+    review: ProviderReview,
+  ): Promise<{ id: string }>;
+  // The pull request's description and each changed file's diff, for an agent's task.
+  getPullRequestDetails(
+    repositoryFullName: string,
+    number: number,
+  ): Promise<ProviderPullRequestDetails>;
+  // The pull request's published reviews, oldest first.
+  getReviews(repositoryFullName: string, number: number): Promise<ProviderPublishedReview[]>;
   // Merges the pull request if its head is still headSha. Rejects with the provider's
   // explanation when the provider refuses, for example when checks are required or the head
   // moved.

@@ -16,6 +16,8 @@ export const submitReviewInputSchema = z.object({
   findingIds: z.array(z.number().int()),
   verdict: reviewVerdictSchema,
   body: z.string().max(65_536),
+  // Also queue a task for the agent to work on the comments and findings.
+  sendToAgent: z.boolean().optional(),
 });
 export type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
 

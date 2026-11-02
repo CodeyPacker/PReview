@@ -12,6 +12,7 @@
     "dev": "electron-vite dev",
     "build": "pnpm typecheck && electron-vite build",
     "preview": "electron-vite preview",
+    "package": "pnpm build && electron-builder --dir",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
