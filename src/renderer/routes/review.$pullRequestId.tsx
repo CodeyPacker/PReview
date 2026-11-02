@@ -28,14 +28,7 @@ import { Button } from '../components/Button/Button.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
-import {
-  usePullRequestChangesSince,
-  usePullRequestCommitFiles,
-  usePullRequestCommits,
-  usePullRequestFileDiff,
-  usePullRequestFiles,
-  useRepositoryFiles,
-} from '../hooks/usePullRequestFiles.ts';
+import { usePullRequestFileDiff } from '../hooks/usePullRequestFiles.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
 import { useFileSearch } from '../hooks/useFileSearch.ts';
@@ -52,16 +45,14 @@ import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
 import { useReviewFindings } from '../hooks/useReviewFindings.ts';
 import { useReviewCompletion } from '../hooks/useReviewCompletion.ts';
-import { useReviewRounds } from '../hooks/useReviewRounds.ts';
-import { SINCE_REVIEW } from '../app/ChangedFiles.tsx';
+import { useReviewChanges } from '../hooks/useReviewChanges.ts';
+import { useDraftComposer } from '../hooks/useDraftComposer.ts';
+import { useDraftPlacement } from '../hooks/useDraftPlacement.ts';
 import { Tag } from '../components/Tag/Tag.tsx';
-import type { DraftComposerState } from '../app/DraftComments.tsx';
-import { useReviewDrafts } from '../hooks/useReviewDrafts.ts';
 import { useReviewSession } from '../hooks/useReviewSession.ts';
 import type { ReviewSession } from '../../shared/contracts/review-sessions.ts';
 import { useReviewThreads } from '../hooks/useReviewThreads.ts';
 import { useThreadActions } from '../hooks/useThreadActions.ts';
-import { inOneHunk } from '../lib/diffComments.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
@@ -92,49 +83,24 @@ function ReviewPage() {
     (item) => item.id === pullRequest?.repositoryId,
   );
 
-  // The diff stays at the commits it opened with. New commits show when the reviewer asks.
-  const [shownRefs, setShownRefs] = useState<{ headSha: string; baseBranch: string }>();
-  if (pullRequest && !shownRefs) {
-    setShownRefs({ headSha: pullRequest.headSha, baseBranch: pullRequest.baseBranch });
-  }
-  const files = usePullRequestFiles(pullRequestId, shownRefs?.headSha, shownRefs?.baseBranch);
-  const commits = usePullRequestCommits(pullRequestId, files.data?.headSha);
-  const rounds = useReviewRounds(pullRequestId, files.data?.headSha);
-  const round = rounds.data?.at(-1);
-  const baselineSha = round?.baselineSha ?? undefined;
-  // The reviewer's pick: 'all', SINCE_REVIEW or a commit. A re-review opens on the changes since
-  // the last one until they pick.
-  const [chosenView, setChosenView] = useState<string>();
-  const chosen = chosenView ?? (baselineSha ? SINCE_REVIEW : 'all');
-  // A saved commit is used once the list shows it is still part of the pull request.
-  const unknownCommit =
-    chosen !== 'all' &&
-    chosen !== SINCE_REVIEW &&
-    !commits.data?.some((commit) => commit.sha === chosen);
-  const view = (chosen === SINCE_REVIEW && !baselineSha) || unknownCommit ? 'all' : chosen;
-  const sinceReview = view === SINCE_REVIEW;
-  const commitSha = view === 'all' || sinceReview ? undefined : view;
-  // The changes since the last review and one commit on its own are read-only: no file
-  // decisions, comments or threads.
-  // Browsing lists the repository's files, including the ones the pull request leaves alone.
-  const [browsing, setBrowsing] = useState(false);
-  const repositoryFiles = useRepositoryFiles(pullRequestId, files.data?.headSha, browsing);
-  const readOnlyView = view !== 'all' || browsing;
-  const commitFiles = usePullRequestCommitFiles(pullRequestId, commitSha);
-  const sinceFiles = usePullRequestChangesSince(
-    pullRequestId,
-    sinceReview ? baselineSha : undefined,
-    sinceReview ? files.data?.headSha : undefined,
-  );
-  const shown = sinceReview ? sinceFiles : commitSha ? commitFiles : files;
+  const {
+    files,
+    commits,
+    rounds,
+    round,
+    baselineSha,
+    chosenView,
+    setChosenView,
+    view,
+    browsing,
+    setBrowsing,
+    repositoryFiles,
+    readOnlyView,
+    shown,
+    newCommits,
+    showNewCommits,
+  } = useReviewChanges(pullRequestId, pullRequest);
   const changedFiles = shown.data?.files;
-  // The list can be read after a push the last sync hadn't seen, so it counts as shown too.
-  const newCommits =
-    pullRequest !== undefined &&
-    shownRefs !== undefined &&
-    files.data !== undefined &&
-    (pullRequest.baseBranch !== shownRefs.baseBranch ||
-      (pullRequest.headSha !== shownRefs.headSha && pullRequest.headSha !== files.data.headSha));
   const reviewSession = useReviewSession(pullRequestId);
   // Undefined until the saved session is read, then null when there was none.
   const [restored, setRestored] = useState<ReviewSession | null>();
@@ -155,7 +121,6 @@ function ReviewPage() {
       matchesFileReviewFilter(reviewStates[file.path], fileFilter) &&
       (!searchTerm || matchesFilePath(file, searchTerm) || search.matches.has(file.path)),
   );
-  const reviewDrafts = useReviewDrafts(pullRequestId);
   const reviewFindings = useReviewFindings(pullRequestId);
   const { finish: finishReview } = useReviewCompletion(pullRequestId);
   const roundFinished = round?.finishedAt != null;
@@ -168,38 +133,11 @@ function ReviewPage() {
     status: 'rejected',
     message: 'Could not reach GitHub. Try again.',
   } as const;
-  const [composer, setComposer] = useState<DraftComposerState>();
-  // Drafts written on other commits stay stored, but only these line up with the diff on show.
-  const currentDrafts = reviewDrafts.drafts.data?.filter(
-    (draft) => draft.headSha === files.data?.headSha && draft.mergeBase === files.data.mergeBase,
+  const { reviewDrafts, currentDrafts, sendableDrafts } = useDraftPlacement(
+    pullRequestId,
+    files.data,
+    changedFiles,
   );
-  // Drafts written on older commits move to the ones on show once, or become outdated.
-  const staleDrafts =
-    files.data !== undefined &&
-    reviewDrafts.drafts.data?.some(
-      (draft) => draft.headSha !== files.data.headSha || draft.mergeBase !== files.data.mergeBase,
-    );
-  const { mutate: reattachDrafts } = reviewDrafts.reattach;
-  const shownHeadSha = files.data?.headSha;
-  const shownMergeBase = files.data?.mergeBase;
-  useEffect(() => {
-    if (staleDrafts && shownHeadSha && shownMergeBase) {
-      reattachDrafts({ pullRequestId, headSha: shownHeadSha, mergeBase: shownMergeBase });
-    }
-  }, [staleDrafts, shownHeadSha, shownMergeBase, pullRequestId, reattachDrafts]);
-  // GitHub only takes line comments inside a diff hunk. Drafts written elsewhere, and outdated
-  // ones, stay local.
-  const sendableDrafts =
-    currentDrafts?.filter(
-      (draft) =>
-        !draft.outdated &&
-        inOneHunk(
-          changedFiles?.find((file) => file.path === draft.path)?.hunks ?? null,
-          draft.side,
-          draft.startLine ?? draft.line,
-          draft.line,
-        ),
-    ) ?? [];
   const [mode, setMode] = useState<DiffMode>('split');
   if (restored === undefined && reviewSession.session.isFetched) {
     const saved = reviewSession.session.data ?? null;
@@ -344,48 +282,12 @@ function ReviewPage() {
     selected?.previousPath ?? null,
   );
 
-  function changeComposer(next: DraftComposerState | undefined) {
-    // A comment with unsent text stays open until it is saved or cancelled. Opening another
-    // one goes back to it instead.
-    const moved =
-      next?.path !== composer?.path ||
-      next?.side !== composer?.side ||
-      next?.startLine !== composer?.startLine ||
-      next?.line !== composer?.line ||
-      next?.draftId !== composer?.draftId;
-    if (next && moved && composer?.body.trim()) {
-      selectFile(composer.path);
-      return;
-    }
-    reviewDrafts.create.reset();
-    reviewDrafts.update.reset();
-    setComposer(next);
-  }
-
-  function saveComposer() {
-    if (!composer || !files.data) return;
-    const done = { onSuccess: () => setComposer(undefined) };
-    if (composer.draftId === undefined) {
-      reviewDrafts.create.mutate(
-        {
-          pullRequestId,
-          headSha: files.data.headSha,
-          mergeBase: files.data.mergeBase,
-          path: composer.path,
-          side: composer.side,
-          startLine: composer.startLine ?? null,
-          line: composer.line,
-          body: composer.body,
-        },
-        done,
-      );
-    } else {
-      reviewDrafts.update.mutate(
-        { pullRequestId, id: composer.draftId, body: composer.body },
-        done,
-      );
-    }
-  }
+  const { composer, changeComposer, saveComposer } = useDraftComposer(
+    pullRequestId,
+    files.data,
+    reviewDrafts,
+    selectFile,
+  );
 
   const back = (
     <Button
@@ -467,13 +369,7 @@ function ReviewPage() {
             {newCommits && 'New commits'}
           </span>
           {newCommits && (
-            <Button
-              size="sm"
-              iconStart={<RefreshCw aria-hidden />}
-              onClick={() =>
-                setShownRefs({ headSha: pullRequest.headSha, baseBranch: pullRequest.baseBranch })
-              }
-            >
+            <Button size="sm" iconStart={<RefreshCw aria-hidden />} onClick={showNewCommits}>
               Show new commits
             </Button>
           )}

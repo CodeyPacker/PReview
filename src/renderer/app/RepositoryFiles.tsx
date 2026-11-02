@@ -3,7 +3,7 @@ import { useDeferredValue, useState } from 'react';
 import { FileTree } from '../components/FileTree/FileTree.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { SearchField } from '../components/SearchField/SearchField.tsx';
-import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
+import { FileListSwitch } from './FileListSwitch.tsx';
 import styles from './RepositoryFiles.module.css';
 
 export interface RepositoryFilesProps {
@@ -43,17 +43,7 @@ export function RepositoryFiles({
       count={paths?.length}
       padding="sm"
     >
-      <ToggleGroup
-        aria-label="File list"
-        size="sm"
-        block
-        value="repository"
-        onValueChange={(value) => onBrowseChange(value === 'repository')}
-        options={[
-          { value: 'changed', label: 'Changed' },
-          { value: 'repository', label: 'Repository' },
-        ]}
-      />
+      <FileListSwitch browsing onBrowseChange={onBrowseChange} />
       <SearchField
         aria-label="Search repository files"
         placeholder="Search files…"

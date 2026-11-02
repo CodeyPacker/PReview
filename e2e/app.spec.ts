@@ -9,6 +9,15 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  changedFile,
+  changedLine,
+  mockFileReviewMarks,
+  mockIpc,
+  mockReReview,
+  openReview,
+  pullRequestsState,
+} from './mocks.ts';
 
 // Each test gets its own user-data folder, so it starts with an empty database.
 let userDataDir: string;
@@ -34,21 +43,6 @@ function launch(): Promise<ElectronApplication> {
 }
 
 // A fresh user-data folder has no GitHub connection, so the connect prompt opens first.
-// The mocked pull requests are not in the database, so their file marks are kept in memory.
-async function mockFileReviewMarks(app: ElectronApplication): Promise<void> {
-  await app.evaluate(({ ipcMain }) => {
-    let marks: { path: string; state: string | null; blobSha: string }[] = [];
-    ipcMain.removeHandler('fileReviewMarks.list');
-    ipcMain.handle('fileReviewMarks.list', () => marks);
-    ipcMain.removeHandler('fileReviewMarks.set');
-    ipcMain.handle('fileReviewMarks.set', (_event, mark: (typeof marks)[number]) => {
-      marks = marks.filter((saved) => saved.path !== mark.path);
-      if (mark.state) marks.push(mark);
-      return marks;
-    });
-  });
-}
-
 async function dismissGitHubPrompt(page: Page): Promise<void> {
   await page
     .getByRole('dialog', { name: 'Connect GitHub' })
@@ -246,29 +240,10 @@ test('keeps split view at window size and toggles review panels independently', 
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Review layout') });
     await app.evaluate(({ ipcMain, BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0]?.setSize(1100, 800);
       const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Review layout',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
         'pullRequestFiles.list': {
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
@@ -308,12 +283,7 @@ test('keeps split view at window size and toggles review panels independently', 
         );
       }
     });
-    await mockFileReviewMarks(app);
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
     await expect(page.getByRole('heading', { name: 'Repository #7' })).toBeVisible();
     const files = page.locator('#review-files');
     const nav = page.locator('#main-sidebar');
@@ -651,29 +621,10 @@ test('configures review shortcuts and scrolls without focusing the code', async 
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Review layout') });
     await app.evaluate(({ ipcMain, BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0]?.setSize(1100, 800);
       const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Review layout',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
         'pullRequestFiles.list': {
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
@@ -715,11 +666,7 @@ test('configures review shortcuts and scrolls without focusing the code', async 
     });
     await mockFileReviewMarks(app);
 
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
     const title = page.locator('#review-file-title');
     const files = page.locator('#review-files');
     const nav = page.locator('#main-sidebar');
@@ -1052,6 +999,7 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Comments') });
     await app.evaluate(({ ipcMain, BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0]?.setSize(1100, 800);
       type Draft = { id: number; body: string } & Record<string, unknown>;
@@ -1060,26 +1008,6 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
       const submitted: unknown[] = [];
       Object.assign(globalThis, { submittedReviews: submitted });
       const handlers: Record<string, (input: never) => unknown> = {
-        'pullRequests.list': () => ({
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Comments',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        }),
         'pullRequestFiles.list': () => ({
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
@@ -1142,11 +1070,7 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
         ipcMain.handle(channel, (_event, input) => handler(input as never));
       }
     });
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
 
     const modified = page.locator('.modified-in-monaco-diff-editor');
     const lineNumber = (line: number) =>
@@ -1310,28 +1234,9 @@ test('finishes a review once and keeps it finished', async () => {
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Finish this') });
     await app.evaluate(({ ipcMain }) => {
       const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Finish this',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
         'pullRequestFiles.list': { headSha: 'abcdef1', mergeBase: 'abcdef0', files: [] },
       };
       for (const [channel, response] of Object.entries(responses)) {
@@ -1357,11 +1262,7 @@ test('finishes a review once and keeps it finished', async () => {
         return { completedAt: finishedAt };
       });
     });
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
 
     await page.getByRole('button', { name: 'Finish review' }).click();
     const finished = page.getByRole('button', { name: 'Review finished' });
@@ -1379,86 +1280,9 @@ test('opens a re-review on the changes since the last review', async () => {
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
-    await app.evaluate(({ ipcMain }) => {
-      const file = (path: string) => ({
-        path,
-        blobSha: `sha-${path}`,
-        previousPath: null,
-        status: 'modified',
-        additions: 1,
-        deletions: 1,
-        hunks: null,
-      });
-      const baseline = 'c'.repeat(40);
-      const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Second look',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
-        'pullRequestFiles.list': {
-          headSha: 'abcdef1',
-          mergeBase: 'abcdef0',
-          files: [file('a.ts'), file('b.ts')],
-        },
-        'pullRequestFiles.listCommits': [
-          { sha: 'e'.repeat(40), subject: 'Touch b', authorLogin: 'octo' },
-        ],
-        'pullRequestFiles.listSince': {
-          headSha: 'abcdef1',
-          mergeBase: baseline,
-          files: [file('b.ts')],
-        },
-        'pullRequestFiles.getDiff': {
-          original: 'const a = 1;\n',
-          modified: 'const a = 2;\n',
-          unavailable: null,
-        },
-        'reviewRounds.sync': [
-          {
-            number: 1,
-            headSha: 'd'.repeat(40),
-            baselineSha: null,
-            startedAt: '2026-11-01T11:00:00.000Z',
-            submittedAt: '2026-11-01T12:00:00.000Z',
-            finishedAt: null,
-          },
-          {
-            number: 2,
-            headSha: 'abcdef1',
-            baselineSha: baseline,
-            startedAt: '2026-11-02T11:00:00.000Z',
-            submittedAt: null,
-            finishedAt: null,
-          },
-        ],
-      };
-      for (const [channel, response] of Object.entries(responses)) {
-        ipcMain.removeHandler(channel);
-        ipcMain.handle(channel, () => response);
-      }
-    });
-    await mockFileReviewMarks(app);
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Second look') });
+    await mockReReview(app);
+    await openReview(app, page);
     const files = page.locator('#review-files');
     await page.getByRole('button', { name: 'Expand changed files' }).click();
 
@@ -1482,68 +1306,25 @@ test('browses a file the pull request does not change', async () => {
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
-    await app.evaluate(({ ipcMain }) => {
-      const file = (path: string) => ({
-        path,
-        blobSha: `sha-${path}`,
-        previousPath: null,
-        status: 'modified',
-        additions: 1,
-        deletions: 1,
-        hunks: null,
-      });
-      const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Second look',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
-        'pullRequestFiles.list': {
-          headSha: 'abcdef1',
-          mergeBase: 'abcdef0',
-          files: [file('a.ts'), file('b.ts')],
-        },
-        'pullRequestFiles.listCommits': [
-          { sha: 'e'.repeat(40), subject: 'Touch b', authorLogin: 'octo' },
-        ],
-        'pullRequestFiles.listRepositoryFiles': {
-          headSha: 'abcdef1',
-          paths: ['a.ts', 'b.ts', 'docs/README.md'],
-          truncated: false,
-        },
-        'pullRequestFiles.getDiff': {
-          original: 'const a = 1;\n',
-          modified: 'const a = 2;\n',
-          unavailable: null,
-        },
-        'reviewRounds.sync': [],
-      };
-      for (const [channel, response] of Object.entries(responses)) {
-        ipcMain.removeHandler(channel);
-        ipcMain.handle(channel, () => response);
-      }
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Second look') });
+    await mockIpc(app, {
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts'), changedFile('b.ts')],
+      },
+      'pullRequestFiles.listCommits': [
+        { sha: 'e'.repeat(40), subject: 'Touch b', authorLogin: 'octo' },
+      ],
+      'pullRequestFiles.listRepositoryFiles': {
+        headSha: 'abcdef1',
+        paths: ['a.ts', 'b.ts', 'docs/README.md'],
+        truncated: false,
+      },
+      'pullRequestFiles.getDiff': changedLine,
+      'reviewRounds.sync': [],
     });
-    await mockFileReviewMarks(app);
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
     const files = page.locator('#review-files');
     await page.getByRole('button', { name: 'Expand changed files' }).click();
 
@@ -1586,93 +1367,17 @@ test('reopens a re-review on the changes the reviewer chose', async () => {
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
-    await app.evaluate(({ ipcMain }) => {
-      const file = (path: string) => ({
-        path,
-        blobSha: `sha-${path}`,
-        previousPath: null,
-        status: 'modified',
-        additions: 1,
-        deletions: 1,
-        hunks: null,
-      });
-      const baseline = 'c'.repeat(40);
-      const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Second look',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
-        'pullRequestFiles.list': {
-          headSha: 'abcdef1',
-          mergeBase: 'abcdef0',
-          files: [file('a.ts'), file('b.ts')],
-        },
-        'pullRequestFiles.listCommits': [
-          { sha: 'e'.repeat(40), subject: 'Touch b', authorLogin: 'octo' },
-        ],
-        'pullRequestFiles.listSince': {
-          headSha: 'abcdef1',
-          mergeBase: baseline,
-          files: [file('b.ts')],
-        },
-        'pullRequestFiles.getDiff': {
-          original: 'const a = 1;\n',
-          modified: 'const a = 2;\n',
-          unavailable: null,
-        },
-        'reviewSessions.get': {
-          pullRequestId: 1,
-          selectedPath: null,
-          scrollTop: 0,
-          diffMode: 'split',
-          view: 'all',
-        },
-        'reviewRounds.sync': [
-          {
-            number: 1,
-            headSha: 'd'.repeat(40),
-            baselineSha: null,
-            startedAt: '2026-11-01T11:00:00.000Z',
-            submittedAt: '2026-11-01T12:00:00.000Z',
-            finishedAt: null,
-          },
-          {
-            number: 2,
-            headSha: 'abcdef1',
-            baselineSha: baseline,
-            startedAt: '2026-11-02T11:00:00.000Z',
-            submittedAt: null,
-            finishedAt: null,
-          },
-        ],
-      };
-      for (const [channel, response] of Object.entries(responses)) {
-        ipcMain.removeHandler(channel);
-        ipcMain.handle(channel, () => response);
-      }
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Second look') });
+    await mockReReview(app, {
+      'reviewSessions.get': {
+        pullRequestId: 1,
+        selectedPath: null,
+        scrollTop: 0,
+        diffMode: 'split',
+        view: 'all',
+      },
     });
-    await mockFileReviewMarks(app);
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
     const files = page.locator('#review-files');
     await page.getByRole('button', { name: 'Expand changed files' }).click();
 
@@ -1689,6 +1394,7 @@ test('moves drafts from older commits and flags the ones it cannot place', async
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Moved drafts') });
     await app.evaluate(({ ipcMain }) => {
       const head = 'abcdef1';
       const base = 'abcdef0';
@@ -1711,26 +1417,6 @@ test('moves drafts from older commits and flags the ones it cannot place', async
       const reattached: unknown[] = [];
       Object.assign(globalThis, { reattached });
       const handlers: Record<string, (input: never) => unknown> = {
-        'pullRequests.list': () => ({
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Moved drafts',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: head,
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        }),
         'pullRequestFiles.list': () => ({
           headSha: head,
           mergeBase: base,
@@ -1763,12 +1449,7 @@ test('moves drafts from older commits and flags the ones it cannot place', async
         ipcMain.handle(channel, (_event, input) => handler(input as never));
       }
     });
-    await mockFileReviewMarks(app);
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
 
     await expect(page.getByLabel('Draft on new line 1').first()).toBeVisible();
     await expect(page.getByText('Outdated')).toHaveCount(1);
@@ -1789,66 +1470,23 @@ test('shows one commit on its own without file decisions', async () => {
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
-    await app.evaluate(({ ipcMain }) => {
-      const file = (path: string) => ({
-        path,
-        blobSha: `sha-${path}`,
-        previousPath: null,
-        status: 'modified',
-        additions: 1,
-        deletions: 1,
-        hunks: null,
-      });
-      const commit = 'c'.repeat(40);
-      const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Review commits',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
-        'pullRequestFiles.list': {
-          headSha: 'abcdef1',
-          mergeBase: 'abcdef0',
-          files: [file('a.ts'), file('b.ts'), file('pnpm-lock.yaml')],
-        },
-        'pullRequestFiles.listCommits': [{ sha: commit, subject: 'Touch b', authorLogin: 'octo' }],
-        'pullRequestFiles.listCommit': {
-          headSha: commit,
-          mergeBase: 'd'.repeat(40),
-          files: [file('b.ts')],
-        },
-        'pullRequestFiles.getDiff': {
-          original: 'const a = 1;\n',
-          modified: 'const a = 2;\n',
-          unavailable: null,
-        },
-      };
-      for (const [channel, response] of Object.entries(responses)) {
-        ipcMain.removeHandler(channel);
-        ipcMain.handle(channel, () => response);
-      }
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Review commits') });
+    const commit = 'c'.repeat(40);
+    await mockIpc(app, {
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts'), changedFile('b.ts'), changedFile('pnpm-lock.yaml')],
+      },
+      'pullRequestFiles.listCommits': [{ sha: commit, subject: 'Touch b', authorLogin: 'octo' }],
+      'pullRequestFiles.listCommit': {
+        headSha: commit,
+        mergeBase: 'd'.repeat(40),
+        files: [changedFile('b.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
     });
-    await mockFileReviewMarks(app);
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
     const files = page.locator('#review-files');
     await page.getByRole('button', { name: 'Expand changed files' }).click();
     await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
@@ -1884,32 +1522,13 @@ test('folds unchanged lines and reveals a search match inside them', async () =>
   try {
     const page = await app.firstWindow();
     await dismissGitHubPrompt(page);
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Fold context') });
     await app.evaluate(({ ipcMain }) => {
       const lines = (value: number) =>
         Array.from({ length: 120 }, (_, i) =>
           i === 10 ? `const changed = ${value};` : `const line${i} = 0;`,
         );
       const responses: Record<string, unknown> = {
-        'pullRequests.list': {
-          pullRequests: [
-            {
-              id: 1,
-              repositoryId: 1,
-              number: 7,
-              title: 'Fold context',
-              draft: false,
-              url: 'https://github.com/octo/app/pull/7',
-              author: null,
-              headBranch: 'feature',
-              headSha: 'abcdef1',
-              baseBranch: 'main',
-              createdAt: '2026-10-31T12:00:00Z',
-              updatedAt: '2026-10-31T12:00:00Z',
-            },
-          ],
-          errors: [],
-          syncing: false,
-        },
         'pullRequestFiles.list': {
           headSha: 'abcdef1',
           mergeBase: 'abcdef0',
@@ -1936,12 +1555,7 @@ test('folds unchanged lines and reveals a search match inside them', async () =>
         ipcMain.handle(channel, () => response);
       }
     });
-    await mockFileReviewMarks(app);
-    await page.evaluate(() => {
-      location.hash = '/review/1';
-    });
-    // The sidebar read the pull requests before they were mocked.
-    await page.reload();
+    await openReview(app, page);
     await expect(page.locator('.diff-hidden-lines')).not.toHaveCount(0);
 
     await page.getByRole('button', { name: 'Expand changed files' }).click();
