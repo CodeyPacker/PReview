@@ -325,7 +325,8 @@ test('keeps split view at window size and toggles review panels independently', 
       .poll(async () => {
         const tab = await page.getByRole('button', { name: 'Expand changed files' }).boundingBox();
         const panel = await page.getByRole('region', { name: 'a.ts', exact: true }).boundingBox();
-        return !!tab && !!panel && tab.x + tab.width <= panel.x + 1;
+        // Closed, the tab is attached to the inside of the review panel.
+        return !!tab && !!panel && tab.x >= panel.x && tab.x + tab.width <= panel.x + 40;
       })
       .toBe(true);
     await expect
@@ -344,38 +345,42 @@ test('keeps split view at window size and toggles review panels independently', 
 
     await page.getByRole('button', { name: 'Expand navigation' }).click();
     await expect(nav).toBeVisible();
-    // The tabs stay where they were while the panels open and close.
+    // Open, the navigation tab is inside the sidebar, at its right edge.
     await expect
-      .poll(
-        async () =>
-          (await page.getByRole('button', { name: 'Collapse navigation' }).boundingBox())?.x,
-      )
-      .toBe(0);
+      .poll(async () => {
+        const tab = await page.getByRole('button', { name: 'Collapse navigation' }).boundingBox();
+        const sidebar = await nav.boundingBox();
+        return (
+          !!tab &&
+          !!sidebar &&
+          tab.x > sidebar.x &&
+          tab.x + tab.width <= sidebar.x + sidebar.width + 1 &&
+          tab.x + tab.width >= sidebar.x + sidebar.width - 4
+        );
+      })
+      .toBe(true);
     // A sibling tab cannot exclude a native drag region covering the whole sidebar.
     expect(
       await nav.evaluate((el) => getComputedStyle(el).getPropertyValue('-webkit-app-region')),
     ).not.toBe('drag');
     await page.screenshot({ path: test.info().outputPath('navigation-expanded.png') });
     await expect(files).toBeHidden();
-    const filesTabOpen = page.getByRole('button', { name: 'Expand changed files' });
-    // The panels slide for a moment, so wait until the tab stops moving.
-    await expect
-      .poll(async () => {
-        const first = await filesTabOpen.boundingBox();
-        await page.waitForTimeout(250);
-        const second = await filesTabOpen.boundingBox();
-        return first?.x === second?.x;
-      })
-      .toBe(true);
-    const filesTabClosed = await filesTabOpen.boundingBox();
     await page.getByRole('button', { name: 'Expand changed files' }).click();
     await expect(files).toBeVisible();
+    // Open, the files tab is inside the files panel, at its right edge.
     await expect
       .poll(async () => {
         const tab = await page
           .getByRole('button', { name: 'Collapse changed files' })
           .boundingBox();
-        return tab && filesTabClosed && tab.x === filesTabClosed.x && tab.y === filesTabClosed.y;
+        const panel = await files.boundingBox();
+        return (
+          !!tab &&
+          !!panel &&
+          tab.x > panel.x &&
+          tab.x + tab.width <= panel.x + panel.width + 1 &&
+          tab.x + tab.width >= panel.x + panel.width - 4
+        );
       })
       .toBe(true);
     await page.getByRole('button', { name: 'Collapse navigation' }).click();
@@ -458,7 +463,7 @@ test('keeps split view at window size and toggles review panels independently', 
       .poll(() => original.evaluate((el) => el.getBoundingClientRect().width))
       .toBeGreaterThan(100);
 
-    // The heading stays aligned and the tab stays on the diff panel in both states.
+    // The heading stays aligned, and the open tab is inside the files panel.
     await expect
       .poll(async () => {
         const heading = await page.locator('#review-file-title').boundingBox();
@@ -479,7 +484,9 @@ test('keeps split view at window size and toggles review panels independently', 
           .getByRole('button', { name: 'Collapse changed files' })
           .boundingBox();
         const panel = await files.boundingBox();
-        return !!tab && !!panel && tab.x + tab.width <= panel.x + 1;
+        return (
+          !!tab && !!panel && tab.x > panel.x && tab.x + tab.width <= panel.x + panel.width + 1
+        );
       })
       .toBe(true);
     await expect.poll(indicatorAlignment).toBeLessThan(1);

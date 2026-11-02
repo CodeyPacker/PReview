@@ -63,8 +63,6 @@
   grid-template-columns: minmax(240px, 1fr) minmax(0, 3fr);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-16);
-  /* Room for the files toggle, which stays at the left edge whether the files are open or not. */
-  padding-left: 22px;
   min-height: 0;
   transition:
     grid-template-columns 200ms ease,
@@ -77,6 +75,7 @@
 }
 
 .filesSlot {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -106,15 +105,24 @@
   position: absolute;
   z-index: 1;
   top: var(--space-16);
-  left: 0;
+  right: 1px;
   width: 22px;
   height: 28px;
   padding: 0;
   border: 1px solid var(--border);
-  border-left: 0;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-right: 0;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   background: var(--surface-raised);
   color: var(--ink-secondary);
+}
+
+/* Closed, the toggle is on the left edge of the review panel. */
+.treeToggleClosed {
+  right: auto;
+  left: 1px;
+  border-right: 1px solid var(--border);
+  border-left: 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .treeToggle > svg {
@@ -153,6 +161,7 @@
 }
 
 .diff {
+  position: relative;
   grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
 }
