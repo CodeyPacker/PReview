@@ -39,6 +39,8 @@ export interface ProviderPullRequest {
 
 export interface ProviderChangedFile {
   path: string;
+  // The file's id at the pull request head. Changes when the file's content changes.
+  blobSha: string;
   // The path before a rename or copy.
   previousPath: string | null;
   status: PullRequestFile['status'];

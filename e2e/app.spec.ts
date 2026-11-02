@@ -26,6 +26,21 @@ function launch(): Promise<ElectronApplication> {
 }
 
 // A fresh user-data folder has no GitHub connection, so the connect prompt opens first.
+// The mocked pull requests are not in the database, so their file marks are kept in memory.
+async function mockFileReviewMarks(app: ElectronApplication): Promise<void> {
+  await app.evaluate(({ ipcMain }) => {
+    let marks: { path: string; state: string | null; blobSha: string }[] = [];
+    ipcMain.removeHandler('fileReviewMarks.list');
+    ipcMain.handle('fileReviewMarks.list', () => marks);
+    ipcMain.removeHandler('fileReviewMarks.set');
+    ipcMain.handle('fileReviewMarks.set', (_event, mark: (typeof marks)[number]) => {
+      marks = marks.filter((saved) => saved.path !== mark.path);
+      if (mark.state) marks.push(mark);
+      return marks;
+    });
+  });
+}
+
 async function dismissGitHubPrompt(page: Page): Promise<void> {
   await page
     .getByRole('dialog', { name: 'Connect GitHub' })
@@ -252,6 +267,7 @@ test('keeps split view at window size and toggles review panels independently', 
           files: [
             {
               path: 'a.ts',
+              blobSha: 'sha-a.ts',
               previousPath: null,
               status: 'modified',
               additions: 1,
@@ -260,6 +276,7 @@ test('keeps split view at window size and toggles review panels independently', 
             },
             {
               path: 'new.ts',
+              blobSha: 'sha-new.ts',
               previousPath: null,
               status: 'added',
               additions: 1,
@@ -283,6 +300,7 @@ test('keeps split view at window size and toggles review panels independently', 
         );
       }
     });
+    await mockFileReviewMarks(app);
     await page.evaluate(() => {
       location.hash = '/review/1';
     });
@@ -540,7 +558,7 @@ test('keeps split view at window size and toggles review panels independently', 
     await flag.click();
     await expect(title).toHaveText('new.ts');
 
-    // A new commit pair starts without approval or flag decisions.
+    // A new commit clears the decision on the file it changed.
     await app.evaluate(({ ipcMain }) => {
       ipcMain.removeHandler('pullRequestFiles.list');
       ipcMain.handle('pullRequestFiles.list', () => ({
@@ -549,6 +567,7 @@ test('keeps split view at window size and toggles review panels independently', 
         files: [
           {
             path: 'a.ts',
+            blobSha: 'sha-a.ts',
             previousPath: null,
             status: 'modified',
             additions: 1,
@@ -557,6 +576,7 @@ test('keeps split view at window size and toggles review panels independently', 
           },
           {
             path: 'new.ts',
+            blobSha: 'sha-new.ts-2',
             previousPath: null,
             status: 'added',
             additions: 1,
@@ -626,6 +646,7 @@ test('configures review shortcuts and scrolls without focusing the code', async 
           files: [
             {
               path: 'a.ts',
+              blobSha: 'sha-a.ts',
               previousPath: null,
               status: 'modified',
               additions: 1,
@@ -634,6 +655,7 @@ test('configures review shortcuts and scrolls without focusing the code', async 
             },
             {
               path: 'new.ts',
+              blobSha: 'sha-new.ts',
               previousPath: null,
               status: 'added',
               additions: 1,
@@ -657,6 +679,7 @@ test('configures review shortcuts and scrolls without focusing the code', async 
         );
       }
     });
+    await mockFileReviewMarks(app);
 
     await page.evaluate(() => {
       location.hash = '/review/1';
@@ -889,6 +912,7 @@ test('submits a review, and only allows a comment on your own pull request', asy
           files: [
             {
               path: 'a.ts',
+              blobSha: 'sha-a.ts',
               previousPath: null,
               status: 'modified',
               additions: 1,
@@ -1028,6 +1052,7 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
           files: [
             {
               path: 'a.ts',
+              blobSha: 'sha-a.ts',
               previousPath: null,
               status: 'modified',
               additions: 2,

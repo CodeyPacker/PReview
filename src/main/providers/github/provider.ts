@@ -46,6 +46,7 @@ const pullRequestSchema = z.object({
 
 const changedFileSchema = z.object({
   filename: z.string(),
+  sha: z.string(),
   previous_filename: z.string().optional(),
   status: z.enum(['added', 'removed', 'modified', 'renamed', 'copied', 'changed', 'unchanged']),
   additions: z.number(),
@@ -221,6 +222,7 @@ export class GitHubProvider implements GitProvider {
       const file = changedFileSchema.parse(item);
       return {
         path: file.filename,
+        blobSha: file.sha,
         previousPath: file.previous_filename ?? null,
         // A file GitHub calls unchanged has no diff to show, same as a plain edit.
         status: file.status === 'unchanged' ? 'changed' : file.status,

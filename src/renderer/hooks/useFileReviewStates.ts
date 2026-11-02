@@ -1,53 +1,42 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { z } from 'zod';
+import { useMemo } from 'react';
+import type { FileReviewMark } from '../../shared/contracts/file-review-marks.ts';
 import type { PullRequestChanges } from '../../shared/contracts/pull-request-files.ts';
 import type { FileReviewState } from '../lib/fileReview.ts';
 
-const storedReviewStates = z.object({
-  revision: z.string(),
-  states: z.record(z.string(), z.enum(['approved', 'flagged'])),
-});
-
-// Local file decisions apply only to the exact diff revision that was reviewed.
+// File decisions kept on this machine. A decision applies while the file still has the content
+// it was made on, so new commits clear only the files they change.
 export function useFileReviewStates(
   pullRequestId: number,
   changes: PullRequestChanges | undefined,
 ) {
   const queryClient = useQueryClient();
-  const revision = changes ? `${changes.mergeBase}:${changes.headSha}` : undefined;
-  const storageKey = `preview.fileReview.${pullRequestId}`;
-  const queryKey = ['fileReview', pullRequestId, revision] as const;
-
-  function read(): Record<string, FileReviewState> {
-    if (!revision) return {};
-    try {
-      const saved = storedReviewStates.safeParse(
-        JSON.parse(localStorage.getItem(storageKey) ?? 'null'),
-      );
-      return saved.success && saved.data.revision === revision ? saved.data.states : {};
-    } catch {
-      return {};
-    }
-  }
-
-  const { data: reviewStates } = useQuery({
+  const queryKey = ['fileReviewMarks', pullRequestId] as const;
+  const marks = useQuery({
     queryKey,
-    queryFn: read,
-    initialData: read,
-    staleTime: Infinity,
+    queryFn: () => window.preview.fileReviewMarks.list(pullRequestId),
   });
 
-  function setReviewState(path: string, state: FileReviewState | undefined) {
-    if (!revision) return;
-    const states = { ...queryClient.getQueryData<Record<string, FileReviewState>>(queryKey) };
-    if (state) states[path] = state;
-    else delete states[path];
-    queryClient.setQueryData(queryKey, states);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ revision, states }));
-    } catch {
-      // Keep the in-memory decisions if local storage is unavailable.
+  const reviewStates = useMemo(() => {
+    const blobShas = new Map(changes?.files.map((file) => [file.path, file.blobSha]));
+    const states: Record<string, FileReviewState> = {};
+    for (const mark of marks.data ?? []) {
+      if (blobShas.get(mark.path) === mark.blobSha) states[mark.path] = mark.state;
     }
+    return states;
+  }, [changes, marks.data]);
+
+  function setReviewState(path: string, state: FileReviewState | undefined) {
+    const blobSha = changes?.files.find((file) => file.path === path)?.blobSha;
+    if (blobSha === undefined) return;
+    const others = (queryClient.getQueryData<FileReviewMark[]>(queryKey) ?? []).filter(
+      (mark) => mark.path !== path,
+    );
+    queryClient.setQueryData(queryKey, state ? [...others, { path, state, blobSha }] : others);
+    window.preview.fileReviewMarks
+      .set({ pullRequestId, path, state: state ?? null, blobSha })
+      .then((saved) => queryClient.setQueryData(queryKey, saved))
+      .catch(() => queryClient.invalidateQueries({ queryKey }));
   }
 
   return { reviewStates, setReviewState };

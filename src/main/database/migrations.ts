@@ -202,4 +202,19 @@ export const migrations: readonly Migration[] = [
       CREATE UNIQUE INDEX review_sessions_active ON review_sessions (active) WHERE active = 1;
     `,
   },
+  {
+    version: 11,
+    name: 'file_review_marks',
+    // A file the reviewer approved or flagged. blob_sha is the file's id when it was marked, so
+    // the mark stops applying once the file changes.
+    sql: `
+      CREATE TABLE file_review_marks (
+        pull_request_id INTEGER NOT NULL REFERENCES pull_requests (id) ON DELETE CASCADE,
+        path TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN ('approved', 'flagged')),
+        blob_sha TEXT NOT NULL,
+        PRIMARY KEY (pull_request_id, path)
+      ) STRICT;
+    `,
+  },
 ];

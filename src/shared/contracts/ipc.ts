@@ -35,6 +35,7 @@ import {
   setFindingResolutionInputSchema,
   updateReviewFindingInputSchema,
 } from './review-findings.ts';
+import { fileReviewMarkSchema, setFileReviewMarkInputSchema } from './file-review-marks.ts';
 import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 
@@ -161,6 +162,14 @@ export const ipcContract = {
   'reviewFindings.delete': {
     input: z.object({ pullRequestId: z.number().int(), id: z.number().int() }),
     output: z.array(reviewFindingSchema),
+  },
+  'fileReviewMarks.list': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.array(fileReviewMarkSchema),
+  },
+  'fileReviewMarks.set': {
+    input: setFileReviewMarkInputSchema,
+    output: z.array(fileReviewMarkSchema),
   },
   // Where the reviewer left off in a pull request. Null before it was first opened.
   'reviewSessions.get': {

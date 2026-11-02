@@ -61,6 +61,10 @@ const api: PreviewApi = {
     setResolution: (change) => invoke('reviewFindings.setResolution', change),
     delete: (pullRequestId, id) => invoke('reviewFindings.delete', { pullRequestId, id }),
   },
+  fileReviewMarks: {
+    list: (pullRequestId) => invoke('fileReviewMarks.list', { pullRequestId }),
+    set: (mark) => invoke('fileReviewMarks.set', mark),
+  },
   reviewSessions: {
     get: (pullRequestId) => invoke('reviewSessions.get', { pullRequestId }),
     save: (session) => invoke('reviewSessions.save', session),

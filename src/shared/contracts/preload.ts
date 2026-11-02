@@ -25,6 +25,7 @@ import type {
   SetFindingResolutionInput,
   UpdateReviewFindingInput,
 } from './review-findings.ts';
+import type { FileReviewMark, SetFileReviewMarkInput } from './file-review-marks.ts';
 import type { ReviewSession, SaveReviewSessionInput } from './review-sessions.ts';
 import type { RepositoriesState, RepositorySettingsPatch, WatchedFolder } from './repositories.ts';
 import type { Settings, SettingsPatch } from './settings.ts';
@@ -96,6 +97,10 @@ export interface PreviewApi {
     update(finding: UpdateReviewFindingInput): Promise<ReviewFinding[]>;
     setResolution(change: SetFindingResolutionInput): Promise<ReviewFinding[]>;
     delete(pullRequestId: number, id: number): Promise<ReviewFinding[]>;
+  };
+  fileReviewMarks: {
+    list(pullRequestId: number): Promise<FileReviewMark[]>;
+    set(mark: SetFileReviewMarkInput): Promise<FileReviewMark[]>;
   };
   reviewSessions: {
     get(pullRequestId: number): Promise<ReviewSession | null>;
