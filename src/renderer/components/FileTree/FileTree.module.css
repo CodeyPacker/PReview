@@ -46,13 +46,6 @@
   transform: rotate(90deg);
 }
 
-.icon {
-  flex: none;
-  width: var(--icon-md);
-  height: var(--icon-md);
-  color: var(--ink-secondary);
-}
-
 .name {
   min-width: 0;
   overflow: hidden;

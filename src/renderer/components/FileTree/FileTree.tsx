@@ -1,5 +1,5 @@
 // FileTree: Folders and files of a list of paths, opened and closed like an editor's explorer.
-import { ChevronRight, File, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { cx } from '../../lib/cx.ts';
 import {
@@ -9,6 +9,7 @@ import {
   visibleRows,
   type TreeRow,
 } from '../../lib/fileTree.ts';
+import { FileIcon, FolderIcon } from './icons.tsx';
 import styles from './FileTree.module.css';
 
 // Rows past this many wait for the reviewer to close folders or search.
@@ -155,15 +156,7 @@ export function FileTree({
             ) : (
               <span className={styles.chevron} aria-hidden />
             )}
-            {folder ? (
-              isOpen ? (
-                <FolderOpen className={styles.icon} aria-hidden />
-              ) : (
-                <Folder className={styles.icon} aria-hidden />
-              )
-            ) : (
-              <File className={styles.icon} aria-hidden />
-            )}
+            {folder ? <FolderIcon open={isOpen} /> : <FileIcon />}
             <span className={styles.name}>{node.name}</span>
           </div>
         );
