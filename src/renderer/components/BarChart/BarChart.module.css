@@ -1,1 +1,89 @@
-/* BarChart styles. Read values from tokens.css custom properties only. */
+/* BarChart. Read values from tokens.css custom properties only. */
+
+.chart {
+  display: grid;
+  gap: var(--space-12);
+  margin: 0;
+  font-family: var(--font-sans);
+}
+
+.plot {
+  position: relative;
+  margin-bottom: 20px;
+  margin-left: 28px;
+}
+
+.axis > span {
+  position: absolute;
+  left: -28px;
+  width: 20px;
+  color: var(--ink-secondary);
+  font: 400 var(--text-xs) / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  transform: translateY(50%);
+}
+
+.grid > span {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: var(--chart-track);
+}
+
+.columns {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: var(--space-8);
+}
+
+.column {
+  position: relative;
+  display: flex;
+  flex: 1;
+  justify-content: center;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 2px;
+  width: min(100%, 18px);
+  height: 100%;
+}
+
+.stack > span {
+  width: 100%;
+  border-radius: var(--radius-xs);
+}
+
+.x {
+  position: absolute;
+  bottom: -20px;
+  color: var(--ink-secondary);
+  font: 400 var(--text-xs) / 16px var(--font-sans);
+  white-space: nowrap;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-16);
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+}

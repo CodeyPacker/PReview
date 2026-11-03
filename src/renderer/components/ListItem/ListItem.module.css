@@ -1,1 +1,109 @@
-/* ListItem styles. Read values from tokens.css custom properties only. */
+/* ListItem. Read values from tokens.css custom properties only. */
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-12);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  text-align: left;
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.interactive {
+  cursor: pointer;
+}
+
+.interactive:hover:not(.selected) {
+  background: var(--surface-hover);
+}
+
+.sm {
+  padding: var(--space-8) var(--space-12);
+}
+
+.lg {
+  padding: var(--space-16);
+}
+
+.card {
+  border-color: var(--border);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-xs);
+}
+
+.selected {
+  border-color: var(--accent-border);
+  background: var(--surface-selected);
+}
+
+.stripe {
+  overflow: hidden;
+  padding-left: calc(var(--space-12) + 4px);
+}
+
+.stripe::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: var(--tone-fill);
+}
+
+.lead {
+  display: inline-flex;
+  flex: none;
+}
+
+.main {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.eyebrow {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
+
+.title {
+  overflow: hidden;
+  color: var(--ink);
+  font: 600 var(--text-base) / 20px var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg .title {
+  font-size: var(--text-lg);
+  line-height: 22px;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4) var(--space-12);
+  min-width: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.trail {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-12);
+}
