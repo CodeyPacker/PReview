@@ -448,6 +448,7 @@ function ReviewPage() {
           ownPullRequest={
             auth?.status === 'connected' && auth.user.login === pullRequest.author?.login
           }
+          onDone={() => void navigate({ to: '/inbox' })}
         />
       )}
       <div className={cx(styles.workspace, filesCollapsed && styles.filesCollapsed)}>

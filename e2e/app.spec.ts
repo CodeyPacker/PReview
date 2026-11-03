@@ -965,6 +965,8 @@ test('submits a review, and only allows a comment on your own pull request', asy
     });
     await dialog.getByRole('button', { name: 'Done' }).click();
     await expect(dialog).toBeHidden();
+    // A sent review is done with, so the Inbox comes back.
+    await expect(page).toHaveURL(/#\/inbox$/);
     expect(
       await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
     ).toEqual([
@@ -1220,6 +1222,11 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
         sendToAgent: false,
       },
     ]);
+    // Sending the review returns to the Inbox. The mocked drafts are still there to delete.
+    await expect(page).toHaveURL(/#\/inbox$/);
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
     await rangeCard.getByRole('button', { name: 'Delete draft' }).click();
     await expect(rangeCard).toBeHidden();
 
