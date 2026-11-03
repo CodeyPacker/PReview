@@ -1,0 +1,134 @@
+/* Dashboard page. Read values from tokens.css custom properties only. */
+
+.page {
+  display: grid;
+  gap: var(--space-16);
+  max-width: 1280px;
+}
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+  gap: var(--space-16);
+}
+
+.topMain {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.hero {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, var(--accent-soft), var(--canvas-tint));
+}
+
+.greeting {
+  display: grid;
+}
+
+.greetingLead {
+  color: var(--ink-secondary);
+  font: 400 var(--text-2xl) / 32px var(--font-display);
+}
+
+.greetingName {
+  color: var(--ink);
+  font: 700 var(--text-3xl) / 44px var(--font-display);
+}
+
+.heroText {
+  margin: 0;
+  color: var(--ink);
+  font: 400 var(--text-lg) / 24px var(--font-sans);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-16);
+}
+
+.progress {
+  display: grid;
+  gap: var(--space-16);
+}
+
+.activeCharacter {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+}
+
+.characterName {
+  color: var(--ink);
+  font: 600 var(--text-lg) / 22px var(--font-sans);
+}
+
+.characterLevel {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.middle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 340px;
+  align-items: start;
+  gap: var(--space-16);
+}
+
+.bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 480px;
+  align-items: start;
+  gap: var(--space-16);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.placeholderNote {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
+
+.weekSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-8);
+  margin: 0;
+}
+
+.weekStat {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.weekStat dd {
+  margin: 0;
+  color: var(--ink);
+  font: 600 var(--text-xl) / 28px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.weekStat dt {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.characters {
+  display: flex;
+  gap: var(--space-12);
+}

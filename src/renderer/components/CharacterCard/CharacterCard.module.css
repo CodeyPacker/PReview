@@ -1,1 +1,92 @@
-/* CharacterCard styles. Read values from tokens.css custom properties only. */
+/* CharacterCard. Read values from tokens.css custom properties only. */
+
+.card {
+  display: grid;
+  width: 128px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  text-align: center;
+  transition:
+    box-shadow var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.sm {
+  width: 104px;
+}
+
+.lg {
+  width: 160px;
+}
+
+.card:hover:not(.selected) {
+  box-shadow: var(--shadow-md);
+}
+
+.selected {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 1px var(--accent),
+    var(--shadow-sm);
+}
+
+.art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  background: linear-gradient(180deg, var(--canvas-tint), var(--surface-sunken));
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.placeholder {
+  color: var(--accent-text);
+  font: 700 var(--text-2xl) / 1 var(--font-display);
+  opacity: 0.5;
+}
+
+.locked .image,
+.locked .placeholder {
+  filter: grayscale(1) brightness(1.1);
+  opacity: 0.35;
+}
+
+.lock {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink-secondary);
+}
+
+.lock svg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+.meta {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-12) var(--space-12);
+}
+
+.name {
+  color: var(--ink);
+  font: 600 var(--text-base) / 20px var(--font-sans);
+}
+
+.level {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
