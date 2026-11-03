@@ -1,1 +1,75 @@
 /* StatCard styles. Read values from tokens.css custom properties only. */
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+  padding: var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  -webkit-backdrop-filter: blur(var(--blur-glass));
+  backdrop-filter: blur(var(--blur-glass));
+}
+
+.body {
+  display: grid;
+  flex: 1;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.label {
+  color: var(--ink-secondary);
+  font: 500 var(--text-md) / 18px var(--font-sans);
+}
+
+.value {
+  color: var(--ink);
+  font: 700 var(--text-xl) / 28px var(--font-display);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.delta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: 600 var(--text-sm) / 16px var(--font-sans);
+}
+
+.delta > svg {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.5;
+}
+
+.up {
+  color: var(--success);
+}
+
+.down {
+  color: var(--danger);
+}
+
+.trend {
+  align-self: flex-end;
+}
+
+/* The compact grid: icon above the numbers, no trend line. */
+.stacked {
+  flex-direction: column;
+  gap: var(--space-8);
+  text-align: center;
+}
+
+.stacked .body {
+  flex: none;
+  justify-items: center;
+}
+
+.stacked .label {
+  font-size: var(--text-sm);
+}
