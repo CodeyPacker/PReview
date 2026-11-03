@@ -89,7 +89,7 @@ function InboxPage() {
       <div className={styles.top}>
         <PageHeader
           title="Inbox"
-          description="Review pull requests, track progress, and colaborate with AI agents."
+          description="Review pull requests, track progress, and collaborate with AI agents."
         />
         {errors.length > 0 && (
           <ul className={styles.errors} role="alert">
