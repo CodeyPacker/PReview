@@ -25,6 +25,7 @@ import type {
 } from '../../../shared/contracts/review-drafts.ts';
 import { listReviewDrafts } from './drafts.ts';
 import { findingsMarkdown, listReviewFindings } from './findings.ts';
+import { saveMergedPullRequest } from './merged.ts';
 import { moveLines } from './reattach.ts';
 import { endReviewRound } from './rounds.ts';
 
@@ -381,6 +382,7 @@ export class PullRequestReviews {
       }
       throw error;
     }
+    saveMergedPullRequest(this.deps.db, pullRequestId, repository);
     return { status: 'merged' };
   }
 

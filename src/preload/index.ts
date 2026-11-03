@@ -80,6 +80,9 @@ const api: PreviewApi = {
   reviewRounds: {
     sync: (pullRequestId, headSha) => invoke('reviewRounds.sync', { pullRequestId, headSha }),
   },
+  mergedPullRequests: {
+    get: (pullRequestId) => invoke('mergedPullRequests.get', { pullRequestId }),
+  },
   reviewCompletions: {
     get: (pullRequestId) => invoke('reviewCompletions.get', { pullRequestId }),
     finish: (pullRequestId) => invoke('reviewCompletions.finish', { pullRequestId }),

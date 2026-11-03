@@ -39,6 +39,7 @@ import type {
 } from './review-findings.ts';
 import type { FileReviewMark, SetFileReviewMarkInput } from './file-review-marks.ts';
 import type { RepositorySearchInput, RepositorySearchResult } from './repository-search.ts';
+import type { MergedPullRequest } from './merged-pull-requests.ts';
 import type { ReviewCompletion } from './review-completions.ts';
 import type { ReviewRound } from './review-rounds.ts';
 import type { ReviewSession, SaveReviewSessionInput } from './review-sessions.ts';
@@ -127,6 +128,9 @@ export interface PreviewApi {
   fileReviewMarks: {
     list(pullRequestId: number): Promise<FileReviewMark[]>;
     set(mark: SetFileReviewMarkInput): Promise<FileReviewMark[]>;
+  };
+  mergedPullRequests: {
+    get(pullRequestId: number): Promise<MergedPullRequest | null>;
   };
   reviewCompletions: {
     get(pullRequestId: number): Promise<ReviewCompletion | null>;
