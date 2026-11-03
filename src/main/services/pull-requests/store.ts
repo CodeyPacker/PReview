@@ -22,19 +22,24 @@ interface PullRequestRow {
   has_drafts: number;
   submitted_head_sha: string | null;
   finished_at: string | null;
+  agent_ci: 'pending' | 'passed' | 'failed' | null;
 }
 
 // The latest round decides: a submitted review waits for new commits, then for the next
 // round, and a finished one is done. Before a submit, unsent drafts mean feedback is in the
-// making.
+// making. New commits an agent pushed wait for their CI first, and failed CI needs action.
 export function reviewStateOf(row: {
   opened: boolean;
   hasDrafts: boolean;
   headSha: string;
   submittedHeadSha: string | null;
   finishedAt: string | null;
+  // CI on the head commit, when an agent pushed it.
+  agentCi?: 'pending' | 'passed' | 'failed' | null;
 }): ReviewState {
   if (row.submittedHeadSha !== null && row.submittedHeadSha !== row.headSha) {
+    if (row.agentCi === 'pending') return 'feedback-submitted';
+    if (row.agentCi === 'failed') return 'action-required';
     return 'ready-for-rereview';
   }
   if (row.finishedAt !== null) return 'completed';
@@ -52,7 +57,10 @@ export function listPullRequests(db: DatabaseSync): PullRequest[] {
               p.author_avatar_url, p.author_is_bot, p.head_branch, p.head_sha, p.base_branch, p.created_at,
               p.updated_at, s.pull_request_id IS NOT NULL AS opened,
               EXISTS (SELECT 1 FROM review_drafts d WHERE d.pull_request_id = p.id) AS has_drafts,
-              rr.submitted_head_sha, rr.finished_at
+              rr.submitted_head_sha, rr.finished_at,
+              (SELECT t.ci_status FROM agent_tasks t
+               WHERE t.pull_request_id = p.id AND t.pushed_sha = p.head_sha
+               ORDER BY t.id DESC LIMIT 1) AS agent_ci
        FROM pull_requests p
        JOIN repositories r ON r.id = p.repository_id
        LEFT JOIN review_sessions s ON s.pull_request_id = p.id
@@ -91,6 +99,7 @@ export function listPullRequests(db: DatabaseSync): PullRequest[] {
       headSha: row.head_sha,
       submittedHeadSha: row.submitted_head_sha,
       finishedAt: row.finished_at,
+      agentCi: row.agent_ci,
     }),
   }));
 }

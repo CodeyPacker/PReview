@@ -33,6 +33,14 @@ describe('reviewStateOf', () => {
     const submitted = { ...base, opened: true, submittedHeadSha: A };
     expect(reviewStateOf(submitted)).toBe('feedback-submitted');
     expect(reviewStateOf({ ...submitted, headSha: B })).toBe('ready-for-rereview');
+    // New commits an agent pushed wait for their CI.
+    expect(reviewStateOf({ ...submitted, headSha: B, agentCi: 'pending' })).toBe(
+      'feedback-submitted',
+    );
+    expect(reviewStateOf({ ...submitted, headSha: B, agentCi: 'failed' })).toBe('action-required');
+    expect(reviewStateOf({ ...submitted, headSha: B, agentCi: 'passed' })).toBe(
+      'ready-for-rereview',
+    );
   });
 
   it('shows completed once the round is finished', () => {

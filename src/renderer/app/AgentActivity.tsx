@@ -44,9 +44,9 @@ export function AgentActivity({ task }: AgentActivityProps) {
   const active = isAgentActive(task) || task.status === 'waiting';
   const { data: events = [] } = useAgentActivity(task.id, active);
   const action = useAgentTaskAction();
-  const run = (name: 'stop' | 'forceStop' | 'resume') =>
+  const run = (name: 'stop' | 'forceStop' | 'resume' | 'push' | 'investigate') =>
     action.mutate({ action: name, taskId: task.id });
-  const stopping = action.isPending && action.variables?.action === 'stop';
+  const pending = (name: string) => action.isPending && action.variables?.action === name;
 
   return (
     <section className={styles.agent} aria-label="Agent activity">
@@ -62,16 +62,28 @@ export function AgentActivity({ task }: AgentActivityProps) {
         </p>
       )}
       {task.report && <Report report={task.report} />}
+      {task.status === 'completed' && task.push && <Push push={task.push} ci={task.ci} />}
       {events.length > 0 && <Feed events={events.slice(-FEED_LENGTH)} />}
       <div className={styles.actions}>
         {(task.status === 'queued' || task.status === 'running' || task.status === 'waiting') && (
-          <Button size="sm" loading={stopping} onClick={() => run('stop')}>
+          <Button size="sm" loading={pending('stop')} onClick={() => run('stop')}>
             Stop
           </Button>
         )}
         {task.status === 'running' && (
           <Button size="sm" variant="plain" tone="danger" onClick={() => run('forceStop')}>
             Force Stop
+          </Button>
+        )}
+        {task.status === 'completed' &&
+          (task.push?.status === 'waiting' || task.push?.status === 'blocked') && (
+            <Button size="sm" loading={pending('push')} onClick={() => run('push')}>
+              {task.push.status === 'waiting' ? 'Push Changes' : 'Try Again'}
+            </Button>
+          )}
+        {task.status === 'completed' && task.ci?.status === 'failed' && (
+          <Button size="sm" loading={pending('investigate')} onClick={() => run('investigate')}>
+            Investigate with Claude
           </Button>
         )}
         {(task.status === 'stopped' || task.status === 'failed') && (
@@ -122,6 +134,73 @@ function Feed({ events }: { events: AgentEvent[] }) {
         );
       })}
     </ol>
+  );
+}
+
+const ciPills = {
+  pending: { tone: 'info', label: 'CI Running' },
+  passed: { tone: 'success', label: 'CI Passed' },
+  failed: { tone: 'danger', label: 'CI Failed' },
+} as const;
+
+const checkTones = {
+  pending: 'info',
+  passed: 'success',
+  failed: 'danger',
+  skipped: 'neutral',
+} as const;
+
+function Push({ push, ci }: { push: NonNullable<AgentTask['push']>; ci: AgentTask['ci'] }) {
+  if (push.status === 'waiting') {
+    return (
+      <p className={styles.note}>
+        A test failed or none were reported, so the changes wait for you to push them.
+      </p>
+    );
+  }
+  if (push.status === 'no_changes') {
+    return <p className={styles.note}>The agent made no changes to push.</p>;
+  }
+  if (push.status === 'blocked') {
+    return (
+      <p className={styles.error} role="alert">
+        <CircleAlert aria-hidden />
+        {push.error ?? "The changes weren't pushed."}
+      </p>
+    );
+  }
+  return (
+    <div className={styles.report}>
+      <div className={styles.header}>
+        <span>
+          Pushed <code className={styles.sha}>{push.sha?.slice(0, 7)}</code>
+        </span>
+        {ci && (
+          <StatusPill size="sm" tone={ciPills[ci.status].tone} icon={null}>
+            {ciPills[ci.status].label}
+          </StatusPill>
+        )}
+      </div>
+      {ci && ci.checks.length > 0 && (
+        <ul className={styles.items}>
+          {ci.checks.map((check) => (
+            <li key={check.name}>
+              <StatusPill size="sm" tone={checkTones[check.state]} icon={null}>
+                {check.state[0]!.toUpperCase() + check.state.slice(1)}
+              </StatusPill>
+              {check.url ? (
+                <a href={check.url} target="_blank" rel="noreferrer">
+                  {check.name}
+                </a>
+              ) : (
+                <span>{check.name}</span>
+              )}
+              {check.required && <span className={styles.required}>Required</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 

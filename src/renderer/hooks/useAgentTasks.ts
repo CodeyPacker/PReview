@@ -29,9 +29,9 @@ export function useAgentActivity(taskId: number | undefined, active: boolean) {
   });
 }
 
-type TaskAction = 'stop' | 'forceStop' | 'resume';
+type TaskAction = 'stop' | 'forceStop' | 'resume' | 'push' | 'investigate';
 
-// Stops, force-stops or resumes a task.
+// Stops, force-stops, resumes or pushes a task, or sends its agent to look into failed CI.
 export function useAgentTaskAction() {
   const queryClient = useQueryClient();
   return useMutation({

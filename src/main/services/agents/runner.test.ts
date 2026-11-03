@@ -399,4 +399,54 @@ describe('AgentRunner', () => {
     expect(task(id).status).toBe('stopped');
     expect(listAgentTasks(db)[0]!.question).toBeNull();
   });
+
+  it('hands a completed run to be pushed', async () => {
+    const onCompleted = vi.fn();
+    const { runner, runs } = setup({ onCompleted });
+    const id = addTask(addPullRequest(7));
+    runner.wake();
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+
+    runs[0]!.finish({ status: 'completed', report, costUsd: null });
+
+    await vi.waitFor(() => expect(onCompleted).toHaveBeenCalledWith(id, report));
+  });
+
+  it('sends the agent back at the pushed commit when the user asks about failed CI', async () => {
+    const { runner, runs, worktrees } = setup();
+    const id = addTask(addPullRequest(7));
+    db.prepare(
+      `UPDATE agent_tasks
+       SET status = 'completed', session_id = 'S1', pushed_sha = 'pushed', ci_status = 'failed',
+           ci_checks = ?
+       WHERE id = ?`,
+    ).run(
+      JSON.stringify([
+        { name: 'test', required: true, state: 'failed', url: 'https://ci.test/1' },
+        { name: 'lint', required: false, state: 'passed', url: null },
+      ]),
+      id,
+    );
+
+    runner.investigate(id);
+
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+    expect(worktrees.open).toHaveBeenCalledWith(expect.any(Number), 'pushed', id);
+    expect(runs[0]!.input).toMatchObject({ resume: true, sessionId: 'S1' });
+    expect(runs[0]!.input.prompt).toContain('- test (https://ci.test/1)');
+    expect(runs[0]!.input.prompt).not.toContain('lint');
+  });
+
+  it("doesn't send the agent back when CI didn't fail", () => {
+    const { runner, start } = setup();
+    const id = addTask(addPullRequest(7));
+    db.prepare(
+      `UPDATE agent_tasks SET status = 'completed', ci_status = 'passed' WHERE id = ?`,
+    ).run(id);
+
+    runner.investigate(id);
+
+    expect(task(id).status).toBe('completed');
+    expect(start).not.toHaveBeenCalled();
+  });
 });

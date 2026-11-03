@@ -58,6 +58,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
     deleteBranch: vi.fn<GitProvider['deleteBranch']>(),
     getReviews: vi.fn<GitProvider['getReviews']>(),
     getPullRequestDetails: vi.fn<GitProvider['getPullRequestDetails']>(),
+    getChecks: vi.fn<GitProvider['getChecks']>(),
   } satisfies GitProvider;
   return { provider, files: new PullRequestFiles({ db, provider }) };
 }

@@ -2,7 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
-import type { AgentQuestionItem } from '../../../shared/contracts/agent-tasks.ts';
+import {
+  agentCheckSchema,
+  type AgentQuestionItem,
+  type AgentReport,
+} from '../../../shared/contracts/agent-tasks.ts';
 import type {
   AgentActivity,
   AgentProvider,
@@ -27,6 +31,8 @@ export interface AgentRunnerDeps {
   limit?: number;
   // How long a run goes before the user is told.
   longRunMs?: number;
+  // Called when a run completes, so its changes can be pushed.
+  onCompleted?: (taskId: number, report: AgentReport) => void;
 }
 
 // The first run plus two automatic retries.
@@ -128,6 +134,37 @@ export class AgentRunner {
     }
   }
 
+  // Sends the agent back to find out why CI failed on its pushed commit. Only on the user's
+  // request: PReview never relaunches an agent after CI fails by itself.
+  investigate(taskId: number): void {
+    const row = this.deps.db
+      .prepare(
+        `SELECT ci_checks FROM agent_tasks
+         WHERE id = ? AND status = 'completed' AND ci_status = 'failed'`,
+      )
+      .get(taskId) as { ci_checks: string | null } | undefined;
+    if (!row) return;
+    const failed = agentCheckSchema
+      .array()
+      .parse(JSON.parse(row.ci_checks ?? '[]'))
+      .filter((check) => check.state === 'failed')
+      .map((check) => `- ${check.name}${check.url ? ` (${check.url})` : ''}`);
+    const note = [
+      'CI failed on the changes PReview pushed for you. These checks failed:',
+      failed.join('\n'),
+      'Find out why and fix it. The network is off, so work from the code and run the checks locally where you can.',
+    ].join('\n\n');
+    this.deps.db
+      .prepare(
+        `UPDATE agent_tasks SET status = 'queued', resume_note = ?, attempts = 0,
+           updated_at = ${NOW}
+         WHERE id = ?`,
+      )
+      .run(note, taskId);
+    this.activity(taskId, { kind: 'status', summary: 'Sent back to investigate the CI failure.' });
+    this.wake();
+  }
+
   // Passes the user's answers to the agent that asked. An agent the app restarted on
   // resumes its session with them. Resolves false when the question isn't pending any more.
   answer(questionId: number, answers: Answers): boolean {
@@ -190,7 +227,7 @@ export class AgentRunner {
     const task = this.deps.db
       .prepare(
         `SELECT t.id, t.pull_request_id, t.session_id, t.attempts, t.error, t.resume_note,
-                s.head_sha, p.title
+                COALESCE(t.pushed_sha, s.head_sha) AS head_sha, p.title
          FROM agent_tasks t
          JOIN review_submissions s ON s.id = t.submission_id
          JOIN pull_requests p ON p.id = t.pull_request_id
@@ -227,6 +264,9 @@ export class AgentRunner {
     let prompt = taskPrompt(context);
     if (resume && task.resume_note) {
       prompt = task.resume_note;
+    } else if (task.resume_note) {
+      // The session couldn't be resumed, so the note goes with the full task.
+      prompt += `\n\n${task.resume_note}`;
     } else if (resume) {
       prompt = task.error
         ? `Your last attempt stopped with this error:\n${task.error}\n\nContinue the task where you left off.`
@@ -261,7 +301,7 @@ export class AgentRunner {
     // Saved once the session exists, so a restart resumes it rather than starting over.
     this.deps.db
       .prepare(
-        `UPDATE agent_tasks SET session_id = ?, resume_note = NULL, updated_at = ${NOW}
+        `UPDATE agent_tasks SET session_id = ?, updated_at = ${NOW}
          WHERE id = ?`,
       )
       .run(sessionId, task.id);
@@ -329,11 +369,12 @@ export class AgentRunner {
     if (result.status === 'completed') {
       db.prepare(
         `UPDATE agent_tasks
-         SET status = 'completed', result = ?, cost_usd = ?, error = NULL,
-             finished_at = ${NOW}, updated_at = ${NOW}
+         SET status = 'completed', result = ?, cost_usd = ?, error = NULL, resume_note = NULL,
+             push_status = NULL, push_error = NULL, finished_at = ${NOW}, updated_at = ${NOW}
          WHERE id = ?`,
       ).run(JSON.stringify(result.report), result.costUsd, task.id);
       this.activity(task.id, { kind: 'status', summary: `Finished. ${result.report.summary}` });
+      this.deps.onCompleted?.(task.id, result.report);
       return;
     }
     if (result.status === 'stopped' || this.stopping.has(task.id)) {

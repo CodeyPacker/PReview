@@ -219,4 +219,93 @@ describe('AgentWorktrees', () => {
     expect(existsSync(path)).toBe(false);
     expect(db.prepare('SELECT * FROM agent_worktrees').all()).toEqual([]);
   });
+
+  describe('publish', () => {
+    const remoteHead = () => git(origin, 'rev-parse', 'refs/heads/feature');
+
+    it('commits the changes and pushes them as a fast-forward', async () => {
+      const service = worktrees();
+      const task = addTask();
+      await service.open(pullRequestId, head, task);
+      service.release(task);
+      writeFileSync(join(root, `${repositoryId}-7`, 'app.txt'), 'fixed');
+
+      const result = await service.publish(pullRequestId, task, 'Address review feedback');
+
+      expect(result).toMatchObject({ status: 'pushed' });
+      const sha = (result as { sha: string }).sha;
+      expect(remoteHead()).toBe(sha);
+      expect(git(origin, 'rev-parse', `${sha}^`)).toBe(head);
+      expect(git(origin, 'log', '-1', '--format=%s', sha)).toBe('Address review feedback');
+      // The next round starts from the pushed commit.
+      await expect(service.open(pullRequestId, sha, addTask())).resolves.toMatchObject({
+        status: 'ready',
+      });
+    });
+
+    it('says so when there is nothing to push', async () => {
+      const service = worktrees();
+      const task = addTask();
+      await service.open(pullRequestId, head, task);
+      service.release(task);
+
+      await expect(service.publish(pullRequestId, task, 'Nothing')).resolves.toEqual({
+        status: 'no_changes',
+      });
+      expect(remoteHead()).toBe(head);
+    });
+
+    it("doesn't push when the branch moved, and keeps the changes", async () => {
+      const service = worktrees();
+      const task = addTask();
+      await service.open(pullRequestId, head, task);
+      service.release(task);
+      const path = join(root, `${repositoryId}-7`);
+      writeFileSync(join(path, 'app.txt'), 'fixed');
+      const moved = pushToBranch('someone else');
+
+      await expect(service.publish(pullRequestId, task, 'Fix')).resolves.toMatchObject({
+        status: 'blocked',
+        reason: 'The branch has new commits since the review. Review them first.',
+      });
+      expect(remoteHead()).toBe(moved);
+      expect(readFileSync(join(path, 'app.txt'), 'utf8')).toBe('fixed');
+    });
+
+    it.skipIf(process.platform === 'win32')(
+      'undoes the commit when the push is refused, and keeps the changes',
+      async () => {
+        const service = worktrees();
+        const task = addTask();
+        await service.open(pullRequestId, head, task);
+        service.release(task);
+        const path = join(root, `${repositoryId}-7`);
+        writeFileSync(join(path, 'app.txt'), 'fixed');
+        const hook = join(origin, 'hooks', 'pre-receive');
+        writeFileSync(hook, '#!/bin/sh\necho "protected branch" >&2\nexit 1\n');
+        chmodSync(hook, 0o755);
+
+        const result = await service.publish(pullRequestId, task, 'Fix');
+
+        expect(result).toMatchObject({ status: 'blocked' });
+        expect((result as { reason: string }).reason).toContain('protected branch');
+        expect(git(path, 'rev-parse', 'HEAD')).toBe(head);
+        expect(readFileSync(join(path, 'app.txt'), 'utf8')).toBe('fixed');
+        expect(remoteHead()).toBe(head);
+      },
+    );
+
+    it('never pushes to the base branch', async () => {
+      db.prepare(`UPDATE pull_requests SET head_branch = 'main' WHERE id = ?`).run(pullRequestId);
+      db.prepare(
+        `INSERT INTO agent_worktrees (repository_id, number, path, head_branch, head_sha)
+         VALUES (?, 7, ?, 'main', ?)`,
+      ).run(repositoryId, checkout, head);
+
+      await expect(worktrees().publish(pullRequestId, addTask(), 'Fix')).resolves.toEqual({
+        status: 'blocked',
+        reason: "PReview doesn't push to main, the base branch.",
+      });
+    });
+  });
 });

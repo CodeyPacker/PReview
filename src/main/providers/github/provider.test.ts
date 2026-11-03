@@ -543,6 +543,76 @@ describe('GitHubProvider getPullRequestDetails', () => {
   });
 });
 
+describe('GitHubProvider getChecks', () => {
+  it('reads check runs and statuses with whether each is required', async () => {
+    const { fetch, provider } = setup([
+      json({
+        data: {
+          repository: {
+            object: {
+              statusCheckRollup: {
+                contexts: {
+                  nodes: [
+                    {
+                      __typename: 'CheckRun',
+                      name: 'build',
+                      status: 'COMPLETED',
+                      conclusion: 'SUCCESS',
+                      detailsUrl: 'https://ci/1',
+                      isRequired: true,
+                    },
+                    {
+                      __typename: 'CheckRun',
+                      name: 'e2e',
+                      status: 'IN_PROGRESS',
+                      conclusion: null,
+                      detailsUrl: null,
+                      isRequired: false,
+                    },
+                    {
+                      __typename: 'CheckRun',
+                      name: 'docs',
+                      status: 'COMPLETED',
+                      conclusion: 'SKIPPED',
+                      detailsUrl: null,
+                      isRequired: false,
+                    },
+                    {
+                      __typename: 'StatusContext',
+                      context: 'deploy',
+                      state: 'FAILURE',
+                      targetUrl: 'https://ci/2',
+                      isRequired: true,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    await expect(provider.getChecks('octo/app', 7, 'abc')).resolves.toEqual([
+      { name: 'build', required: true, state: 'passed', url: 'https://ci/1' },
+      { name: 'e2e', required: false, state: 'pending', url: null },
+      { name: 'docs', required: false, state: 'skipped', url: null },
+      { name: 'deploy', required: true, state: 'failed', url: 'https://ci/2' },
+    ]);
+    expect(JSON.parse(fetch.mock.calls[0]?.[1]?.body as string)).toMatchObject({
+      variables: { owner: 'octo', name: 'app', number: 7, sha: 'abc' },
+    });
+  });
+
+  it('reads a commit without checks as none', async () => {
+    const { provider } = setup([
+      json({ data: { repository: { object: { statusCheckRollup: null } } } }),
+    ]);
+
+    await expect(provider.getChecks('octo/app', 7, 'abc')).resolves.toEqual([]);
+  });
+});
+
 describe('GitHubProvider getReviews', () => {
   it("lists the pull request's reviews with their bodies", async () => {
     const { fetch, provider } = setup([

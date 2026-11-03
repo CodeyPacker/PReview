@@ -13,6 +13,8 @@ export function createGit(timeoutMs: number): Git {
       cwd,
       timeout: timeoutMs,
       windowsHide: true,
+      // Fail instead of waiting for a password prompt nobody can see.
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
     });
     return stdout.trim();
   };

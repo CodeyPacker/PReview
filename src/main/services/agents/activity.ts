@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 import {
+  agentCheckSchema,
   agentQuestionItemSchema,
   agentReportSchema,
   type AgentEvent,
@@ -59,7 +60,8 @@ export function listAgentTasks(db: DatabaseSync): AgentTask[] {
   const rows = db
     .prepare(
       `SELECT t.id, t.pull_request_id, t.status, t.attempts, t.error, t.result, t.cost_usd,
-              t.created_at, t.started_at, t.finished_at,
+              t.created_at, t.started_at, t.finished_at, t.push_status, t.push_error,
+              t.pushed_sha, t.ci_status, t.ci_checks,
               q.id AS question_id, q.questions, q.created_at AS question_created_at
        FROM agent_tasks t
        LEFT JOIN agent_questions q ON q.task_id = t.id AND q.status = 'pending'
@@ -76,6 +78,11 @@ export function listAgentTasks(db: DatabaseSync): AgentTask[] {
     created_at: string;
     started_at: string | null;
     finished_at: string | null;
+    push_status: NonNullable<AgentTask['push']>['status'] | null;
+    push_error: string | null;
+    pushed_sha: string | null;
+    ci_status: NonNullable<AgentTask['ci']>['status'] | null;
+    ci_checks: string | null;
     question_id: number | null;
     questions: string | null;
     question_created_at: string | null;
@@ -96,6 +103,15 @@ export function listAgentTasks(db: DatabaseSync): AgentTask[] {
             createdAt: row.question_created_at,
           }
         : null,
+    push: row.push_status
+      ? { status: row.push_status, sha: row.pushed_sha, error: row.push_error }
+      : null,
+    ci: row.ci_status
+      ? {
+          status: row.ci_status,
+          checks: agentCheckSchema.array().parse(JSON.parse(row.ci_checks ?? '[]')),
+        }
+      : null,
     createdAt: row.created_at,
     startedAt: row.started_at,
     finishedAt: row.finished_at,

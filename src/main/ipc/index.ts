@@ -38,6 +38,7 @@ import {
 import { getSettings, updateSettings } from '../services/settings.ts';
 import type { RepositorySearch } from '../services/pull-requests/repository-search.ts';
 import { listActivity, listAgentTasks } from '../services/agents/activity.ts';
+import type { AgentPublisher } from '../services/agents/publisher.ts';
 import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
 
@@ -48,7 +49,11 @@ export interface IpcServices {
   pullRequestFiles: PullRequestFiles;
   pullRequestReviews: PullRequestReviews;
   repositorySearch: RepositorySearch;
-  agentRunner: Pick<AgentRunner, 'wake' | 'stop' | 'forceStop' | 'resume' | 'answer'>;
+  agentRunner: Pick<
+    AgentRunner,
+    'wake' | 'stop' | 'forceStop' | 'resume' | 'answer' | 'investigate'
+  >;
+  agentPublisher: Pick<AgentPublisher, 'push'>;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
@@ -63,6 +68,7 @@ export function registerIpcHandlers(
     pullRequestReviews,
     repositorySearch,
     agentRunner,
+    agentPublisher,
     pickFolder,
   }: IpcServices,
 ): void {
@@ -160,6 +166,14 @@ export function registerIpcHandlers(
   });
   handle('agentTasks.resume', ({ taskId }) => {
     agentRunner.resume(taskId);
+    return null;
+  });
+  handle('agentTasks.push', async ({ taskId }) => {
+    await agentPublisher.push(taskId);
+    return null;
+  });
+  handle('agentTasks.investigate', ({ taskId }) => {
+    agentRunner.investigate(taskId);
     return null;
   });
   handle('agentTasks.answer', ({ questionId, answers }) => agentRunner.answer(questionId, answers));

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { openDatabase } from './database/connection.ts';
 import { ClaudeAgent } from './agents/claude/agent.ts';
+import { AgentPublisher } from './services/agents/publisher.ts';
 import { AgentRunner } from './services/agents/runner.ts';
 import { AgentWorktrees } from './services/agents/worktrees.ts';
 import { migrate } from './database/migrate.ts';
@@ -163,13 +164,19 @@ void app.whenReady().then(async () => {
     git: createGit(120_000),
     root: join(app.getPath('userData'), 'worktrees'),
   });
+  const notify = (title: string, body: string) => new Notification({ title, body }).show();
+  const agentPublisher = new AgentPublisher({ db, provider, worktrees, notify, log });
   const agentRunner = new AgentRunner({
     db,
     provider,
     agent: new ClaudeAgent(app.isPackaged),
     worktrees,
-    notify: (title, body) => new Notification({ title, body }).show(),
+    notify,
     log,
+    onCompleted: (taskId, report) =>
+      void agentPublisher
+        .afterRun(taskId, report)
+        .catch((error: unknown) => log.warn('Could not push agent changes', error)),
   });
   registerIpcHandlers(db, {
     github,
@@ -179,12 +186,14 @@ void app.whenReady().then(async () => {
     pullRequestReviews,
     repositorySearch,
     agentRunner,
+    agentPublisher,
     pickFolder,
   });
   void discovery.scan();
   pullRequests.start();
   agentRunner.recover();
   agentRunner.wake();
+  agentPublisher.start();
   void pullRequestReviews
     .recoverSubmissions()
     // A review confirmed now may have queued an agent task.
@@ -199,6 +208,7 @@ void app.whenReady().then(async () => {
 
   app.on('will-quit', () => {
     agentRunner.shutdown();
+    agentPublisher.stop();
     pullRequests.stop();
     db.close();
   });

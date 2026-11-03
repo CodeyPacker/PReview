@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { AgentCheck } from '../../../shared/contracts/agent-tasks.ts';
 import type { ReviewThread } from '../../../shared/contracts/pull-request-reviews.ts';
 import type {
   GitProvider,
@@ -105,6 +106,80 @@ function toChangedFile(file: z.infer<typeof changedFileSchema>): ProviderChanged
     deletions: file.deletions,
     hunks: file.patch === undefined ? null : parseHunks(file.patch),
   };
+}
+
+const CHECKS_QUERY = `
+  query ($owner: String!, $name: String!, $number: Int!, $sha: GitObjectID!) {
+    repository(owner: $owner, name: $name) {
+      object(oid: $sha) {
+        ... on Commit {
+          statusCheckRollup {
+            contexts(first: 100) {
+              nodes {
+                __typename
+                ... on CheckRun {
+                  name
+                  status
+                  conclusion
+                  detailsUrl
+                  isRequired(pullRequestNumber: $number)
+                }
+                ... on StatusContext {
+                  context
+                  state
+                  targetUrl
+                  isRequired(pullRequestNumber: $number)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`;
+
+const checksSchema = z.object({
+  repository: z.object({
+    object: z
+      .object({
+        statusCheckRollup: z
+          .object({
+            contexts: z.object({
+              nodes: z.array(
+                z.union([
+                  z.object({
+                    __typename: z.literal('CheckRun'),
+                    name: z.string(),
+                    status: z.string(),
+                    conclusion: z.string().nullable(),
+                    detailsUrl: z.string().nullable(),
+                    isRequired: z.boolean(),
+                  }),
+                  z.object({
+                    __typename: z.literal('StatusContext'),
+                    context: z.string(),
+                    state: z.string(),
+                    targetUrl: z.string().nullable(),
+                    isRequired: z.boolean(),
+                  }),
+                ]),
+              ),
+            }),
+          })
+          .nullable()
+          .optional(),
+      })
+      .nullable(),
+  }),
+});
+
+// GitHub's check run conclusions and commit status states, as pass, fail, pending or skip.
+function checkState(done: boolean, result: string | null): AgentCheck['state'] {
+  if (!done || result === 'PENDING' || result === 'EXPECTED') return 'pending';
+  if (result === 'SUCCESS') return 'passed';
+  if (result === 'NEUTRAL' || result === 'SKIPPED') return 'skipped';
+  return 'failed';
 }
 
 const REVIEW_THREADS_QUERY = `
@@ -376,6 +451,29 @@ export class GitHubProvider implements GitProvider {
       cursor = pageInfo.endCursor;
     }
     return threads;
+  }
+
+  async getChecks(repositoryFullName: string, number: number, sha: string): Promise<AgentCheck[]> {
+    const [owner, name] = repositoryFullName.split('/');
+    const data = checksSchema.parse(
+      await this.client.graphql(CHECKS_QUERY, { owner, name, number, sha }),
+    );
+    const nodes = data.repository.object?.statusCheckRollup?.contexts.nodes ?? [];
+    return nodes.map((node) =>
+      node.__typename === 'CheckRun'
+        ? {
+            name: node.name,
+            required: node.isRequired,
+            state: checkState(node.status === 'COMPLETED', node.conclusion),
+            url: node.detailsUrl,
+          }
+        : {
+            name: node.context,
+            required: node.isRequired,
+            state: checkState(true, node.state),
+            url: node.targetUrl,
+          },
+    );
   }
 
   async replyToThread(threadId: string, body: string): Promise<void> {
