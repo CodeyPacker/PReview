@@ -26,6 +26,8 @@ export interface ReviewDialogProps {
   findingIds: number[];
   // GitHub refuses approvals and change requests from a pull request's own author.
   ownPullRequest: boolean;
+  // Called when the dialog closes after a review was sent or the pull request merged.
+  onDone?: () => void;
 }
 
 const verdictOptions = (ownPullRequest: boolean) =>
@@ -59,6 +61,7 @@ export function ReviewDialog({
   draftsOutsideDiff,
   findingIds,
   ownPullRequest,
+  onDone,
 }: ReviewDialogProps) {
   const submit = useSubmitReview();
   const [chosen, setChosen] = useState<ReviewVerdict>('approve');
@@ -123,6 +126,7 @@ export function ReviewDialog({
       merge.reset();
       deleteBranch.reset();
       setBody('');
+      onDone?.();
     }
   };
 
