@@ -3,6 +3,7 @@ import { RadioGroup } from '@base-ui/react/radio-group';
 import { Bot, CircleAlert } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type {
+  AgentChange,
   AgentEvent,
   AgentQuestion,
   AgentReport,
@@ -12,11 +13,13 @@ import { ActivityItem } from '../components/ActivityItem/ActivityItem.tsx';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { Checkbox } from '../components/Checkbox/Checkbox.tsx';
+import { DiffStat } from '../components/DiffStat/DiffStat.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import {
   isAgentActive,
   useAgentActivity,
+  useAgentChanges,
   useAgentTaskAction,
   useAnswerAgentQuestion,
 } from '../hooks/useAgentTasks.ts';
@@ -47,6 +50,11 @@ export function AgentActivity({ task }: AgentActivityProps) {
   const run = (name: 'stop' | 'forceStop' | 'resume' | 'push' | 'investigate') =>
     action.mutate({ action: name, taskId: task.id });
   const pending = (name: string) => action.isPending && action.variables?.action === name;
+  // Changes not pushed yet, so you can read them before pushing.
+  const unpushed =
+    task.status === 'completed' &&
+    (task.push?.status === 'waiting' || task.push?.status === 'blocked');
+  const { data: changes = [] } = useAgentChanges(task.id, unpushed);
 
   return (
     <section className={styles.agent} aria-label="Agent activity">
@@ -63,6 +71,7 @@ export function AgentActivity({ task }: AgentActivityProps) {
       )}
       {task.report && <Report report={task.report} />}
       {task.status === 'completed' && task.push && <Push push={task.push} ci={task.ci} />}
+      {unpushed && changes.length > 0 && <Changes changes={changes} />}
       {events.length > 0 && <Feed events={events.slice(-FEED_LENGTH)} />}
       <div className={styles.actions}>
         {(task.status === 'queued' || task.status === 'running' || task.status === 'waiting') && (
@@ -75,12 +84,11 @@ export function AgentActivity({ task }: AgentActivityProps) {
             Force Stop
           </Button>
         )}
-        {task.status === 'completed' &&
-          (task.push?.status === 'waiting' || task.push?.status === 'blocked') && (
-            <Button size="sm" loading={pending('push')} onClick={() => run('push')}>
-              {task.push.status === 'waiting' ? 'Push Changes' : 'Try Again'}
-            </Button>
-          )}
+        {unpushed && (
+          <Button size="sm" loading={pending('push')} onClick={() => run('push')}>
+            {task.push?.status === 'waiting' ? 'Push Changes' : 'Try Again'}
+          </Button>
+        )}
         {task.status === 'completed' && task.ci?.status === 'failed' && (
           <Button size="sm" loading={pending('investigate')} onClick={() => run('investigate')}>
             Investigate with Claude
@@ -200,6 +208,58 @@ function Push({ push, ci }: { push: NonNullable<AgentTask['push']>; ci: AgentTas
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+const changeLabels: Record<AgentChange['status'], string> = {
+  added: 'Added',
+  modified: 'Changed',
+  deleted: 'Deleted',
+};
+
+// Lines a diff adds and removes, without its @@ headers.
+function countLines(patch: string) {
+  const lines = patch.split('\n');
+  return {
+    additions: lines.filter((line) => line.startsWith('+')).length,
+    deletions: lines.filter((line) => line.startsWith('-')).length,
+  };
+}
+
+function lineClass(line: string) {
+  if (line.startsWith('+')) return styles.added;
+  if (line.startsWith('-')) return styles.removed;
+  if (line.startsWith('@@')) return styles.hunk;
+  return undefined;
+}
+
+// The agent's unpushed changes, one diff per file.
+function Changes({ changes }: { changes: AgentChange[] }) {
+  return (
+    <div className={styles.changes} aria-label="Changes">
+      <h5 className="headline">Changes</h5>
+      {changes.map((change) => (
+        <details key={change.path} className={styles.change}>
+          <summary>
+            <span className={styles.path}>{change.path}</span>
+            <span className={styles.required}>{changeLabels[change.status]}</span>
+            {change.patch && <DiffStat {...countLines(change.patch)} />}
+          </summary>
+          {change.patch === null ? (
+            <p className={styles.note}>Binary file.</p>
+          ) : (
+            <pre className={styles.patch}>
+              {change.patch.split('\n').map((line, index) => (
+                <span key={index} className={lineClass(line)}>
+                  {line}
+                  {'\n'}
+                </span>
+              ))}
+            </pre>
+          )}
+        </details>
+      ))}
     </div>
   );
 }

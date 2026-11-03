@@ -208,3 +208,58 @@
   color: var(--ink-secondary);
   font: 400 var(--text-sm) / 16px var(--font-sans);
 }
+
+.changes {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.changes h5 {
+  margin: 0;
+}
+
+.change summary {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-8);
+  min-width: 0;
+  cursor: pointer;
+}
+
+.path {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font: 400 var(--text-sm) / 16px var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.patch {
+  max-height: 320px;
+  margin: var(--space-4) 0 0;
+  padding: var(--space-8) 0;
+  overflow: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: 400 var(--text-sm) / 16px var(--font-mono);
+}
+
+.patch span {
+  display: block;
+  padding: 0 var(--space-8);
+  white-space: pre;
+}
+
+.added {
+  background: var(--diff-add-bg);
+}
+
+.removed {
+  background: var(--diff-del-bg);
+}
+
+.hunk {
+  color: var(--ink-secondary);
+}

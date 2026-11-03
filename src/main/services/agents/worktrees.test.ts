@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -218,6 +226,33 @@ describe('AgentWorktrees', () => {
     await expect(service.cleanUp()).resolves.toEqual([]);
     expect(existsSync(path)).toBe(false);
     expect(db.prepare('SELECT * FROM agent_worktrees').all()).toEqual([]);
+  });
+
+  it('lists the unpushed changes as diffs, new and binary files too', async () => {
+    const service = worktrees();
+    const task = addTask();
+    await service.open(pullRequestId, head, task);
+    const path = join(root, `${repositoryId}-7`);
+    writeFileSync(join(path, 'app.txt'), 'fixed\n');
+    mkdirSync(join(path, 'docs'));
+    writeFileSync(join(path, 'docs', 'notes.md'), 'a\nb\n');
+    writeFileSync(join(path, 'logo.bin'), Buffer.from([0, 1, 2]));
+
+    const changes = await service.changes(pullRequestId);
+
+    expect(changes).toEqual([
+      {
+        path: 'app.txt',
+        status: 'modified',
+        patch: '@@ -1 +1 @@\n-two\n\\ No newline at end of file\n+fixed',
+      },
+      { path: 'docs/notes.md', status: 'added', patch: '@@ -0,0 +1,2 @@\n+a\n+b' },
+      { path: 'logo.bin', status: 'added', patch: null },
+    ]);
+  });
+
+  it('has no changes to list when the worktree is gone', async () => {
+    await expect(worktrees().changes(pullRequestId)).resolves.toEqual([]);
   });
 
   describe('publish', () => {

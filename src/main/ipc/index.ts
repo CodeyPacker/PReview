@@ -53,7 +53,7 @@ export interface IpcServices {
     AgentRunner,
     'wake' | 'stop' | 'forceStop' | 'resume' | 'answer' | 'investigate'
   >;
-  agentPublisher: Pick<AgentPublisher, 'push'>;
+  agentPublisher: Pick<AgentPublisher, 'push' | 'changes'>;
   // Asks the user for a folder. Resolves undefined when they cancel.
   pickFolder: () => Promise<string | undefined>;
 }
@@ -172,6 +172,7 @@ export function registerIpcHandlers(
     await agentPublisher.push(taskId);
     return null;
   });
+  handle('agentTasks.changes', ({ taskId }) => agentPublisher.changes(taskId));
   handle('agentTasks.investigate', ({ taskId }) => {
     agentRunner.investigate(taskId);
     return null;

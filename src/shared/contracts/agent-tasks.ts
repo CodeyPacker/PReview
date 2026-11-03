@@ -115,6 +115,15 @@ export const agentEventSchema = z.object({
 });
 export type AgentEvent = z.infer<typeof agentEventSchema>;
 
+// A file the agent changed and hasn't pushed, as a unified diff against the reviewed commit.
+export const agentChangeSchema = z.object({
+  path: z.string(),
+  status: z.enum(['added', 'modified', 'deleted']),
+  // Null for a binary file. Cut short when very long.
+  patch: z.string().nullable(),
+});
+export type AgentChange = z.infer<typeof agentChangeSchema>;
+
 export const agentTaskIdInputSchema = z.object({ taskId: z.number().int() });
 
 export const answerAgentQuestionInputSchema = z.object({

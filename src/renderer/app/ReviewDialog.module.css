@@ -64,7 +64,17 @@
   font: 400 var(--text-md) / 18px var(--font-sans);
 }
 
-.error svg {
+.warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+  margin: 0;
+  color: var(--warning);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.error svg,
+.warning svg {
   flex: none;
   width: var(--icon-sm);
   height: var(--icon-sm);

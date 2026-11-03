@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  agentChangeSchema,
   agentEventSchema,
   agentTaskIdInputSchema,
   agentTaskSchema,
@@ -261,6 +262,8 @@ export const ipcContract = {
   'agentTasks.resume': { input: agentTaskIdInputSchema, output: z.null() },
   // Commits and pushes a completed task's changes.
   'agentTasks.push': { input: agentTaskIdInputSchema, output: z.null() },
+  // A task's changes that aren't pushed yet.
+  'agentTasks.changes': { input: agentTaskIdInputSchema, output: z.array(agentChangeSchema) },
   // Sends a task's agent back to find out why CI failed on its pushed commit.
   'agentTasks.investigate': { input: agentTaskIdInputSchema, output: z.null() },
   // Answers an agent's question. false when it was no longer waiting.

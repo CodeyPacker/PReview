@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import {
   agentReportSchema,
+  type AgentChange,
   type AgentCheck,
   type AgentReport,
 } from '../../../shared/contracts/agent-tasks.ts';
@@ -12,7 +13,7 @@ import type { AgentWorktrees } from './worktrees.ts';
 export interface AgentPublisherDeps {
   db: DatabaseSync;
   provider: GitProvider;
-  worktrees: Pick<AgentWorktrees, 'publish'>;
+  worktrees: Pick<AgentWorktrees, 'publish' | 'changes'>;
   notify: (title: string, body: string) => void;
   log: Pick<typeof appLog, 'warn'>;
   // How often pushed commits' checks are read.
@@ -96,6 +97,12 @@ export class AgentPublisher {
           ? 'A test failed, so the changes wait for you to push them.'
           : 'No tests were reported, so the changes wait for you to push them.',
     });
+  }
+
+  // The task's changes that aren't pushed yet.
+  async changes(taskId: number): Promise<AgentChange[]> {
+    const task = this.find(taskId);
+    return task ? this.deps.worktrees.changes(task.pull_request_id) : [];
   }
 
   // Commits the task's changes and pushes them to the pull request's branch.
