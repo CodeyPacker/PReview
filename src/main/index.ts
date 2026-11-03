@@ -1,5 +1,6 @@
 import { app, BrowserWindow, clipboard, dialog, Notification, safeStorage, shell } from 'electron';
 import type { DatabaseSync } from 'node:sqlite';
+import { runAgentSpike } from './agents/claude/spike.ts';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -132,6 +133,16 @@ function openAppDatabase(): DatabaseSync {
 }
 
 void app.whenReady().then(async () => {
+  // TEMPORARY: runs the agent sandbox check instead of the app, then quits.
+  if (process.env.PREVIEW_AGENT_SPIKE === '1') {
+    const passed = await runAgentSpike({
+      isPackaged: app.isPackaged,
+      userData: app.getPath('userData'),
+      log,
+    });
+    app.exit(passed ? 0 : 1);
+    return;
+  }
   // Windows and Linux take the icon from the window. macOS shows the app's own icon in the
   // Dock, which is Electron's until the app is packaged.
   if (hiddenForTests) app.dock?.hide();
