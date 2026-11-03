@@ -31,7 +31,7 @@ export interface ReviewDialogProps {
   // The pull request's latest agent task. Merging warns while its work is pending.
   agentTask?: AgentTask;
   // Called when the dialog closes after a review was sent or the pull request merged.
-  onDone?: () => void;
+  onDone?: (result: { merged: boolean }) => void;
 }
 
 const verdictOptions = (ownPullRequest: boolean) =>
@@ -131,7 +131,7 @@ export function ReviewDialog({
       merge.reset();
       deleteBranch.reset();
       setBody('');
-      onDone?.();
+      onDone?.({ merged });
     }
   };
 

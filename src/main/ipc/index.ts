@@ -17,6 +17,7 @@ import {
   updateReviewFinding,
 } from '../services/pull-requests/findings.ts';
 import { listFileReviewMarks, setFileReviewMark } from '../services/pull-requests/marks.ts';
+import { getMergedPullRequest } from '../services/pull-requests/merged.ts';
 import { finishReview, getReviewCompletion } from '../services/pull-requests/completions.ts';
 import {
   getActiveReview,
@@ -202,6 +203,7 @@ export function registerIpcHandlers(
   handle('reviewRounds.sync', ({ pullRequestId, headSha }) =>
     syncReviewRounds(db, pullRequestId, headSha),
   );
+  handle('mergedPullRequests.get', ({ pullRequestId }) => getMergedPullRequest(db, pullRequestId));
   handle('reviewCompletions.get', ({ pullRequestId }) => getReviewCompletion(db, pullRequestId));
   handle('reviewCompletions.finish', ({ pullRequestId }) => finishReview(db, pullRequestId));
   handle('reviewSessions.get', ({ pullRequestId }) => getReviewSession(db, pullRequestId));

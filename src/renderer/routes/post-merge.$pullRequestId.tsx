@@ -26,47 +26,19 @@ import { StatCard, type StatCardProps } from '../components/StatCard/index.ts';
 import { StatusPill } from '../components/StatusPill/index.ts';
 import { Tag } from '../components/Tag/index.ts';
 import { XPChip } from '../components/XPChip/index.ts';
+import { useMergedPullRequest } from '../hooks/useMergedPullRequest.ts';
+import { usePullRequests } from '../hooks/usePullRequests.ts';
 import styles from './post-merge.module.css';
 
-export const Route = createFileRoute('/post-merge')({ component: PostMergePage });
+export const Route = createFileRoute('/post-merge/$pullRequestId')({ component: PostMergePage });
 
 // Placeholder numbers until XP, characters and achievements exist (SCOPE 5.9).
-const merged = { repository: 'company/frontend', number: 482, mergedAt: 'Oct 28, 2026, 2:14 PM' };
+const placeholderMergedAt = 'Oct 28, 2026, 2:14 PM';
 
-const stats: (StatCardProps & { label: string })[] = [
-  {
-    label: 'Bugs caught',
-    value: 3,
-    delta: 25,
-    tone: 'danger',
-    icon: <Bug />,
-    data: [1, 2, 1, 3, 2, 3, 4],
-  },
-  {
-    label: 'Suggestions',
-    value: 5,
-    delta: 40,
-    tone: 'warning',
-    icon: <Lightbulb />,
-    data: [2, 3, 3, 4, 3, 5, 6],
-  },
-  {
-    label: 'Comments',
-    value: 4,
-    delta: 33,
-    tone: 'info',
-    icon: <MessageSquare />,
-    data: [1, 2, 2, 3, 3, 4, 5],
-  },
-  {
-    label: 'Files reviewed',
-    value: 12,
-    delta: 20,
-    tone: 'accent',
-    icon: <FileText />,
-    data: [4, 6, 5, 8, 7, 10, 12],
-  },
-];
+const mergedAtFormat = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
 
 const xp = [
   { label: 'Bugs caught', value: 250, color: 'chart-2', display: '+250 XP' },
@@ -76,7 +48,35 @@ const xp = [
 ];
 
 function PostMergePage() {
+  const pullRequestId = Number(Route.useParams().pullRequestId);
   const navigate = useNavigate();
+  const { data: merged, isPending } = useMergedPullRequest(pullRequestId);
+  const { data: pullRequestState } = usePullRequests();
+  const nextPullRequest = pullRequestState?.pullRequests.find(
+    (pull) => pull.id !== pullRequestId && pull.reviewState === 'needs-review',
+  );
+
+  if (isPending) return null;
+  if (!merged) {
+    return (
+      <div className={styles.page}>
+        <Panel title="Pull request not found">
+          <Button iconStart={<House />} onClick={() => void navigate({ to: '/dashboard' })}>
+            Back to Dashboard
+          </Button>
+        </Panel>
+      </div>
+    );
+  }
+
+  const mergedAt = mergedAtFormat.format(new Date(merged.mergedAt));
+  const stats: (StatCardProps & { label: string })[] = [
+    { label: 'Bugs caught', value: merged.bugsCaught, tone: 'danger', icon: <Bug /> },
+    { label: 'Suggestions', value: merged.suggestions, tone: 'warning', icon: <Lightbulb /> },
+    { label: 'Comments', value: merged.comments, tone: 'info', icon: <MessageSquare /> },
+    { label: 'Files reviewed', value: merged.filesReviewed, tone: 'accent', icon: <FileText /> },
+  ];
+
   return (
     <div className={styles.page}>
       <Panel padding="sm">
@@ -94,7 +94,7 @@ function PostMergePage() {
           <Tag tone="accent">#{merged.number}</Tag>
           <span className={styles.merged}>
             <StatusPill status="merged" />
-            {merged.mergedAt}
+            {mergedAt}
           </span>
         </div>
       </Panel>
@@ -124,7 +124,7 @@ function PostMergePage() {
                 title="Bug Hunter"
                 icon={<Bug />}
                 tone="warning"
-                earnedAt={merged.mergedAt}
+                earnedAt={placeholderMergedAt}
                 xp={250}
               />
               <AchievementCard
@@ -132,7 +132,7 @@ function PostMergePage() {
                 title="Review Streak"
                 icon={<Zap />}
                 tone="info"
-                earnedAt={merged.mergedAt}
+                earnedAt={placeholderMergedAt}
                 xp={200}
               />
             </div>
@@ -190,10 +190,28 @@ function PostMergePage() {
 
       <Panel title="Next Steps">
         <div className={styles.steps}>
-          <Button variant="primary" block iconStart={<GitPullRequest />} iconEnd={<ArrowRight />}>
-            Open Next Pull Request
+          <Button
+            variant="primary"
+            block
+            iconStart={<GitPullRequest />}
+            iconEnd={<ArrowRight />}
+            onClick={() =>
+              void (nextPullRequest
+                ? navigate({
+                    to: '/review/$pullRequestId',
+                    params: { pullRequestId: String(nextPullRequest.id) },
+                  })
+                : navigate({ to: '/inbox' }))
+            }
+          >
+            {nextPullRequest ? 'Open Next Pull Request' : 'Back to Inbox'}
           </Button>
-          <Button block iconStart={<ExternalLink />}>
+          <Button
+            block
+            iconStart={<ExternalLink />}
+            render={<a href={merged.url} target="_blank" rel="noreferrer" />}
+            nativeButton={false}
+          >
             View on GitHub
           </Button>
           <Button block iconStart={<House />} onClick={() => void navigate({ to: '/dashboard' })}>

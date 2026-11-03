@@ -46,6 +46,7 @@ import {
   updateReviewFindingInputSchema,
 } from './review-findings.ts';
 import { fileReviewMarkSchema, setFileReviewMarkInputSchema } from './file-review-marks.ts';
+import { mergedPullRequestSchema } from './merged-pull-requests.ts';
 import { reviewCompletionSchema } from './review-completions.ts';
 import { repositorySearchInputSchema, repositorySearchResultSchema } from './repository-search.ts';
 import { reviewRoundSchema } from './review-rounds.ts';
@@ -156,6 +157,11 @@ export const ipcContract = {
   'pullRequestReviews.merge': {
     input: mergePullRequestInputSchema,
     output: mergePullRequestResultSchema,
+  },
+  // The saved summary of a merged pull request. Null when it wasn't merged here.
+  'mergedPullRequests.get': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: mergedPullRequestSchema.nullable(),
   },
   // Deletes a pull request's branch on the provider.
   'pullRequestReviews.deleteBranch': {

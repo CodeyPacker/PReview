@@ -455,7 +455,16 @@ function ReviewPage() {
             auth?.status === 'connected' && auth.user.login === pullRequest.author?.login
           }
           agentTask={agentTask}
-          onDone={() => void navigate({ to: '/inbox' })}
+          onDone={({ merged }) =>
+            void navigate(
+              merged
+                ? {
+                    to: '/post-merge/$pullRequestId',
+                    params: { pullRequestId: String(pullRequestId) },
+                  }
+                : { to: '/inbox' },
+            )
+          }
         />
       )}
       <div className={cx(styles.workspace, filesCollapsed && styles.filesCollapsed)}>

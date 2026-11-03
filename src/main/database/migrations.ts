@@ -404,4 +404,23 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE agent_tasks ADD COLUMN ci_checks TEXT;
     `,
   },
+  {
+    version: 21,
+    name: 'merged_pull_requests',
+    // A summary of the review, saved when the reviewer merges the pull request. It has no
+    // foreign key, because the pull request row is deleted once it closes.
+    sql: `
+      CREATE TABLE merged_pull_requests (
+        pull_request_id INTEGER PRIMARY KEY,
+        repository TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        url TEXT NOT NULL,
+        merged_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        comments INTEGER NOT NULL,
+        suggestions INTEGER NOT NULL,
+        bugs_caught INTEGER NOT NULL,
+        files_reviewed INTEGER NOT NULL
+      ) STRICT;
+    `,
+  },
 ];
