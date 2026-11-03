@@ -28,6 +28,7 @@ describe('createActivityMapper', () => {
             input: { path: 'b.ts' },
           },
           { type: 'tool_use', id: '4', name: 'TodoWrite', input: {} },
+          { type: 'tool_use', id: '5', name: 'StructuredOutput', input: {} },
         ]),
       ),
     ).toEqual([
@@ -44,6 +45,19 @@ describe('createActivityMapper', () => {
 
     expect(map(toolResult('t', '1 failed', true))).toEqual([
       { kind: 'test', summary: 'Tests failed', detail: '1 failed' },
+    ]);
+  });
+
+  it("doesn't claim a result when a pipe hides the test run's exit code", () => {
+    const map = createActivityMapper('/work/app');
+    map(
+      assistant([
+        { type: 'tool_use', id: 't', name: 'Bash', input: { command: 'pnpm test 2>&1 | tail -8' } },
+      ]),
+    );
+
+    expect(map(toolResult('t', '1 failed'))).toEqual([
+      { kind: 'test', summary: 'Tests finished', detail: '1 failed' },
     ]);
   });
 
