@@ -10,6 +10,9 @@ export function isTestCommand(command: string): boolean {
   return TEST_COMMAND.test(command);
 }
 
+// A pipe, ; or || makes the exit code another command's, so it says nothing about the tests.
+const MASKED_EXIT = /\||;/;
+
 const text = (value: unknown) => (typeof value === 'string' ? value : '');
 
 // Turns Claude Code's messages into activity feed entries. Keeps track of tool calls so their
@@ -40,8 +43,11 @@ export function createActivityMapper(worktree: string) {
     if (name === 'mcp__preview__get_file_diff') {
       return { kind: 'tool', summary: `Looked at the diff of ${text(input.path)}` };
     }
-    // The runner records questions itself, and to-do lists are internal bookkeeping.
-    if (name === 'AskUserQuestion' || name === 'TodoWrite') return null;
+    // The runner records questions and the report itself, and to-do lists are internal
+    // bookkeeping.
+    if (name === 'AskUserQuestion' || name === 'TodoWrite' || name === 'StructuredOutput') {
+      return null;
+    }
     return { kind: 'tool', summary: `Used ${name}` };
   };
 
@@ -69,14 +75,14 @@ export function createActivityMapper(worktree: string) {
           typeof block.content === 'string'
             ? block.content
             : (block.content ?? []).map((part) => (part.type === 'text' ? part.text : '')).join('');
-        if (call?.name === 'Bash' && isTestCommand(text(call.input.command))) {
-          return [
-            {
-              kind: 'test',
-              summary: block.is_error ? 'Tests failed' : 'Tests passed',
-              detail: output,
-            },
-          ];
+        const command = call?.name === 'Bash' ? text(call.input.command) : '';
+        if (isTestCommand(command)) {
+          const summary = MASKED_EXIT.test(command)
+            ? 'Tests finished'
+            : block.is_error
+              ? 'Tests failed'
+              : 'Tests passed';
+          return [{ kind: 'test', summary, detail: output }];
         }
         if (block.is_error && call && call.name !== 'AskUserQuestion') {
           return [{ kind: 'error', summary: `${call.name} failed`, detail: output }];
