@@ -15,6 +15,7 @@ import { Route as CharactersRouteImport } from './routes/characters'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as InboxRouteImport } from './routes/inbox'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
+import { Route as PostMergeRouteImport } from './routes/post-merge'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ReviewPullRequestIdRouteImport } from './routes/review.$pullRequestId'
 
@@ -48,6 +49,11 @@ const IntegrationsRoute = IntegrationsRouteImport.update({
   path: '/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PostMergeRoute = PostMergeRouteImport.update({
+  id: '/post-merge',
+  path: '/post-merge',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
+  '/post-merge': typeof PostMergeRoute
   '/settings': typeof SettingsRoute
   '/review/$pullRequestId': typeof ReviewPullRequestIdRoute
 }
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
+  '/post-merge': typeof PostMergeRoute
   '/settings': typeof SettingsRoute
   '/review/$pullRequestId': typeof ReviewPullRequestIdRoute
 }
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/inbox': typeof InboxRoute
   '/integrations': typeof IntegrationsRoute
+  '/post-merge': typeof PostMergeRoute
   '/settings': typeof SettingsRoute
   '/review/$pullRequestId': typeof ReviewPullRequestIdRoute
 }
@@ -99,6 +108,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inbox'
     | '/integrations'
+    | '/post-merge'
     | '/settings'
     | '/review/$pullRequestId'
   fileRoutesByTo: FileRoutesByTo
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inbox'
     | '/integrations'
+    | '/post-merge'
     | '/settings'
     | '/review/$pullRequestId'
   id:
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inbox'
     | '/integrations'
+    | '/post-merge'
     | '/settings'
     | '/review/$pullRequestId'
   fileRoutesById: FileRoutesById
@@ -130,6 +142,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   InboxRoute: typeof InboxRoute
   IntegrationsRoute: typeof IntegrationsRoute
+  PostMergeRoute: typeof PostMergeRoute
   SettingsRoute: typeof SettingsRoute
   ReviewPullRequestIdRoute: typeof ReviewPullRequestIdRoute
 }
@@ -178,6 +191,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/post-merge': {
+      id: '/post-merge'
+      path: '/post-merge'
+      fullPath: '/post-merge'
+      preLoaderRoute: typeof PostMergeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -202,6 +222,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   InboxRoute: InboxRoute,
   IntegrationsRoute: IntegrationsRoute,
+  PostMergeRoute: PostMergeRoute,
   SettingsRoute: SettingsRoute,
   ReviewPullRequestIdRoute: ReviewPullRequestIdRoute,
 }

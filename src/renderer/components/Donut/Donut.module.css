@@ -1,1 +1,80 @@
 /* Donut styles. Read values from tokens.css custom properties only. */
+
+.donut {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-24);
+}
+
+.chart {
+  position: relative;
+  flex: none;
+  width: var(--size);
+  height: var(--size);
+}
+
+.track {
+  stroke: var(--chart-track);
+}
+
+.center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+}
+
+.value {
+  color: var(--ink);
+  font: 700 var(--text-2xl) / 32px var(--font-display);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.label {
+  color: var(--ink-secondary);
+  font: 500 var(--text-md) / 18px var(--font-sans);
+}
+
+.legend {
+  display: grid;
+  flex: 1;
+  gap: var(--space-4);
+  min-width: 160px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding-block: var(--space-8);
+  border-bottom: 1px solid var(--border);
+  font: 400 var(--text-base) / 20px var(--font-sans);
+}
+
+.item:last-child {
+  border-bottom: 0;
+}
+
+.swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+}
+
+.itemLabel {
+  flex: 1;
+  color: var(--ink-secondary);
+}
+
+.itemValue {
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}

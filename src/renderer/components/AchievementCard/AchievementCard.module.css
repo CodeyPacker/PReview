@@ -1,1 +1,93 @@
 /* AchievementCard styles. Read values from tokens.css custom properties only. */
+
+.card {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-12);
+  min-width: 0;
+  padding: var(--space-20) var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  text-align: center;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-16);
+  padding: var(--space-16);
+  text-align: left;
+}
+
+.badge {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 72px;
+}
+
+.hex {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hex path {
+  fill: var(--tone-fill);
+  stroke: var(--tone-soft);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+.glyph {
+  position: relative;
+  display: inline-flex;
+  color: #ffffff;
+}
+
+.glyph > svg {
+  width: 24px;
+  height: 24px;
+}
+
+.locked .hex path {
+  fill: var(--surface-sunken);
+  stroke: var(--border-strong);
+}
+
+.locked .glyph {
+  color: var(--ink-tertiary);
+}
+
+.text {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-4);
+  width: 100%;
+}
+
+.row .text {
+  justify-items: start;
+}
+
+.title {
+  color: var(--ink);
+  font: 600 var(--text-base) / 20px var(--font-sans);
+}
+
+.description {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.foot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}

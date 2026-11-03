@@ -1,1 +1,26 @@
 /* Sparkline styles. Read values from tokens.css custom properties only. */
+
+.sparkline {
+  flex: none;
+  overflow: visible;
+}
+
+.line {
+  fill: none;
+  stroke: var(--tone-fill);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.area {
+  fill: var(--tone-soft);
+  stroke: none;
+  opacity: 0.9;
+}
+
+.end {
+  fill: var(--tone-fill);
+  stroke: var(--surface-raised);
+  stroke-width: 1.5;
+}
