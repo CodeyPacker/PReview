@@ -88,6 +88,23 @@
       "electron",
       "electron-winstaller",
       "esbuild"
-    ]
+    ],
+    "supportedArchitectures": {
+      "os": [
+        "current",
+        "linux"
+      ],
+      "cpu": [
+        "current",
+        "x64"
+      ],
+      "libc": [
+        "current",
+        "glibc"
+      ]
+    }
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/claude-agent-sdk-linux-x64": "0.3.314"
   }
 }
