@@ -4,7 +4,10 @@ import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
 import type { GitProvider } from '../../providers/types.ts';
 import { createReviewFinding } from '../pull-requests/findings.ts';
-import { fileDiff, loadTaskContext, taskPrompt } from './context.ts';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { dependencySetup, fileDiff, loadTaskContext, taskPrompt } from './context.ts';
 
 let db: ReturnType<typeof openDatabase>;
 let pullRequestId: number;
@@ -167,5 +170,28 @@ describe('fileDiff', () => {
     expect(fileDiff(files, 'src/other.ts')).toBe(
       'src/other.ts is not changed by this pull request.',
     );
+  });
+});
+
+describe('dependencySetup', () => {
+  const folder = (...files: string[]) => {
+    const dir = mkdtempSync(join(tmpdir(), 'preview-setup-'));
+    for (const file of files) writeFileSync(join(dir, file), '');
+    return dir;
+  };
+
+  it("names the lockfile's install command when dependencies are missing", () => {
+    expect(dependencySetup(folder('package.json', 'pnpm-lock.yaml'))).toContain(
+      '`pnpm install --frozen-lockfile`',
+    );
+    expect(dependencySetup(folder('package.json', 'package-lock.json'))).toContain('`npm ci`');
+    expect(dependencySetup(folder('package.json'))).toContain('`npm install`');
+  });
+
+  it('asks for nothing when dependencies are installed or there is no package.json', () => {
+    const installed = folder('package.json', 'yarn.lock');
+    mkdirSync(join(installed, 'node_modules'));
+    expect(dependencySetup(installed)).toBeNull();
+    expect(dependencySetup(folder('pyproject.toml'))).toBeNull();
   });
 });
