@@ -2,14 +2,23 @@
 
 .page {
   display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
   gap: var(--space-16);
+  height: 100%;
   max-width: 1080px;
+}
+
+/* The art takes whatever height the rest of the screen leaves. */
+.page .hero {
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--space-12);
+  min-height: 72px;
 }
 
 /* Stands in for the companion's celebration art. */
 .art {
   position: relative;
-  height: 200px;
+  min-height: 0;
   border-radius: var(--radius-xl);
   background: linear-gradient(135deg, var(--accent-soft), var(--canvas-tint));
 }
@@ -50,11 +59,13 @@
 .columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: var(--space-16);
 }
 
 .column {
+  grid-template-rows: auto auto;
+  align-content: start;
   display: grid;
   gap: var(--space-16);
 }
@@ -113,4 +124,20 @@
   display: grid;
   grid-template-columns: 2fr 1fr 1fr;
   gap: var(--space-12);
+}
+
+/* Short windows keep the real numbers and drop the placeholder panels. */
+@media (max-height: 800px) {
+  .page {
+    gap: var(--space-12);
+  }
+
+  .optional {
+    display: none;
+  }
+
+  /* Keeps the date clear of the Close button when the art has no room. */
+  .details {
+    padding-right: var(--space-48);
+  }
 }

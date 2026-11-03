@@ -87,7 +87,8 @@
 .foot {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-12);
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-12);
   color: var(--ink-secondary);
   font: 400 var(--text-sm) / 16px var(--font-sans);
 }

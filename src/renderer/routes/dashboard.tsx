@@ -16,6 +16,7 @@ import type { PullRequest } from '../../shared/contracts/pull-requests.ts';
 import { agentStatus } from '../app/agentStatus.ts';
 import { relativeTime } from '../app/relativeTime.ts';
 import { repositoryName } from '../app/repositoryName.ts';
+import { cx } from '../lib/cx.ts';
 import { Avatar } from '../components/Avatar/index.ts';
 import { BarChart } from '../components/BarChart/index.ts';
 import { Button } from '../components/Button/index.ts';
@@ -182,31 +183,23 @@ function DashboardPage() {
   return (
     <div className={styles.page}>
       <div className={styles.top}>
-        <div className={styles.topMain}>
-          <Panel padding="lg">
-            <div className={styles.hero}>
-              <div className={styles.greeting}>
-                <span className={styles.greetingLead}>{greeting(new Date().getHours())}</span>
-                <span className={styles.greetingName}>{name ?? 'there'}</span>
-              </div>
-              <p className={styles.heroText}>
-                {pending.length === 0
-                  ? 'No pull requests are waiting for your review.'
-                  : `${pending.length} pull ${pending.length === 1 ? 'request' : 'requests'} waiting for your review.`}
-                <br />
-                You&apos;re on a {placeholderStreakDays}-day streak!
-              </p>
-              <Button variant="primary" iconEnd={<ArrowRight />} onClick={openInbox}>
-                Review Pull Requests
-              </Button>
+        <Panel padding="sm">
+          <div className={styles.hero}>
+            <div className={styles.greeting}>
+              <span className={styles.greetingLead}>{greeting(new Date().getHours())}</span>
+              <span className={styles.greetingName}>{name ?? 'there'}</span>
             </div>
-          </Panel>
-          <div className={styles.stats}>
-            {placeholderStats.map((stat) => (
-              <StatCard key={stat.label} {...stat} />
-            ))}
+            <p className={styles.heroText}>
+              {pending.length === 0
+                ? 'No pull requests are waiting for your review.'
+                : `${pending.length} pull ${pending.length === 1 ? 'request' : 'requests'} waiting for your review.`}{' '}
+              You&apos;re on a {placeholderStreakDays}-day streak!
+            </p>
+            <Button variant="primary" iconEnd={<ArrowRight />} onClick={openInbox}>
+              Review Pull Requests
+            </Button>
           </div>
-        </div>
+        </Panel>
         <Panel title={`${name ? `${name}'s` : 'Your'} Progress`}>
           <div className={styles.progress}>
             <ProgressBar
@@ -217,9 +210,11 @@ function DashboardPage() {
               valueLabel="1,250 / 2,000 XP"
             />
             <div className={styles.activeCharacter}>
-              <Avatar name="Shadow" size="xl" tone="accent" />
-              <span className={styles.characterName}>Shadow</span>
-              <span className={styles.characterLevel}>Level 4</span>
+              <Avatar name="Shadow" size="lg" tone="accent" />
+              <div className={styles.characterText}>
+                <span className={styles.characterName}>Shadow</span>
+                <span className={styles.characterLevel}>Level 4</span>
+              </div>
               <Button size="sm" iconEnd={<ArrowRight />}>
                 View Character
               </Button>
@@ -228,8 +223,15 @@ function DashboardPage() {
         </Panel>
       </div>
 
+      <div className={styles.stats}>
+        {placeholderStats.map((stat) => (
+          <StatCard key={stat.label} {...stat} />
+        ))}
+      </div>
+
       <div className={styles.middle}>
         <Panel
+          className={styles.fill}
           title="Pending Reviews"
           icon={<GitPullRequest aria-hidden />}
           count={pending.length}
@@ -250,7 +252,12 @@ function DashboardPage() {
             </div>
           )}
         </Panel>
-        <Panel title="Recent Reviews" icon={<CircleDot aria-hidden />} action={viewAll}>
+        <Panel
+          className={styles.fill}
+          title="Recent Reviews"
+          icon={<CircleDot aria-hidden />}
+          action={viewAll}
+        >
           {recent.length === 0 ? (
             <p className={styles.empty}>Pull requests you open to review show up here.</p>
           ) : (
@@ -262,25 +269,29 @@ function DashboardPage() {
           )}
         </Panel>
         <Panel
+          className={cx(styles.fill, styles.optional)}
           title="This Week"
           icon={<Calendar aria-hidden />}
           action={<span className={styles.placeholderNote}>Sample data</span>}
         >
-          <dl className={styles.weekSummary}>
-            {placeholderWeek.summary.map((item) => (
-              <div key={item.label} className={styles.weekStat}>
-                <dd>{item.value}</dd>
-                <dt>{item.label}</dt>
-              </div>
-            ))}
-          </dl>
-          <BarChart data={placeholderWeek.days} height={120} />
+          <div className={styles.week}>
+            <dl className={styles.weekSummary}>
+              {placeholderWeek.summary.map((item) => (
+                <div key={item.label} className={styles.weekStat}>
+                  <dd>{item.value}</dd>
+                  <dt>{item.label}</dt>
+                </div>
+              ))}
+            </dl>
+            <BarChart data={placeholderWeek.days} fill />
+          </div>
         </Panel>
       </div>
 
       <div className={styles.bottom}>
-        <Panel title="Agent Work" icon={<Bot aria-hidden />}>
+        <Panel className={styles.fill} title="Agent Work" icon={<Bot aria-hidden />}>
           <Tabs
+            className={styles.tabs}
             aria-label="Agent work"
             size="sm"
             items={[
@@ -317,6 +328,7 @@ function DashboardPage() {
           </Tabs>
         </Panel>
         <Panel
+          className={cx(styles.fill, styles.optional)}
           title="Your Characters"
           icon={<MessageSquare aria-hidden />}
           action={

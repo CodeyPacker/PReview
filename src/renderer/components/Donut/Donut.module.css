@@ -1,6 +1,7 @@
 /* Donut styles. Read values from tokens.css custom properties only. */
 
 .donut {
+  container-type: inline-size;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -42,7 +43,7 @@
   display: grid;
   flex: 1;
   gap: var(--space-4);
-  min-width: 160px;
+  min-width: 120px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -70,11 +71,23 @@
 
 .itemLabel {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--ink-secondary);
 }
 
 .itemValue {
+  flex: none;
+  white-space: nowrap;
   color: var(--ink);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+}
+
+/* Too narrow for the legend beside the ring: keep the ring and its total. */
+@container (max-width: 340px) {
+  .legend {
+    display: none;
+  }
 }

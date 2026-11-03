@@ -7,6 +7,16 @@
   font-family: var(--font-sans);
 }
 
+.fill {
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: 100%;
+  min-height: 0;
+}
+
+.fill .plot {
+  min-height: 0;
+}
+
 .plot {
   position: relative;
   margin-bottom: 20px;

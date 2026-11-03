@@ -41,3 +41,14 @@ export const Stacked: Story = {
     })),
   },
 };
+
+export const Fill: Story = {
+  args: { fill: true },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 420, height: 200 }}>
+        <Story />
+      </div>
+    ),
+  ],
+};

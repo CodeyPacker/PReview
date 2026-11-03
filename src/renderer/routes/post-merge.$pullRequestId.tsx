@@ -79,7 +79,7 @@ function PostMergePage() {
 
   return (
     <div className={styles.page}>
-      <Panel padding="sm">
+      <Panel padding="sm" className={styles.hero}>
         <div className={styles.art}>
           <IconButton
             icon={<X />}
@@ -108,9 +108,10 @@ function PostMergePage() {
       <div className={styles.columns}>
         <div className={styles.column}>
           <Panel title="XP Earned">
-            <Donut size={192} thickness={20} centerValue="+650" centerLabel="XP" segments={xp} />
+            <Donut size={140} thickness={16} centerValue="+650" centerLabel="XP" segments={xp} />
           </Panel>
           <Panel
+            className={styles.optional}
             title="Achievements Unlocked"
             action={
               <Button variant="plain" size="sm" iconEnd={<ArrowRight />}>
@@ -174,7 +175,7 @@ function PostMergePage() {
                 />
               </div>
             </div>
-            <Panel variant="sunken" padding="sm">
+            <Panel variant="sunken" padding="sm" className={styles.optional}>
               <div className={styles.cosmetic}>
                 <IconTile icon={<Sword />} size="md" />
                 <div className={styles.cosmeticBody}>
@@ -188,37 +189,35 @@ function PostMergePage() {
         </div>
       </div>
 
-      <Panel title="Next Steps">
-        <div className={styles.steps}>
-          <Button
-            variant="primary"
-            block
-            iconStart={<GitPullRequest />}
-            iconEnd={<ArrowRight />}
-            onClick={() =>
-              void (nextPullRequest
-                ? navigate({
-                    to: '/review/$pullRequestId',
-                    params: { pullRequestId: String(nextPullRequest.id) },
-                  })
-                : navigate({ to: '/inbox' }))
-            }
-          >
-            {nextPullRequest ? 'Open Next Pull Request' : 'Back to Inbox'}
-          </Button>
-          <Button
-            block
-            iconStart={<ExternalLink />}
-            render={<a href={merged.url} target="_blank" rel="noreferrer" />}
-            nativeButton={false}
-          >
-            View on GitHub
-          </Button>
-          <Button block iconStart={<House />} onClick={() => void navigate({ to: '/dashboard' })}>
-            Back to Dashboard
-          </Button>
-        </div>
-      </Panel>
+      <div className={styles.steps}>
+        <Button
+          variant="primary"
+          block
+          iconStart={<GitPullRequest />}
+          iconEnd={<ArrowRight />}
+          onClick={() =>
+            void (nextPullRequest
+              ? navigate({
+                  to: '/review/$pullRequestId',
+                  params: { pullRequestId: String(nextPullRequest.id) },
+                })
+              : navigate({ to: '/inbox' }))
+          }
+        >
+          {nextPullRequest ? 'Open Next Pull Request' : 'Back to Inbox'}
+        </Button>
+        <Button
+          block
+          iconStart={<ExternalLink />}
+          render={<a href={merged.url} target="_blank" rel="noreferrer" />}
+          nativeButton={false}
+        >
+          View on GitHub
+        </Button>
+        <Button block iconStart={<House />} onClick={() => void navigate({ to: '/dashboard' })}>
+          Back to Dashboard
+        </Button>
+      </div>
     </div>
   );
 }
