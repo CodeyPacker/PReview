@@ -19,6 +19,8 @@ export interface BarChartProps {
   // Defaults to one chart-1 series.
   series?: BarChartSeries[];
   height?: number;
+  // Grows to the height of the parent instead of using height.
+  fill?: boolean;
   // The top of the axis. Defaults to the tallest stack.
   max?: number;
   className?: string;
@@ -30,6 +32,7 @@ export function BarChart({
   data,
   series = DEFAULT_SERIES,
   height = 120,
+  fill,
   max,
   className,
 }: BarChartProps) {
@@ -37,8 +40,8 @@ export function BarChart({
   const ticks = [0, Math.round(top / 3), Math.round((top * 2) / 3), top];
   const percent = (value: number) => `${(value / top) * 100}%`;
   return (
-    <figure className={cx(styles.chart, className)}>
-      <div className={styles.plot} style={{ height }}>
+    <figure className={cx(styles.chart, fill && styles.fill, className)}>
+      <div className={styles.plot} style={fill ? undefined : { height }}>
         <div className={styles.axis} aria-hidden>
           {ticks.map((tick) => (
             <span key={tick} style={{ bottom: percent(tick) }}>

@@ -2,33 +2,39 @@
 
 .page {
   display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-16);
+  height: 100%;
   max-width: 1280px;
+}
+
+/* Panels that stretch to their grid row and scroll their own list instead of the page. */
+.page .fill {
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
 }
 
 .top {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
-  align-items: start;
-  gap: var(--space-16);
-}
-
-.topMain {
-  display: grid;
   gap: var(--space-16);
 }
 
 .hero {
   display: grid;
   justify-items: start;
-  gap: var(--space-16);
+  align-content: center;
+  gap: var(--space-12);
+  height: 100%;
   padding: var(--space-16);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: linear-gradient(135deg, var(--accent-soft), var(--canvas-tint));
 }
 
 .greeting {
-  display: grid;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-12);
 }
 
 .greetingLead {
@@ -38,7 +44,7 @@
 
 .greetingName {
   color: var(--ink);
-  font: 700 var(--text-3xl) / 44px var(--font-display);
+  font: 700 var(--text-3xl) / 40px var(--font-display);
 }
 
 .heroText {
@@ -55,13 +61,20 @@
 
 .progress {
   display: grid;
-  gap: var(--space-16);
+  align-content: center;
+  gap: var(--space-12);
 }
 
 .activeCharacter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.characterText {
   display: grid;
-  justify-items: center;
-  gap: var(--space-4);
+  flex: 1;
+  min-width: 0;
 }
 
 .characterName {
@@ -76,21 +89,43 @@
 
 .middle {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 340px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px;
   gap: var(--space-16);
+  min-height: 0;
 }
 
 .bottom {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 480px;
-  align-items: start;
   gap: var(--space-16);
+  min-height: 0;
 }
 
 .list {
   display: grid;
+  align-content: start;
   gap: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.tabs {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-12);
+  min-height: 0;
+}
+
+.tabs [role='tabpanel'] {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.week {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--space-8);
+  min-height: 0;
 }
 
 .empty {
@@ -131,4 +166,35 @@
 .characters {
   display: flex;
   gap: var(--space-12);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Short windows drop the stats row and the hero sentence so the rest still fits. */
+@media (max-height: 800px) {
+  .page {
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--space-12);
+  }
+
+  .stats,
+  .heroText {
+    display: none;
+  }
+}
+
+/* Narrow windows drop the sample-data panels so the real ones keep their room. */
+@media (max-width: 1200px) {
+  .middle,
+  .bottom {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .optional {
+    display: none;
+  }
 }
