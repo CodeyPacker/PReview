@@ -1,13 +1,15 @@
 import { z } from 'zod';
 
 // Where the reviewer is in a pull request, from what is stored on this machine. It doesn't
-// include the GitHub state or any agent state.
+// include the GitHub state. Agents count only through CI on commits they pushed: pending
+// keeps a review submitted, and failed needs the reviewer's action.
 export const reviewStateSchema = z.enum([
   'needs-review',
   'in-progress',
   'draft-feedback',
   'feedback-submitted',
   'ready-for-rereview',
+  'action-required',
   'completed',
 ]);
 export type ReviewState = z.infer<typeof reviewStateSchema>;

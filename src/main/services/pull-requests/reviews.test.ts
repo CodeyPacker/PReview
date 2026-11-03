@@ -70,6 +70,7 @@ function setup() {
     submitReview,
     getReviews,
     getPullRequestDetails: vi.fn(),
+    getChecks: vi.fn(),
     mergePullRequest,
     deleteBranch,
   } satisfies GitProvider;

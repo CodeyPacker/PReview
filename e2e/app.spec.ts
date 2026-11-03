@@ -1777,3 +1777,117 @@ test("shows an agent's work in the Inbox and answers its question", async () => 
     await app.close();
   }
 });
+
+test('shows CI on pushed agent changes and sends the agent back on request', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain, BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(1280, 900);
+      const investigated: unknown[] = [];
+      Object.assign(globalThis, { investigated });
+      const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
+      const handlers: Record<string, (input: never) => unknown> = {
+        'github.getAuth': () => ({
+          status: 'connected',
+          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+        }),
+        'repositories.list': () => ({
+          repositories: [
+            {
+              id: 1,
+              path: '/code/app',
+              name: 'app',
+              remoteUrl: 'https://github.com/octo/app.git',
+              github: { owner: 'octo', name: 'app' },
+              status: 'available',
+              settings: { monitored: true, includeDrafts: true, includeAutomated: true },
+            },
+          ],
+          scanning: false,
+        }),
+        'pullRequests.list': () => ({
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Add login',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: null,
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              reviewState: 'action-required',
+              createdAt: minutesAgo(60),
+              updatedAt: minutesAgo(5),
+            },
+          ],
+          errors: [],
+          syncing: false,
+        }),
+        'pullRequests.refresh': () => handlers['pullRequests.list']!(undefined as never),
+        'agentTasks.list': () => [
+          {
+            id: 5,
+            pullRequestId: 1,
+            status: 'completed',
+            attempts: 1,
+            error: null,
+            report: {
+              items: [{ id: 'C1', outcome: 'fixed', note: 'Renamed the store.' }],
+              tests: [{ command: 'pnpm test', passed: true, summary: '12 passed' }],
+              summary: 'Renamed the token store.',
+            },
+            costUsd: 0.4,
+            question: null,
+            push: { status: 'pushed', sha: 'abcdef1234567', error: null },
+            ci: {
+              status: 'failed',
+              checks: [
+                { name: 'build', required: true, state: 'passed', url: 'https://ci.test/1' },
+                { name: 'e2e', required: true, state: 'failed', url: 'https://ci.test/2' },
+                { name: 'docs', required: false, state: 'skipped', url: null },
+              ],
+            },
+            createdAt: minutesAgo(30),
+            startedAt: minutesAgo(30),
+            finishedAt: minutesAgo(10),
+          },
+        ],
+        'agentTasks.listActivity': () => [],
+        'agentTasks.investigate': (input) => {
+          investigated.push(input);
+          return null;
+        },
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Inbox' })
+      .click();
+
+    const agent = page.getByRole('region', { name: 'Agent activity' });
+    await expect(agent.getByText('CI Failed')).toBeVisible();
+    await expect(agent.getByText('abcdef1', { exact: true })).toBeVisible();
+    await expect(agent.getByRole('link', { name: 'e2e' })).toHaveAttribute(
+      'href',
+      'https://ci.test/2',
+    );
+    await expect(page.getByText('Action Required').first()).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('agent-ci.png') });
+
+    await agent.getByRole('button', { name: 'Investigate with Claude' }).click();
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as { investigated?: unknown[] }).investigated))
+      .toEqual([{ taskId: 5 }]);
+  } finally {
+    await app.close();
+  }
+});

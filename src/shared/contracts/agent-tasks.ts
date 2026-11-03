@@ -39,6 +39,16 @@ export const agentQuestionSchema = z.object({
 });
 export type AgentQuestion = z.infer<typeof agentQuestionSchema>;
 
+// One CI check on a commit, as the provider reports it.
+export const agentCheckSchema = z.object({
+  name: z.string(),
+  // Branch protection requires it before merging.
+  required: z.boolean(),
+  state: z.enum(['pending', 'passed', 'failed', 'skipped']),
+  url: z.string().nullable(),
+});
+export type AgentCheck = z.infer<typeof agentCheckSchema>;
+
 // waiting: the agent asked the user a question and is waiting for the answer.
 export const agentTaskStatusSchema = z.enum([
   'queued',
@@ -61,6 +71,22 @@ export const agentTaskSchema = z.object({
   costUsd: z.number().nullable(),
   // The unanswered question, when the status is waiting.
   question: agentQuestionSchema.nullable(),
+  // What happened to a completed run's changes. waiting: they need your go-ahead to push.
+  // error says why a blocked push failed.
+  push: z
+    .object({
+      status: z.enum(['waiting', 'pushed', 'blocked', 'no_changes']),
+      sha: z.string().nullable(),
+      error: z.string().nullable(),
+    })
+    .nullable(),
+  // CI on the pushed commit.
+  ci: z
+    .object({
+      status: z.enum(['pending', 'passed', 'failed']),
+      checks: z.array(agentCheckSchema),
+    })
+    .nullable(),
   createdAt: z.string(),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),

@@ -1,5 +1,6 @@
 // The provider interface the rest of the app talks to. GitHub is the only adapter in the MVP.
 
+import type { AgentCheck } from '../../shared/contracts/agent-tasks.ts';
 import type { DiffHunk, PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
 import type { ReviewThread } from '../../shared/contracts/pull-request-reviews.ts';
 
@@ -174,6 +175,8 @@ export interface GitProvider {
     repositoryFullName: string,
     number: number,
   ): Promise<ProviderPullRequestDetails>;
+  // The CI checks on a commit of the pull request, with whether each is required for it.
+  getChecks(repositoryFullName: string, number: number, sha: string): Promise<AgentCheck[]>;
   // The pull request's published reviews, oldest first.
   getReviews(repositoryFullName: string, number: number): Promise<ProviderPublishedReview[]>;
   // Merges the pull request if its head is still headSha. Rejects with the provider's

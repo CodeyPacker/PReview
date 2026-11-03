@@ -189,3 +189,22 @@
   color: var(--ink-secondary);
   font: 400 var(--text-md) / 18px var(--font-sans);
 }
+
+.note {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.sha {
+  font: 400 var(--text-sm) / 16px var(--font-mono);
+}
+
+.items a {
+  color: var(--accent-text);
+}
+
+.required {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}

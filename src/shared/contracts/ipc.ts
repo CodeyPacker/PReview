@@ -259,6 +259,10 @@ export const ipcContract = {
   'agentTasks.forceStop': { input: agentTaskIdInputSchema, output: z.null() },
   // Queues a stopped or failed task again.
   'agentTasks.resume': { input: agentTaskIdInputSchema, output: z.null() },
+  // Commits and pushes a completed task's changes.
+  'agentTasks.push': { input: agentTaskIdInputSchema, output: z.null() },
+  // Sends a task's agent back to find out why CI failed on its pushed commit.
+  'agentTasks.investigate': { input: agentTaskIdInputSchema, output: z.null() },
   // Answers an agent's question. false when it was no longer waiting.
   'agentTasks.answer': { input: answerAgentQuestionInputSchema, output: z.boolean() },
 } satisfies Record<string, { input: z.ZodType; output: z.ZodType }>;

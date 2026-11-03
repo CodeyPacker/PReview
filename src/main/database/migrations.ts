@@ -386,4 +386,22 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE agent_tasks ADD COLUMN resume_note TEXT;
     `,
   },
+  {
+    version: 20,
+    name: 'agent_task_push',
+    // What happened to a completed run's changes. waiting: they need the user's go-ahead,
+    // because a test failed or none were reported. blocked: the push failed, and push_error
+    // says why. pushed_sha is the commit PReview pushed. ci_status follows that commit's checks,
+    // and ci_checks holds them as JSON.
+    sql: `
+      ALTER TABLE agent_tasks ADD COLUMN push_status TEXT
+        CHECK (push_status IN ('waiting', 'pushed', 'blocked', 'no_changes'));
+      ALTER TABLE agent_tasks ADD COLUMN push_error TEXT;
+      ALTER TABLE agent_tasks ADD COLUMN pushed_sha TEXT;
+      ALTER TABLE agent_tasks ADD COLUMN pushed_at TEXT;
+      ALTER TABLE agent_tasks ADD COLUMN ci_status TEXT
+        CHECK (ci_status IN ('pending', 'passed', 'failed'));
+      ALTER TABLE agent_tasks ADD COLUMN ci_checks TEXT;
+    `,
+  },
 ];

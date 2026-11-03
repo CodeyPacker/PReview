@@ -9,6 +9,12 @@ export type OpenWorktreeResult =
   // The agent can't start. reason says why and what to do, and is safe to show.
   | { status: 'blocked'; reason: string };
 
+export type PublishResult =
+  | { status: 'pushed'; sha: string }
+  | { status: 'no_changes' }
+  // reason says what went wrong and what to do, and is safe to show.
+  | { status: 'blocked'; reason: string };
+
 export interface AgentWorktreesDeps {
   db: DatabaseSync;
   git: Git;
@@ -54,6 +60,52 @@ export class AgentWorktrees {
       return await this.prepare(pull, headSha, taskId);
     } finally {
       this.opening.delete(key);
+    }
+  }
+
+  // Commits the worktree's changes and pushes them to the pull request's branch. Only a
+  // fast-forward from the commit PReview put the worktree on: if the branch moved, nothing is
+  // pushed. A failed push undoes the commit and keeps the changes.
+  async publish(pullRequestId: number, taskId: number, message: string): Promise<PublishResult> {
+    const pull = this.findPullRequest(pullRequestId);
+    const row = this.findWorktree(pull.repositoryId, pull.number);
+    if (!row || !existsSync(row.path)) {
+      return {
+        status: 'blocked',
+        reason: "The agent's worktree is gone, so there is nothing to push.",
+      };
+    }
+    if (pull.headBranch === pull.baseBranch) {
+      return {
+        status: 'blocked',
+        reason: `PReview doesn't push to ${pull.baseBranch}, the base branch.`,
+      };
+    }
+    const opened = await this.open(pullRequestId, row.head_sha, taskId);
+    if (opened.status === 'blocked') return opened;
+    try {
+      const git = await this.safeGit(pull.path);
+      if ((await git(row.path, ['status', '--porcelain'])) === '') return { status: 'no_changes' };
+      await git(row.path, ['add', '--all']);
+      try {
+        await git(row.path, ['commit', '--quiet', '-m', message]);
+      } catch (error) {
+        await git(row.path, ['reset', '--quiet']).catch(() => '');
+        return { status: 'blocked', reason: `Git could not commit: ${messageOf(error)}` };
+      }
+      const sha = await git(row.path, ['rev-parse', 'HEAD']);
+      try {
+        await git(row.path, ['push', '--quiet', 'origin', `HEAD:refs/heads/${pull.headBranch}`]);
+      } catch (error) {
+        await git(row.path, ['reset', '--soft', '--quiet', row.head_sha]);
+        return { status: 'blocked', reason: `The push was refused: ${messageOf(error)}` };
+      }
+      this.deps.db
+        .prepare(`UPDATE agent_worktrees SET head_sha = ?, updated_at = ${NOW} WHERE id = ?`)
+        .run(sha, row.id);
+      return { status: 'pushed', sha };
+    } finally {
+      this.release(taskId);
     }
   }
 
@@ -231,17 +283,25 @@ export class AgentWorktrees {
   private findPullRequest(pullRequestId: number): PullRequestRow {
     const row = this.deps.db
       .prepare(
-        `SELECT p.number, p.head_branch, p.repository_id, r.path, r.status
+        `SELECT p.number, p.head_branch, p.base_branch, p.repository_id, r.path, r.status
          FROM pull_requests p JOIN repositories r ON r.id = p.repository_id
          WHERE p.id = ?`,
       )
       .get(pullRequestId) as
-      | { number: number; head_branch: string; repository_id: number; path: string; status: string }
+      | {
+          number: number;
+          head_branch: string;
+          base_branch: string;
+          repository_id: number;
+          path: string;
+          status: string;
+        }
       | undefined;
     if (!row) throw new Error('Pull request not found.');
     return {
       number: row.number,
       headBranch: row.head_branch,
+      baseBranch: row.base_branch,
       repositoryId: row.repository_id,
       path: row.path,
       repositoryStatus: row.status,
@@ -258,9 +318,25 @@ export class AgentWorktrees {
 interface PullRequestRow {
   number: number;
   headBranch: string;
+  baseBranch: string;
   repositoryId: number;
   path: string;
   repositoryStatus: string;
 }
+
+// Git's own message, without the command line execFile adds. A remote's explanation, such as
+// GitHub refusing a push to a protected branch, comes first.
+const messageOf = (error: unknown) => {
+  const raw =
+    error instanceof Error
+      ? ((error as { stderr?: string }).stderr ?? error.message)
+      : String(error);
+  const lines = raw
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const remote = lines.filter((line) => line.startsWith('remote:') || line.startsWith('!'));
+  return (remote.length > 0 ? remote : lines.slice(-3)).join(' ');
+};
 
 const NOW = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`;

@@ -146,6 +146,8 @@ export interface PreviewApi {
     stop(taskId: number): Promise<null>;
     forceStop(taskId: number): Promise<null>;
     resume(taskId: number): Promise<null>;
+    push(taskId: number): Promise<null>;
+    investigate(taskId: number): Promise<null>;
     // false when the agent was no longer waiting for this answer.
     answer(answer: AnswerAgentQuestionInput): Promise<boolean>;
   };
