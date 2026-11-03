@@ -29,6 +29,15 @@ export function useAgentActivity(taskId: number | undefined, active: boolean) {
   });
 }
 
+// A task's changes that aren't pushed yet. Read when enabled is true.
+export function useAgentChanges(taskId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: ['agentChanges', taskId],
+    queryFn: () => window.preview.agentTasks.changes(taskId),
+    enabled,
+  });
+}
+
 type TaskAction = 'stop' | 'forceStop' | 'resume' | 'push' | 'investigate';
 
 // Stops, force-stops, resumes or pushes a task, or sends its agent to look into failed CI.
@@ -41,6 +50,7 @@ export function useAgentTaskAction() {
       Promise.all([
         queryClient.invalidateQueries({ queryKey: agentTasksKey }),
         queryClient.invalidateQueries({ queryKey: ['agentActivity', taskId] }),
+        queryClient.invalidateQueries({ queryKey: ['agentChanges', taskId] }),
       ]),
   });
 }

@@ -41,6 +41,8 @@ import {
   type FileReviewState,
 } from '../lib/fileReview.ts';
 import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
+import { useAgentTasks } from '../hooks/useAgentTasks.ts';
+import { agentStatus } from '../app/agentStatus.ts';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
@@ -78,6 +80,9 @@ function ReviewPage() {
   const { data: repositoryState } = useRepositories();
   const pullRequest = pullRequestState?.pullRequests.find((pull) => pull.id === pullRequestId);
   const { data: auth } = useGitHubAuth();
+  const { data: agentTasks } = useAgentTasks();
+  // Tasks come newest first.
+  const agentTask = agentTasks?.find((task) => task.pullRequestId === pullRequestId);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [findingsOpen, setFindingsOpen] = useState(false);
   const repository = repositoryState?.repositories.find(
@@ -382,6 +387,7 @@ function ReviewPage() {
           </span>
         </div>
         <div className={styles.headerActions}>
+          {agentTask && <StatusPill status={agentStatus[agentTask.status]} />}
           <span role="status" className={styles.newCommits}>
             {newCommits && 'New commits'}
           </span>
@@ -448,6 +454,7 @@ function ReviewPage() {
           ownPullRequest={
             auth?.status === 'connected' && auth.user.login === pullRequest.author?.login
           }
+          agentTask={agentTask}
           onDone={() => void navigate({ to: '/inbox' })}
         />
       )}

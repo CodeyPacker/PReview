@@ -1891,3 +1891,139 @@ test('shows CI on pushed agent changes and sends the agent back on request', asy
     await app.close();
   }
 });
+
+test("shows the agent's unpushed changes and warns before merging without them", async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain, BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setSize(1280, 900);
+      const pushed: unknown[] = [];
+      Object.assign(globalThis, { pushed });
+      const handlers: Record<string, (input: never) => unknown> = {
+        'github.getAuth': () => ({
+          status: 'connected',
+          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+        }),
+        'pullRequests.list': () => ({
+          pullRequests: [
+            {
+              id: 1,
+              repositoryId: 1,
+              number: 7,
+              title: 'Add login',
+              draft: false,
+              url: 'https://github.com/octo/app/pull/7',
+              author: {
+                login: 'me',
+                avatarUrl: 'https://avatars.githubusercontent.com/u/2',
+                bot: false,
+              },
+              headBranch: 'feature',
+              headSha: 'abcdef1',
+              baseBranch: 'main',
+              reviewState: 'feedback-submitted',
+              createdAt: '2026-10-31T12:00:00Z',
+              updatedAt: '2026-10-31T12:00:00Z',
+            },
+          ],
+          errors: [],
+          syncing: false,
+        }),
+        'pullRequests.refresh': () => handlers['pullRequests.list']!(undefined as never),
+        'pullRequestFiles.list': () => ({
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [
+            {
+              path: 'a.ts',
+              blobSha: 'sha-a.ts',
+              previousPath: null,
+              status: 'modified',
+              additions: 1,
+              deletions: 1,
+              hunks: null,
+            },
+          ],
+        }),
+        'pullRequestFiles.getDiff': () => ({
+          original: 'const a = 1;\n',
+          modified: 'const a = 2;\n',
+          unavailable: null,
+          images: null,
+        }),
+        'agentTasks.list': () => [
+          {
+            id: 5,
+            pullRequestId: 1,
+            status: 'completed',
+            attempts: 1,
+            error: null,
+            report: {
+              items: [{ id: 'C1', outcome: 'fixed', note: 'Fixed the typo.' }],
+              tests: [],
+              summary: 'Fixed the typo.',
+            },
+            costUsd: 0.2,
+            question: null,
+            push: { status: 'waiting', sha: null, error: null },
+            ci: null,
+            createdAt: '2026-10-31T12:00:00Z',
+            startedAt: '2026-10-31T12:00:00Z',
+            finishedAt: '2026-10-31T12:01:00Z',
+          },
+        ],
+        'agentTasks.listActivity': () => [],
+        'agentTasks.changes': () => [
+          {
+            path: 'src/inbox.tsx',
+            status: 'modified',
+            patch: '@@ -1 +1 @@\n-colaborate\n+collaborate',
+          },
+          { path: 'logo.png', status: 'added', patch: null },
+        ],
+        'agentTasks.push': (input) => {
+          pushed.push(input);
+          return null;
+        },
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    // The sign-in is read at launch, so your own pull request needs a reload.
+    await page.reload();
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Inbox' })
+      .click();
+
+    const agent = page.getByRole('region', { name: 'Agent activity' });
+    await agent.getByText('src/inbox.tsx').click();
+    await expect(agent.getByText('+collaborate')).toBeVisible();
+    await expect(agent.getByText('-colaborate')).toBeVisible();
+    await agent.getByText('logo.png').click();
+    await expect(agent.getByText('Binary file.')).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('agent-changes.png') });
+    await agent.getByRole('button', { name: 'Push Changes' }).click();
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as { pushed?: unknown[] }).pushed))
+      .toEqual([{ taskId: 5 }]);
+
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    await page.getByRole('button', { name: 'Submit review' }).click();
+    await expect(agent).toBeHidden();
+    await expect(page.getByText('Agent Finished')).toBeVisible();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('note')).toHaveText(
+      "The agent has changes that aren't pushed. Merging now leaves them out.",
+    );
+    await page.screenshot({ path: test.info().outputPath('agent-merge-warning.png') });
+  } finally {
+    await app.close();
+  }
+});

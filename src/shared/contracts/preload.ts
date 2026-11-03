@@ -1,4 +1,9 @@
-import type { AgentEvent, AgentTask, AnswerAgentQuestionInput } from './agent-tasks.ts';
+import type {
+  AgentChange,
+  AgentEvent,
+  AgentTask,
+  AnswerAgentQuestionInput,
+} from './agent-tasks.ts';
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type {
@@ -147,6 +152,7 @@ export interface PreviewApi {
     forceStop(taskId: number): Promise<null>;
     resume(taskId: number): Promise<null>;
     push(taskId: number): Promise<null>;
+    changes(taskId: number): Promise<AgentChange[]>;
     investigate(taskId: number): Promise<null>;
     // false when the agent was no longer waiting for this answer.
     answer(answer: AnswerAgentQuestionInput): Promise<boolean>;

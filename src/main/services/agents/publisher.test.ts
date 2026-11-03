@@ -71,7 +71,7 @@ function setup(result: PublishResult = { status: 'pushed', sha: 'f'.repeat(40) }
   const publisher = new AgentPublisher({
     db,
     provider: { getChecks } as unknown as GitProvider,
-    worktrees: { publish },
+    worktrees: { publish, changes: vi.fn().mockResolvedValue([]) },
     notify,
     log: { warn: vi.fn() },
     noChecksMs: 1000,

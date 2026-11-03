@@ -1,6 +1,7 @@
 import { Dialog } from '@base-ui/react/dialog';
-import { CircleAlert, CircleCheck, ExternalLink } from 'lucide-react';
+import { CircleAlert, CircleCheck, ExternalLink, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
+import type { AgentTask } from '../../shared/contracts/agent-tasks.ts';
 import type { MergeMethod, ReviewVerdict } from '../../shared/contracts/pull-request-reviews.ts';
 import { Button } from '../components/Button/Button.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
@@ -8,6 +9,7 @@ import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { useDeleteBranch } from '../hooks/useDeleteBranch.ts';
 import { useMergePullRequest } from '../hooks/useMergePullRequest.ts';
 import { useSubmitReview } from '../hooks/useSubmitReview.ts';
+import { agentMergeWarning } from './agentStatus.ts';
 import styles from './ReviewDialog.module.css';
 
 export interface ReviewDialogProps {
@@ -26,6 +28,8 @@ export interface ReviewDialogProps {
   findingIds: number[];
   // GitHub refuses approvals and change requests from a pull request's own author.
   ownPullRequest: boolean;
+  // The pull request's latest agent task. Merging warns while its work is pending.
+  agentTask?: AgentTask;
   // Called when the dialog closes after a review was sent or the pull request merged.
   onDone?: () => void;
 }
@@ -61,6 +65,7 @@ export function ReviewDialog({
   draftsOutsideDiff,
   findingIds,
   ownPullRequest,
+  agentTask,
   onDone,
 }: ReviewDialogProps) {
   const submit = useSubmitReview();
@@ -144,6 +149,13 @@ export function ReviewDialog({
       {mergeRejection ?? 'Could not reach GitHub. Try again.'}
     </p>
   );
+  const agentWarning = agentMergeWarning(agentTask);
+  const mergeWarning = agentWarning && (
+    <p className={styles.warning} role="note">
+      <TriangleAlert aria-hidden />
+      {agentWarning}
+    </p>
+  );
   const mergeButton = (
     <Button
       type="button"
@@ -179,6 +191,7 @@ export function ReviewDialog({
                     }`}
               </Dialog.Description>
               {!merged && !sentToAgent && mergeMethodPicker}
+              {!merged && !sentToAgent && mergeWarning}
               {mergeError}
               {(deleteRejection || deleteBranch.isError) && (
                 <p className={styles.error} role="alert">
@@ -245,6 +258,7 @@ export function ReviewDialog({
                   {rejection ?? 'Could not reach GitHub. Try again.'}
                 </p>
               )}
+              {ownPullRequest && mergeWarning}
               {ownPullRequest && mergeError}
               <div className={styles.actions}>
                 <Button variant="plain" type="button" onClick={() => close(false)}>

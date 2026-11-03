@@ -97,6 +97,7 @@ const api: PreviewApi = {
     forceStop: (taskId) => invoke('agentTasks.forceStop', { taskId }),
     resume: (taskId) => invoke('agentTasks.resume', { taskId }),
     push: (taskId) => invoke('agentTasks.push', { taskId }),
+    changes: (taskId) => invoke('agentTasks.changes', { taskId }),
     investigate: (taskId) => invoke('agentTasks.investigate', { taskId }),
     answer: (answer) => invoke('agentTasks.answer', answer),
   },

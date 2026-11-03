@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
+import type { AgentChange } from '../../../shared/contracts/agent-tasks.ts';
 import type { Git } from '../repositories/git-info.ts';
 
 export type OpenWorktreeResult =
@@ -107,6 +108,41 @@ export class AgentWorktrees {
     } finally {
       this.release(taskId);
     }
+  }
+
+  // The changes in the pull request's worktree that aren't pushed yet. Empty when it has none
+  // or is gone.
+  async changes(pullRequestId: number): Promise<AgentChange[]> {
+    const pull = this.findPullRequest(pullRequestId);
+    const row = this.findWorktree(pull.repositoryId, pull.number);
+    if (!row || !existsSync(row.path)) return [];
+    const git = await this.safeGit(pull.path);
+    // Agents can't stage, so the index matches HEAD and nothing shows as renamed.
+    const tracked = await git(row.path, ['diff', '--name-status', '-z', 'HEAD']);
+    const untracked = await git(row.path, ['ls-files', '--others', '--exclude-standard', '-z']);
+    const changes: AgentChange[] = [];
+    const fields = tracked.split('\0').filter(Boolean);
+    for (let index = 0; index + 1 < fields.length; index += 2) {
+      const [letter, path] = [fields[index]!, fields[index + 1]!];
+      const patch = await git(row.path, [
+        'diff',
+        '--no-color',
+        '--no-ext-diff',
+        '--no-textconv',
+        'HEAD',
+        '--',
+        path,
+      ]);
+      changes.push({
+        path,
+        status: letter === 'D' ? 'deleted' : letter === 'A' ? 'added' : 'modified',
+        patch: /^Binary files /m.test(patch) ? null : clipPatch(hunksOf(patch)),
+      });
+    }
+    for (const path of untracked.split('\0').filter(Boolean)) {
+      changes.push({ path, status: 'added', patch: await newFilePatch(join(row.path, path)) });
+    }
+    return changes;
   }
 
   // Frees the worktree the task was working in.
@@ -338,5 +374,26 @@ const messageOf = (error: unknown) => {
   const remote = lines.filter((line) => line.startsWith('remote:') || line.startsWith('!'));
   return (remote.length > 0 ? remote : lines.slice(-3)).join(' ');
 };
+
+// Diffs past this many characters are cut short, to keep the app responsive.
+const MAX_PATCH = 50_000;
+
+const clipPatch = (patch: string) =>
+  patch.length > MAX_PATCH ? `${patch.slice(0, MAX_PATCH)}\n… (cut short)` : patch;
+
+// A diff's hunks, without the file header lines above the first @@.
+const hunksOf = (patch: string) => {
+  const start = patch.search(/^@@/m);
+  return start === -1 ? '' : patch.slice(start);
+};
+
+// A new file as one hunk of added lines. Null when it is binary.
+async function newFilePatch(path: string): Promise<string | null> {
+  const content = await readFile(path).catch(() => null);
+  if (content?.includes(0)) return null;
+  if (!content?.length) return '';
+  const lines = content.toString('utf8').replace(/\n$/, '').split('\n');
+  return clipPatch(`@@ -0,0 +1,${lines.length} @@\n${lines.map((line) => `+${line}`).join('\n')}`);
+}
 
 const NOW = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`;
