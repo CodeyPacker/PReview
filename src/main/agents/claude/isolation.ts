@@ -13,8 +13,17 @@ export interface Isolation {
   close: () => Promise<void>;
 }
 
+// The only hosts shell commands can reach, so agents can install a project's dependencies.
+// Install scripts run inside the sandbox like any other command.
+export const PACKAGE_REGISTRIES = [
+  'registry.npmjs.org',
+  'registry.yarnpkg.com',
+  'repo.yarnpkg.com',
+];
+
 // Shell commands can write only in the worktree and the temp folder, can't change the
-// worktree's Git link, can't read the home folder outside those two, and have no network.
+// worktree's Git link, can't read the home folder outside those two, and reach only the
+// package registries.
 // macOS enforces it with Seatbelt. Windows runs the commands as a separate user with no
 // rights of its own.
 export function sandboxFor(worktree: string, temp: string, home: string): Sandbox {
@@ -29,7 +38,11 @@ export function sandboxFor(worktree: string, temp: string, home: string): Sandbo
       allowWrite: [worktree, temp],
       denyWrite: [join(worktree, '.git')],
     },
-    network: { allowedDomains: [], strictAllowlist: true, allowLocalBinding: false },
+    network: {
+      allowedDomains: PACKAGE_REGISTRIES,
+      strictAllowlist: true,
+      allowLocalBinding: false,
+    },
   };
 }
 
@@ -42,7 +55,21 @@ export async function prepareIsolation(worktree: string): Promise<Isolation> {
   const root = await realpath(worktree);
   const temp = await realpath(await mkdtemp(join(tempRoot(), 'pv-')));
   return {
-    env: { CLAUDE_CODE_TMPDIR: temp, TMPDIR: temp, TMP: temp, TEMP: temp },
+    env: {
+      CLAUDE_CODE_TMPDIR: temp,
+      TMPDIR: temp,
+      TMP: temp,
+      TEMP: temp,
+      // Package managers keep their caches in the home folder, which commands can't write.
+      npm_config_cache: join(temp, 'npm'),
+      npm_config_update_notifier: 'false',
+      // The user's .npmrc can hold registry tokens, and commands can't read it anyway.
+      npm_config_userconfig: join(temp, 'npmrc'),
+      PNPM_HOME: join(temp, 'pnpm'),
+      YARN_CACHE_FOLDER: join(temp, 'yarn'),
+      COREPACK_HOME: join(temp, 'corepack'),
+      BUN_INSTALL_CACHE_DIR: join(temp, 'bun'),
+    },
     sandbox: sandboxFor(root, temp, await realpath(homedir())),
     close: () => rm(temp, { recursive: true, force: true }),
   };

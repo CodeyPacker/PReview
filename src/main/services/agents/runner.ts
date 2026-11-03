@@ -16,7 +16,13 @@ import type {
 import type { log as appLog } from '../../logging/log.ts';
 import type { GitProvider } from '../../providers/types.ts';
 import { cancelQuestions, createQuestion, recordActivity, saveAnswers } from './activity.ts';
-import { AGENT_INSTRUCTIONS, fileDiff, loadTaskContext, taskPrompt } from './context.ts';
+import {
+  AGENT_INSTRUCTIONS,
+  dependencySetup,
+  fileDiff,
+  loadTaskContext,
+  taskPrompt,
+} from './context.ts';
 import type { AgentWorktrees } from './worktrees.ts';
 
 export interface AgentRunnerDeps {
@@ -275,6 +281,8 @@ export class AgentRunner {
       prompt +=
         '\n\nAn earlier attempt may have left changes in this folder. Check them before redoing anything.';
     }
+    const setup = resume ? null : dependencySetup(worktree);
+    if (setup) prompt += `\n\n${setup}`;
     if (this.stopping.has(task.id)) return { status: 'stopped' };
     this.activity(task.id, {
       kind: 'status',

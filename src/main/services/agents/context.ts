@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import type { ReviewThread } from '../../../shared/contracts/pull-request-reviews.ts';
 import {
@@ -36,7 +38,7 @@ export const AGENT_INSTRUCTIONS = [
   'You are working on review feedback for a pull request in PReview.',
   'Work only in the current folder. It is a checkout of the pull request at the reviewed commit.',
   'Do not commit, push or change branches. PReview commits and pushes your changes.',
-  'Git and the network are not available. Use the get_file_diff tool to see what the pull request changed in a file.',
+  'Git is not available, and the network only reaches the npm and Yarn registries. Use the get_file_diff tool to see what the pull request changed in a file.',
   "Run the project's tests that cover your changes before you finish.",
   'If an item is unclear or needs a decision from the reviewer, leave it and mark it needs_input with your question.',
 ].join('\n');
@@ -206,6 +208,26 @@ export function taskPrompt(context: TaskContext): string {
     '## When you finish\n\nReport every line comment and finding by its id (C1, F1 and so on): fixed, not_fixed with the reason, or needs_input with your question. List the test commands you ran and whether they passed.',
   );
   return sections.join('\n\n');
+}
+
+// Lockfiles and the command that installs exactly what each one lists.
+const INSTALL_COMMANDS: [string, string][] = [
+  ['pnpm-lock.yaml', 'pnpm install --frozen-lockfile'],
+  ['yarn.lock', 'yarn install --frozen-lockfile'],
+  ['package-lock.json', 'npm ci'],
+  ['bun.lock', 'bun install --frozen-lockfile'],
+  ['bun.lockb', 'bun install --frozen-lockfile'],
+];
+
+// Tells the agent to install the project's dependencies when the worktree has none, so it can
+// run the tests. Null when there is nothing to install.
+export function dependencySetup(worktree: string): string | null {
+  if (!existsSync(join(worktree, 'package.json'))) return null;
+  if (existsSync(join(worktree, 'node_modules'))) return null;
+  const command =
+    INSTALL_COMMANDS.find(([lockfile]) => existsSync(join(worktree, lockfile)))?.[1] ??
+    'npm install';
+  return `## Setup\n\nDependencies aren't installed. Run \`${command}\` before running tests.`;
 }
 
 // What get_file_diff answers for a path.
