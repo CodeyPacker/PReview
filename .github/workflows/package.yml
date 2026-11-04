@@ -1,0 +1,57 @@
+name: Package
+
+# Builds the installers on each platform, since each build ships that machine's Claude Code
+# binary. Runs on version tags, by hand, and on pull requests that change the packaging.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - electron-builder.yml
+      - package.json
+      - pnpm-lock.yaml
+      - build/**
+      - .github/workflows/package.yml
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # Publishing waits until update hosting is set up.
+      - run: pnpm exec electron-builder --publish never
+      # Agents need the binary that matches where they run: this Mac's, or Linux's in WSL.
+      - name: Check the Claude Code binary ships
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            ls release/mac-*/PReview.app/Contents/Resources/app.asar.unpacked/node_modules/@anthropic-ai/claude-agent-sdk-darwin-*/claude
+          else
+            ls release/win-unpacked/resources/app.asar.unpacked/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ runner.os }}
+          path: |
+            release/*.dmg
+            release/*.zip
+            release/*.exe
+            release/*.blockmap
+            release/latest*.yml
+          if-no-files-found: error
