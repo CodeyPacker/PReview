@@ -938,11 +938,19 @@ test('submits a review, and only allows a comment on your own pull request', asy
         }),
         'pullRequestReviews.submit': (input) => {
           submitted.push(input);
-          const { verdict } = input as { verdict: string };
-          return verdict === 'request-changes'
-            ? { status: 'rejected', message: 'Pull request is locked.' }
-            : { status: 'submitted' };
+          const { verdict, pullRequestId } = input as { verdict: string; pullRequestId: number };
+          if (verdict === 'request-changes') {
+            return { status: 'rejected', message: 'Pull request is locked.' };
+          }
+          // GitHub can't be reached for the second pull request's approval.
+          if (pullRequestId === 2) {
+            (globalThis as { queued?: boolean }).queued = true;
+            return { status: 'queued' };
+          }
+          return { status: 'submitted' };
         },
+        'pullRequestReviews.getQueued': () =>
+          (globalThis as { queued?: boolean }).queued ? { queuedAt: '2026-10-31T12:00:00Z' } : null,
         'pullRequestReviews.merge': (input) => {
           const { method } = input as { method: string };
           if (method === 'rebase') {
@@ -1020,6 +1028,20 @@ test('submits a review, and only allows a comment on your own pull request', asy
     await dialog.getByRole('button', { name: 'Submit review' }).click();
     await expect(dialog.getByRole('alert')).toHaveText('Pull request is locked.');
     await expect(dialog.getByRole('button', { name: 'Submit review' })).toBeEnabled();
+
+    // When GitHub can't be reached, the review is queued, and the screen says it's waiting.
+    await dialog.getByRole('radio', { name: 'Approve' }).click();
+    await dialog.getByRole('button', { name: 'Submit review' }).click();
+    await expect(dialog.getByRole('heading', { name: 'Review queued' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Merge pull request' })).toBeHidden();
+    await dialog.getByRole('button', { name: 'Done' }).click();
+    await expect(page).toHaveURL(/#\/inbox$/);
+    await page.evaluate(() => {
+      location.hash = '/review/2';
+    });
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Review waiting to send' }),
+    ).toBeVisible();
   } finally {
     await app.close();
   }

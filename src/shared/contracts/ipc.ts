@@ -30,6 +30,7 @@ import {
   setThreadResolvedInputSchema,
   submitReviewInputSchema,
   submitReviewResultSchema,
+  queuedReviewSchema,
   threadActionResultSchema,
 } from './pull-request-reviews.ts';
 import { pullRequestsStateSchema } from './pull-requests.ts';
@@ -165,6 +166,11 @@ export const ipcContract = {
   'pullRequestReviews.submit': {
     input: submitReviewInputSchema,
     output: submitReviewResultSchema,
+  },
+  // The pull request's review waiting to be sent. Null when none is.
+  'pullRequestReviews.getQueued': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: queuedReviewSchema.nullable(),
   },
   // Merges a pull request on the provider.
   'pullRequestReviews.merge': {
