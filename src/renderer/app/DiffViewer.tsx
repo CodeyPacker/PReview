@@ -575,6 +575,7 @@ export function DiffViewer({
     <DraftComposer
       composer={composer}
       onChange={(body) => drafts.onComposerChange({ ...composer, body })}
+      onCategoryChange={(category) => drafts.onComposerChange({ ...composer, category })}
       onSave={drafts.onSave}
       onCancel={() => drafts.onComposerChange(undefined)}
       saving={drafts.saving}
@@ -610,6 +611,7 @@ export function DiffViewer({
                 line: draft.line,
                 draftId: draft.id,
                 body: draft.body,
+                category: draft.category,
               })
             }
             onDelete={() => drafts.onDelete(draft.id)}

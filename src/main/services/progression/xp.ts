@@ -89,6 +89,7 @@ interface Reward {
   baseXp: number;
   pullRequestId: number;
   findingId?: number;
+  commentId?: number;
 }
 
 // Records one award with the multiplier the review's active time gives now, so later review
@@ -121,8 +122,8 @@ function award(db: DatabaseSync, reward: Reward): boolean {
     .prepare(
       `INSERT OR IGNORE INTO xp_transactions
          (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
-          repository, number, finding_id, character_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          repository, number, finding_id, comment_id, character_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       reward.key(repository, pullRequest.number),
@@ -135,6 +136,7 @@ function award(db: DatabaseSync, reward: Reward): boolean {
       repository,
       pullRequest.number,
       reward.findingId ?? null,
+      reward.commentId ?? null,
       character.success ? character.data : getActiveCharacter(db),
     );
   return changes > 0;
@@ -170,27 +172,62 @@ export function awardFinding(db: DatabaseSync, findingId: number): boolean {
   });
 }
 
-// Marks the findings the agent fixed as validated, then awards the ones already resolved.
-// The report names findings F1, F2, … in id order, as the task context gave them.
-export function validateFindings(db: DatabaseSync, taskId: number, report: AgentReport): void {
+// A sent line comment earns XP the same way, once its category is set. The category is fixed
+// once the comment is sent.
+export function awardComment(db: DatabaseSync, commentId: number): boolean {
+  const comment = db
+    .prepare(
+      `SELECT pull_request_id, category FROM review_comments
+       WHERE id = ? AND category IS NOT NULL AND validation = 'validated'
+         AND resolution = 'resolved'`,
+    )
+    .get(commentId) as { pull_request_id: number; category: FindingCategory } | undefined;
+  if (!comment) return false;
+  return award(db, {
+    key: () => `comment:${commentId}`,
+    reason: 'comment-resolved',
+    baseXp: findingXp[comment.category],
+    pullRequestId: comment.pull_request_id,
+    commentId,
+  });
+}
+
+// Marks the findings and comments the agent fixed as validated, then awards the ones already
+// resolved. The report names findings F1, F2, … in id order and comments C1, C2, … in the
+// order they were sent, as the task context gave them.
+export function validateReport(db: DatabaseSync, taskId: number, report: AgentReport): void {
   const row = db
     .prepare(
-      `SELECT s.finding_ids FROM agent_tasks t
+      `SELECT s.id, s.finding_ids FROM agent_tasks t
        JOIN review_submissions s ON s.id = t.submission_id WHERE t.id = ?`,
     )
-    .get(taskId) as { finding_ids: string } | undefined;
+    .get(taskId) as { id: string; finding_ids: string } | undefined;
   if (!row) return;
-  const ids = (JSON.parse(row.finding_ids) as number[]).sort((a, b) => a - b);
+  const findingIds = (JSON.parse(row.finding_ids) as number[]).sort((a, b) => a - b);
   for (const item of report.items) {
-    const match = /^F(\d+)$/.exec(item.id);
-    const findingId = match ? ids[Number(match[1]) - 1] : undefined;
-    if (findingId === undefined || item.outcome !== 'fixed') continue;
-    db.prepare(
-      `UPDATE review_findings
-       SET validation = 'validated', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE id = ? AND validation = 'pending'`,
-    ).run(findingId);
-    awardFinding(db, findingId);
+    if (item.outcome !== 'fixed') continue;
+    const match = /^([FC])(\d+)$/.exec(item.id);
+    if (!match) continue;
+    const number = Number(match[2]);
+    if (match[1] === 'F') {
+      const findingId = findingIds[number - 1];
+      if (findingId === undefined) continue;
+      db.prepare(
+        `UPDATE review_findings
+         SET validation = 'validated', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND validation = 'pending'`,
+      ).run(findingId);
+      awardFinding(db, findingId);
+    } else {
+      const comment = db
+        .prepare('SELECT id FROM review_comments WHERE submission_id = ? AND position = ?')
+        .get(row.id, number) as { id: number } | undefined;
+      if (!comment) continue;
+      db.prepare(
+        "UPDATE review_comments SET validation = 'validated' WHERE id = ? AND validation = 'pending'",
+      ).run(comment.id);
+      awardComment(db, comment.id);
+    }
   }
 }
 
@@ -205,6 +242,7 @@ interface XpTransactionRow {
   repository: string;
   number: number;
   finding_id: number | null;
+  comment_id: number | null;
   character_id: XpTransaction['characterId'];
   created_at: string;
 }
@@ -225,6 +263,7 @@ export function listXpTransactions(db: DatabaseSync, pullRequestId: number): XpT
     repository: row.repository,
     number: row.number,
     findingId: row.finding_id,
+    commentId: row.comment_id,
     characterId: row.character_id,
     createdAt: row.created_at,
   }));

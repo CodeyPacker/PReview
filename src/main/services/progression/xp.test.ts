@@ -14,7 +14,7 @@ import {
   MAX_REVIEW_TIME_REPORT_MS,
   setActiveCharacter,
   startReviewProgress,
-  validateFindings,
+  validateReport,
 } from './xp.ts';
 
 let db: ReturnType<typeof openDatabase>;
@@ -168,7 +168,7 @@ describe('finding XP', () => {
 
     setReviewFindingResolution(db, { pullRequestId, id: bug, resolution: 'resolved' });
     expect(listXpTransactions(db, pullRequestId)).toEqual([]);
-    validateFindings(
+    validateReport(
       db,
       taskId,
       report([
@@ -186,14 +186,14 @@ describe('finding XP', () => {
   it('is not awarded for a finding the agent did not fix', () => {
     const test = addFinding('test');
     const taskId = addTask([test]);
-    validateFindings(db, taskId, report([{ id: 'F1', outcome: 'not_fixed' }]));
+    validateReport(db, taskId, report([{ id: 'F1', outcome: 'not_fixed' }]));
     setReviewFindingResolution(db, { pullRequestId, id: test, resolution: 'resolved' });
     expect(listXpTransactions(db, pullRequestId)).toEqual([]);
   });
 
   it('is awarded once and kept when the finding is reopened', () => {
     const test = addFinding('test');
-    validateFindings(db, addTask([test]), report([{ id: 'F1', outcome: 'fixed' }]));
+    validateReport(db, addTask([test]), report([{ id: 'F1', outcome: 'fixed' }]));
     setReviewFindingResolution(db, { pullRequestId, id: test, resolution: 'resolved' });
     setReviewFindingResolution(db, { pullRequestId, id: test, resolution: 'open' });
     setReviewFindingResolution(db, { pullRequestId, id: test, resolution: 'resolved' });

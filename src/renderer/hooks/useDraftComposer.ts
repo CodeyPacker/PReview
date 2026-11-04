@@ -45,12 +45,18 @@ export function useDraftComposer(
           startLine: composer.startLine ?? null,
           line: composer.line,
           body: composer.body,
+          category: composer.category ?? null,
         },
         done,
       );
     } else {
       reviewDrafts.update.mutate(
-        { pullRequestId, id: composer.draftId, body: composer.body },
+        {
+          pullRequestId,
+          id: composer.draftId,
+          body: composer.body,
+          category: composer.category ?? null,
+        },
         done,
       );
     }

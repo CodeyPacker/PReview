@@ -1,12 +1,18 @@
 import { CircleAlert, History, Pencil, Trash2 } from 'lucide-react';
 import type { KeyboardEvent } from 'react';
 import type { DiffSide, ReviewDraft } from '../../shared/contracts/review-drafts.ts';
+import {
+  findingCategoryLabels,
+  findingCategorySchema,
+  type FindingCategory,
+} from '../../shared/contracts/review-findings.ts';
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { Comment } from '../components/Comment/Comment.tsx';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
+import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { isMac } from '../lib/platform.ts';
 import styles from './DraftComments.module.css';
 import { relativeTime } from './relativeTime.ts';
@@ -20,7 +26,18 @@ export interface DraftComposerState {
   line: number;
   draftId?: number;
   body: string;
+  // Left out for none.
+  category?: FindingCategory | null;
 }
+
+// 'none' stands for a comment with no category, which earns no XP.
+const categoryOptions = [
+  { value: 'none' as const, label: 'None' },
+  ...findingCategorySchema.options.map((value) => ({
+    value,
+    label: findingCategoryLabels[value],
+  })),
+];
 
 export interface DraftAuthor {
   name: string;
@@ -36,6 +53,7 @@ function linesName(side: DiffSide, startLine: number | null | undefined, line: n
 export interface DraftComposerProps {
   composer: DraftComposerState;
   onChange: (body: string) => void;
+  onCategoryChange: (category: FindingCategory | null) => void;
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
@@ -45,6 +63,7 @@ export interface DraftComposerProps {
 export function DraftComposer({
   composer,
   onChange,
+  onCategoryChange,
   onSave,
   onCancel,
   saving,
@@ -78,6 +97,14 @@ export function DraftComposer({
         placeholder="Leave a comment"
         value={composer.body}
         onChange={(event) => onChange(event.target.value)}
+      />
+      <ToggleGroup
+        variant="pills"
+        size="sm"
+        aria-label="Comment type"
+        options={categoryOptions}
+        value={composer.category ?? 'none'}
+        onValueChange={(value) => onCategoryChange(value === 'none' ? null : value)}
       />
       <div className={styles.actions}>
         {failed && (
@@ -117,6 +144,11 @@ export function DraftCard({ draft, author, onEdit, onDelete, deleting }: DraftCa
           <StatusPill tone="neutral" icon={<Pencil aria-hidden />} size="sm">
             Draft
           </StatusPill>
+          {draft.category && (
+            <StatusPill tone="neutral" size="sm">
+              {findingCategoryLabels[draft.category]}
+            </StatusPill>
+          )}
           {draft.outdated && (
             <StatusPill tone="warning" icon={<History aria-hidden />} size="sm">
               Outdated

@@ -24,10 +24,11 @@ export const defaultCharacter: CharacterId = 'shadow';
 export const ACCOUNT_XP_PER_LEVEL = 1000;
 export const CHARACTER_XP_PER_LEVEL = 500;
 
-export const xpReasonSchema = z.enum(['review-completed', 'finding-resolved']);
+export const xpReasonSchema = z.enum(['review-completed', 'finding-resolved', 'comment-resolved']);
 export type XpReason = z.infer<typeof xpReasonSchema>;
 
-// Starting balance from SCOPE 12.3. A test finding earns what an improvement does.
+// Starting balance from SCOPE 12.3. A test finding earns what an improvement does. A line
+// comment with a category earns what a finding of that category does.
 export const REVIEW_COMPLETED_XP = 20;
 export const findingXp = {
   bug: 50,
@@ -97,6 +98,7 @@ export const xpTransactionSchema = z.object({
   repository: z.string(),
   number: z.number().int(),
   findingId: z.number().int().nullable(),
+  commentId: z.number().int().nullable(),
   characterId: characterIdSchema,
   createdAt: z.string(),
 });
