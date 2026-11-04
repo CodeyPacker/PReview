@@ -12,39 +12,24 @@ publish:
   provider: github
   owner: CodeyPacker
   repo: PReview
-# A platform's own list replaces this one, and a list of only exclusions would ship the whole
-# project, so each repeats these.
+# Agents run the user's own Claude Code, so the SDK's copies of it don't ship.
 files:
   - out/**
   - package.json
-# The Claude Code binary can't run from inside the asar archive, so it ships next to it.
-asarUnpack:
-  - '**/node_modules/@anthropic-ai/claude-agent-sdk-*/**'
-# Only this machine's Claude Code binary is installed, so each build is for this machine's
-# architecture. The zip is what updates download.
+  - '!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**'
+# The zip is what updates download.
 mac:
   target:
     - dmg
     - zip
   category: public.app-category.developer-tools
-  files:
-    - out/**
-    - package.json
-    - '!**/node_modules/@anthropic-ai/claude-agent-sdk-linux-*/**'
   # Ad-hoc signed until release signing is set up. Apple silicon won't open an app with no
   # signature at all. The hardened runtime is only needed to notarize.
   identity: '-'
   hardenedRuntime: false
-# Windows runs Claude Code's Linux build inside WSL, so only that binary ships.
 win:
   target:
     - nsis
-  files:
-    - out/**
-    - package.json
-    - '!**/node_modules/@anthropic-ai/claude-agent-sdk-win32-*/**'
-    - '!**/node_modules/@anthropic-ai/claude-agent-sdk-linux-arm64*/**'
-    - '!**/node_modules/@anthropic-ai/claude-agent-sdk-linux-*-musl/**'
 # Unsigned until release signing is set up, so Windows warns before it runs.
 nsis:
   oneClick: false

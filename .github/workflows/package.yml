@@ -1,7 +1,6 @@
 name: Package
 
-# Builds the installers on each platform, since each build ships that machine's Claude Code
-# binary. Runs on version tags, by hand, and on pull requests that change the packaging. A
+# Builds the installers on each platform. Runs on version tags, by hand, and on pull requests that change the packaging. A
 # version tag also publishes them as a GitHub release, which is where the app finds updates.
 on:
   push:
@@ -37,14 +36,16 @@ jobs:
       - run: pnpm build
       # Publishing waits until update hosting is set up.
       - run: pnpm exec electron-builder --publish never
-      # Agents need the binary that matches where they run: this Mac's, or Linux's in WSL.
-      - name: Check the Claude Code binary ships
+      # Agents run the user's own Claude Code, so no copy should ship. One would be hundreds of
+      # megabytes, and the app archive is about 30.
+      - name: Check no Claude Code binary ships
         shell: bash
         run: |
-          if [ "$RUNNER_OS" = macOS ]; then
-            ls release/mac-*/PReview.app/Contents/Resources/app.asar.unpacked/node_modules/@anthropic-ai/claude-agent-sdk-darwin-*/claude
-          else
-            ls release/win-unpacked/resources/app.asar.unpacked/node_modules/@anthropic-ai/claude-agent-sdk-linux-x64/claude
+          if find release -name app.asar -size +100M | grep .; then
+            exit 1
+          fi
+          if find release -type f \( -name claude -o -name claude.exe \) | grep .; then
+            exit 1
           fi
       - uses: actions/upload-artifact@v4
         with:

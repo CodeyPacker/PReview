@@ -404,7 +404,7 @@ void app.whenReady().then(async () => {
   const agentRunner = new AgentRunner({
     db,
     provider,
-    agent: new ClaudeAgent(app.isPackaged, () => getSettings(db).wslDistro),
+    agent: new ClaudeAgent(() => getSettings(db).wslDistro),
     worktrees,
     notify,
     log,
