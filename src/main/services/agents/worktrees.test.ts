@@ -98,7 +98,8 @@ beforeEach(() => {
   );
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+// Windows can still hold a file a git process just closed, so removal retries briefly.
+afterEach(() => rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
 const worktrees = () => new AgentWorktrees({ db, git: createGit(30_000), root });
 
