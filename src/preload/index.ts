@@ -97,6 +97,8 @@ const api: PreviewApi = {
   progression: {
     get: () => invoke('progression.get', undefined),
     setActiveCharacter: (characterId) => invoke('progression.setActiveCharacter', { characterId }),
+    setOutfit: (characterId, outfitId) =>
+      invoke('progression.setOutfit', { characterId, outfitId }),
     addReviewTime: (pullRequestId, ms) =>
       invoke('progression.addReviewTime', { pullRequestId, ms }),
     getStats: () => invoke('progression.getStats', undefined),

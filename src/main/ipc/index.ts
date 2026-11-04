@@ -31,6 +31,7 @@ import {
   getProgression,
   listXpTransactions,
   setActiveCharacter,
+  setOutfit,
   startReviewProgress,
 } from '../services/progression/xp.ts';
 import { listAchievements } from '../services/progression/achievements.ts';
@@ -247,6 +248,9 @@ export function registerIpcHandlers(
   handle('progression.get', () => getProgression(db));
   handle('progression.setActiveCharacter', ({ characterId }) =>
     setActiveCharacter(db, characterId),
+  );
+  handle('progression.setOutfit', ({ characterId, outfitId }) =>
+    setOutfit(db, characterId, outfitId),
   );
   handle('achievements.list', () => listAchievements(db));
   handle('progression.getStats', () => getProgressStats(db));
