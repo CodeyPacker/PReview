@@ -71,6 +71,7 @@ test('keeps a saved setting after a restart', async () => {
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
+    groupSupportFiles: true,
   });
   await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
   await app.close();
@@ -82,6 +83,7 @@ test('keeps a saved setting after a restart', async () => {
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
+    groupSupportFiles: true,
   });
   await app.close();
 });
@@ -100,6 +102,7 @@ test('rejects an invalid setting', async () => {
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
+    groupSupportFiles: true,
   });
 
   await app.close();
