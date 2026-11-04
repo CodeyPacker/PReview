@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
+import { setRepositoryAccount } from '../github/repository-accounts.ts';
 import { createGit } from '../repositories/git-info.ts';
 import { AgentWorktrees } from './worktrees.ts';
 
@@ -277,6 +278,39 @@ describe('AgentWorktrees', () => {
       await expect(service.open(pullRequestId, sha, addTask())).resolves.toMatchObject({
         status: 'ready',
       });
+    });
+
+    it("pushes as the repository's account, for that push only", async () => {
+      setRepositoryAccount(db, 'octo/app', 'octo-work', false);
+      const real = createGit(30_000);
+      const calls: string[][] = [];
+      const service = new AgentWorktrees({
+        db,
+        git: (cwd, args) => {
+          calls.push(args);
+          return real(cwd, args);
+        },
+        root,
+      });
+      const task = addTask();
+      await service.open(pullRequestId, head, task);
+      service.release(task);
+      writeFileSync(join(root, `${repositoryId}-7`, 'app.txt'), 'fixed');
+
+      await expect(service.publish(pullRequestId, task, 'Fix')).resolves.toMatchObject({
+        status: 'pushed',
+      });
+
+      const push = calls.find((args) => args.includes('push'));
+      expect(push).toEqual(
+        expect.arrayContaining(['-c', 'credential.https://github.com.username=octo-work']),
+      );
+      const others = calls.filter((args) => !args.includes('push'));
+      expect(others.flat().some((arg) => arg.startsWith('credential.'))).toBe(false);
+      // The repository's own config is unchanged.
+      expect(() =>
+        git(checkout, 'config', '--local', '--get', 'credential.https://github.com.username'),
+      ).toThrow();
     });
 
     it('says so when there is nothing to push', async () => {
