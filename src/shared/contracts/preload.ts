@@ -23,6 +23,7 @@ import type {
 import type {
   DeleteBranchInput,
   DeleteBranchResult,
+  QueuedReview,
   MergePullRequestInput,
   MergePullRequestResult,
   ReplyToThreadInput,
@@ -117,6 +118,7 @@ export interface PreviewApi {
     replyToThread(reply: ReplyToThreadInput): Promise<ThreadActionResult>;
     setThreadResolved(change: SetThreadResolvedInput): Promise<ThreadActionResult>;
     submit(review: SubmitReviewInput): Promise<SubmitReviewResult>;
+    getQueued(pullRequestId: number): Promise<QueuedReview | null>;
     merge(merge: MergePullRequestInput): Promise<MergePullRequestResult>;
     deleteBranch(branch: DeleteBranchInput): Promise<DeleteBranchResult>;
   };

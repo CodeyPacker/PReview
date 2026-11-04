@@ -7,6 +7,7 @@ import type {
   MergePullRequestResult,
   ReplyToThreadInput,
   ReviewThread,
+  ReviewVerdict,
   SetThreadResolvedInput,
   SubmitReviewInput,
   SubmitReviewResult,
@@ -41,6 +42,19 @@ const marker = (submissionId: string) => `<!-- preview-submission:${submissionId
 export interface PullRequestReviewsDeps {
   db: DatabaseSync;
   provider: GitProvider;
+  // Tells the user what happened to a queued review once it is sent or dropped.
+  notify: (title: string, body: string) => void;
+  log: { warn(...args: unknown[]): void };
+}
+
+interface SubmissionRow {
+  id: string;
+  head_sha: string;
+  verdict: ReviewVerdict;
+  body: string;
+  comments: string;
+  draft_ids: string;
+  finding_ids: string;
 }
 
 // Reads and answers review threads, publishes reviews, merges pull requests and deletes their
@@ -147,9 +161,9 @@ export class PullRequestReviews {
   // its body. Then it deletes those drafts, marks those findings published and ends the round.
   // With sendToAgent it also queues an agent task for the review.
   //
-  // The review is saved before it is sent, with its id hidden in the body. If the connection
-  // drops while sending, the next submit or the next start checks GitHub for that id, so the
-  // review is never posted twice.
+  // The review is saved before it is sent, with its id hidden in the body. When GitHub can't
+  // be reached it stays queued, and sendQueued sends it later. Before anything is sent again,
+  // GitHub is checked for that id, so the review is never posted twice.
   async submit(input: SubmitReviewInput): Promise<SubmitReviewResult> {
     if (this.sending.has(input.pullRequestId)) {
       return { status: 'rejected', message: 'This review is already being sent.' };
@@ -162,8 +176,23 @@ export class PullRequestReviews {
     }
   }
 
-  // Settles every review a crash or lost connection left unconfirmed. Called at startup.
-  async recoverSubmissions(): Promise<void> {
+  // The time the pull request's queued review was saved, or null when none is waiting.
+  getQueued(pullRequestId: number): { queuedAt: string } | null {
+    const row = this.deps.db
+      .prepare(
+        `SELECT created_at FROM review_submissions
+         WHERE pull_request_id = ? AND state = 'publishing'
+         ORDER BY created_at DESC LIMIT 1`,
+      )
+      .get(pullRequestId) as { created_at: string } | undefined;
+    return row ? { queuedAt: row.created_at } : null;
+  }
+
+  // Sends every queued review: those GitHub couldn't be reached for, and those a crash left
+  // unconfirmed. One GitHub already has is only confirmed. One whose branch, comments or
+  // findings changed since is dropped, and its drafts stay for the user to send again. A pull
+  // request GitHub still can't be reached for stays queued.
+  async sendQueued(): Promise<void> {
     const rows = this.deps.db
       .prepare(`SELECT DISTINCT pull_request_id FROM review_submissions WHERE state = 'publishing'`)
       .all() as { pull_request_id: number }[];
@@ -172,11 +201,102 @@ export class PullRequestReviews {
       if (this.sending.has(pullRequestId)) continue;
       this.sending.add(pullRequestId);
       try {
-        await this.recover(pullRequestId);
+        await this.resend(pullRequestId);
+      } catch (error) {
+        this.deps.log.warn('Could not send a queued review', error);
       } finally {
         this.sending.delete(pullRequestId);
       }
     }
+  }
+
+  private async resend(pullRequestId: number): Promise<void> {
+    const pending = this.deps.db
+      .prepare(
+        `SELECT id, head_sha, verdict, body, comments, draft_ids, finding_ids
+         FROM review_submissions WHERE pull_request_id = ? AND state = 'publishing'
+         ORDER BY created_at`,
+      )
+      .all(pullRequestId) as unknown as SubmissionRow[];
+    if (pending.length === 0) return;
+    const { repository, number } = this.find(pullRequestId);
+    const published = await this.deps.provider.getReviews(repository, number);
+    for (const row of pending) {
+      const review = published.find((item) => item.body.includes(marker(row.id)));
+      if (review) {
+        this.confirm(row.id, review.id);
+        continue;
+      }
+      const drop = (reason: string) => {
+        this.deps.db
+          .prepare(`UPDATE review_submissions SET state = 'failed' WHERE id = ?`)
+          .run(row.id);
+        this.deps.notify(
+          `Your review of #${number} wasn’t sent`,
+          `${reason} Its comments are still in your drafts.`,
+        );
+      };
+      const refs = await this.deps.provider.getPullRequestRefs(repository, number);
+      if (refs.headSha !== row.head_sha) {
+        drop('The branch has new commits since you wrote it.');
+        continue;
+      }
+      const findings = this.queuedFindings(pullRequestId, row);
+      if (!this.draftsUnchanged(pullRequestId, row) || !findings) {
+        drop('Its comments or findings changed while it waited.');
+        continue;
+      }
+      const text = [row.body, findings.length > 0 && findingsMarkdown(findings), marker(row.id)]
+        .filter(Boolean)
+        .join('\n\n');
+      let posted: { id: string };
+      try {
+        posted = await this.deps.provider.submitReview(repository, number, {
+          verdict: row.verdict,
+          body: text,
+          headSha: row.head_sha,
+          comments: JSON.parse(row.comments) as ProviderReviewComment[],
+        });
+      } catch (error) {
+        if (error instanceof GitHubApiError && (error.status === 403 || error.status === 422)) {
+          drop(error.detail ?? 'GitHub did not accept it.');
+          continue;
+        }
+        throw error;
+      }
+      this.confirm(row.id, posted.id);
+      this.deps.notify('Review sent', `PReview sent your queued review of #${number}.`);
+    }
+  }
+
+  // Whether every draft of a queued review is still as it was when it was queued.
+  private draftsUnchanged(pullRequestId: number, row: SubmissionRow): boolean {
+    const sent = JSON.parse(row.comments) as ProviderReviewComment[];
+    const drafts = new Map(listReviewDrafts(this.deps.db, pullRequestId).map((d) => [d.id, d]));
+    return (JSON.parse(row.draft_ids) as number[]).every((id, index) => {
+      const draft = drafts.get(id);
+      const comment = sent[index];
+      return (
+        draft !== undefined &&
+        comment !== undefined &&
+        !draft.outdated &&
+        draft.headSha === row.head_sha &&
+        draft.path === comment.path &&
+        draft.side === comment.side &&
+        draft.startLine === comment.startLine &&
+        draft.line === comment.line &&
+        draft.body === comment.body
+      );
+    });
+  }
+
+  // A queued review's findings, or undefined when one was deleted or published since.
+  private queuedFindings(pullRequestId: number, row: SubmissionRow) {
+    const ids = JSON.parse(row.finding_ids) as number[];
+    const findings = listReviewFindings(this.deps.db, pullRequestId).filter(
+      (finding) => ids.includes(finding.id) && finding.publishedAt === null,
+    );
+    return findings.length === ids.length ? findings : undefined;
   }
 
   private async publish({
@@ -283,8 +403,8 @@ export class PullRequestReviews {
       });
     } catch (error) {
       // 403 and 422 are GitHub refusing this review, such as approving your own pull
-      // request or a comment outside the diff. Anything else is a failure to reach GitHub and
-      // is thrown, leaving the review to be checked for later.
+      // request or a comment outside the diff. Anything else is a failure to reach GitHub, and
+      // the review stays queued to be sent later.
       if (error instanceof GitHubApiError && (error.status === 403 || error.status === 422)) {
         this.deps.db.prepare('DELETE FROM review_submissions WHERE id = ?').run(id);
         return {
@@ -292,7 +412,8 @@ export class PullRequestReviews {
           message: error.detail ?? 'GitHub did not accept this review.',
         };
       }
-      throw error;
+      this.deps.log.warn('Queued a review GitHub could not be reached for', error);
+      return { status: 'queued' };
     }
     this.confirm(id, posted.id);
     return { status: 'submitted' };

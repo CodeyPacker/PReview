@@ -257,7 +257,8 @@ void app.whenReady().then(async () => {
   });
   void github.verify();
   const pullRequestFiles = new PullRequestFiles({ db, provider });
-  const pullRequestReviews = new PullRequestReviews({ db, provider });
+  const notify = (title: string, body: string) => new Notification({ title, body }).show();
+  const pullRequestReviews = new PullRequestReviews({ db, provider, notify, log });
   const repositorySearch = new RepositorySearch({ db, provider, git: runGit, grep: runGitGrep });
   // Fetching a pull request's branch can take a while on a large repository.
   const worktrees = new AgentWorktrees({
@@ -265,7 +266,6 @@ void app.whenReady().then(async () => {
     git: createGit(120_000),
     root: join(app.getPath('userData'), 'worktrees'),
   });
-  const notify = (title: string, body: string) => new Notification({ title, body }).show();
   const agentPublisher = new AgentPublisher({ db, provider, worktrees, notify, log });
   const agentRunner = new AgentRunner({
     db,
@@ -301,11 +301,15 @@ void app.whenReady().then(async () => {
   agentRunner.recover();
   agentRunner.wake();
   agentPublisher.start();
-  void pullRequestReviews
-    .recoverSubmissions()
-    // A review confirmed now may have queued an agent task.
-    .then(() => agentRunner.wake())
-    .catch((error: unknown) => log.warn('Could not check unconfirmed reviews', error));
+  // Reviews GitHub couldn't be reached for are sent at startup and then once a minute.
+  const sendQueuedReviews = () =>
+    void pullRequestReviews
+      .sendQueued()
+      // A review sent now may have queued an agent task.
+      .then(() => agentRunner.wake())
+      .catch((error: unknown) => log.warn('Could not send queued reviews', error));
+  sendQueuedReviews();
+  const queuedReviewsTimer = setInterval(sendQueuedReviews, 60_000);
   void worktrees
     .cleanUp()
     .then((kept) => {
@@ -318,6 +322,7 @@ void app.whenReady().then(async () => {
     agentPublisher.stop();
     pullRequests.stop();
     backups.stop();
+    clearInterval(queuedReviewsTimer);
     db.close();
   });
 

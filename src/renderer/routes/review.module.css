@@ -223,3 +223,9 @@
 .newCommits:empty {
   display: none;
 }
+
+.queued {
+  color: var(--ink-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}

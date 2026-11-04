@@ -1,5 +1,5 @@
 import { Dialog } from '@base-ui/react/dialog';
-import { CircleAlert, CircleCheck, ExternalLink, TriangleAlert } from 'lucide-react';
+import { CircleAlert, CircleCheck, Clock, ExternalLink, TriangleAlert } from 'lucide-react';
 import { useState } from 'react';
 import type { AgentTask } from '../../shared/contracts/agent-tasks.ts';
 import type { MergeMethod, ReviewVerdict } from '../../shared/contracts/pull-request-reviews.ts';
@@ -91,9 +91,10 @@ export function ReviewDialog({
   const sendingToAgent = submit.variables?.sendToAgent === true;
   const result = submit.data;
   const submitted = result?.status === 'submitted';
+  const queued = result?.status === 'queued';
   const sentToAgent = submitted && sendingToAgent;
   const rejection = result?.status === 'rejected' ? result.message : undefined;
-  const done = submitted || merged;
+  const done = submitted || queued || merged;
   const sentComments = submit.variables?.draftIds.length ?? 0;
   const sentFindings = submit.variables?.findingIds.length ?? 0;
   const sent = [
@@ -173,25 +174,33 @@ export function ReviewDialog({
         <Dialog.Popup className={styles.popup}>
           {done ? (
             <>
-              <CircleCheck className={styles.done} aria-hidden />
+              {queued ? (
+                <Clock className={styles.done} aria-hidden />
+              ) : (
+                <CircleCheck className={styles.done} aria-hidden />
+              )}
               <Dialog.Title className="title-2">
                 {merged
                   ? 'Pull request merged'
-                  : sentToAgent
-                    ? 'Sent to the agent'
-                    : 'Review submitted'}
+                  : queued
+                    ? 'Review queued'
+                    : sentToAgent
+                      ? 'Sent to the agent'
+                      : 'Review submitted'}
               </Dialog.Title>
               <Dialog.Description className={styles.description}>
-                {merged
-                  ? branchDeleted
-                    ? 'GitHub merged this pull request and deleted its branch.'
-                    : 'GitHub merged this pull request.'
-                  : `${sent ? `GitHub has your review and ${sent}.` : 'GitHub has your review.'}${
-                      sentToAgent ? ' The agent task is queued.' : ''
-                    }`}
+                {queued
+                  ? 'PReview couldn’t reach GitHub. Your review is saved and sends by itself once GitHub can be reached.'
+                  : merged
+                    ? branchDeleted
+                      ? 'GitHub merged this pull request and deleted its branch.'
+                      : 'GitHub merged this pull request.'
+                    : `${sent ? `GitHub has your review and ${sent}.` : 'GitHub has your review.'}${
+                        sentToAgent ? ' The agent task is queued.' : ''
+                      }`}
               </Dialog.Description>
-              {!merged && !sentToAgent && mergeMethodPicker}
-              {!merged && !sentToAgent && mergeWarning}
+              {!merged && !queued && !sentToAgent && mergeMethodPicker}
+              {!merged && !queued && !sentToAgent && mergeWarning}
               {mergeError}
               {(deleteRejection || deleteBranch.isError) && (
                 <p className={styles.error} role="alert">
@@ -208,7 +217,7 @@ export function ReviewDialog({
                 >
                   View on GitHub
                 </Button>
-                {!merged && !sentToAgent && mergeButton}
+                {!merged && !queued && !sentToAgent && mergeButton}
                 {merged && !branchDeleted && (
                   <Button
                     loading={deleteBranch.isPending}

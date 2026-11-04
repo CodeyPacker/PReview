@@ -185,6 +185,9 @@ export function registerIpcHandlers(
     if (review.sendToAgent && result.status === 'submitted') agentRunner.wake();
     return result;
   });
+  handle('pullRequestReviews.getQueued', ({ pullRequestId }) =>
+    pullRequestReviews.getQueued(pullRequestId),
+  );
   handle('agentTasks.list', () => listAgentTasks(db));
   handle('agentTasks.listActivity', ({ taskId }) => listActivity(db, taskId));
   handle('agentTasks.stop', async ({ taskId }) => {

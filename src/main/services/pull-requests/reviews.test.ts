@@ -52,6 +52,7 @@ function setup() {
   const replyToThread = vi.fn<GitProvider['replyToThread']>().mockResolvedValue(undefined);
   const setThreadResolved = vi.fn<GitProvider['setThreadResolved']>().mockResolvedValue(undefined);
   const getChangesBetween = vi.fn<GitProvider['getChangesBetween']>().mockResolvedValue([]);
+  const notify = vi.fn();
   const provider = {
     getPullRequests: vi.fn(),
     getPullRequestRefs,
@@ -83,7 +84,8 @@ function setup() {
     submitReview,
     mergePullRequest,
     deleteBranch,
-    reviews: new PullRequestReviews({ db, provider }),
+    notify,
+    reviews: new PullRequestReviews({ db, provider, notify, log: { warn: () => {} } }),
   };
 }
 
@@ -172,7 +174,7 @@ describe('PullRequestReviews', () => {
     ).resolves.toEqual({ status: 'rejected', message: 'Can not approve your own pull request' });
   });
 
-  it('throws when GitHub cannot be reached', async () => {
+  it('queues the review when GitHub cannot be reached', async () => {
     const { submitReview, reviews } = setup();
     submitReview.mockRejectedValue(new Error('offline'));
 
@@ -186,7 +188,7 @@ describe('PullRequestReviews', () => {
         verdict: 'approve',
         body: '',
       }),
-    ).rejects.toThrow('offline');
+    ).resolves.toEqual({ status: 'queued' });
   });
 
   it('rejects an unknown pull request', async () => {
@@ -470,7 +472,7 @@ describe('PullRequestReviews durable submissions', () => {
     const comment = draft();
     submitReview.mockRejectedValueOnce(new Error('offline'));
 
-    await expect(reviews.submit(input([comment.id]))).rejects.toThrow('offline');
+    await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'queued' });
 
     expect(submissions()).toEqual([{ state: 'publishing', provider_review_id: null }]);
     expect(listReviewDrafts(db, pullRequestId)).toHaveLength(1);
@@ -480,7 +482,7 @@ describe('PullRequestReviews durable submissions', () => {
     const { submitReview, getReviews, reviews } = setup();
     const comment = draft();
     submitReview.mockRejectedValueOnce(new Error('offline'));
-    await expect(reviews.submit(input([comment.id]))).rejects.toThrow();
+    await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'queued' });
     getReviews.mockResolvedValue([{ id: 'R9', body: postedBody(submitReview) }]);
 
     await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'submitted' });
@@ -494,7 +496,7 @@ describe('PullRequestReviews durable submissions', () => {
     const { submitReview, reviews } = setup();
     const comment = draft();
     submitReview.mockRejectedValueOnce(new Error('offline'));
-    await expect(reviews.submit(input([comment.id]))).rejects.toThrow();
+    await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'queued' });
 
     await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'submitted' });
 
@@ -529,17 +531,91 @@ describe('PullRequestReviews durable submissions', () => {
     expect(submissions()).toEqual([]);
   });
 
-  it('settles unconfirmed reviews at startup', async () => {
+  it('confirms a queued review GitHub already has', async () => {
     const { submitReview, getReviews, reviews } = setup();
     const comment = draft();
     submitReview.mockRejectedValueOnce(new Error('offline'));
-    await expect(reviews.submit(input([comment.id]))).rejects.toThrow();
+    await expect(reviews.submit(input([comment.id]))).resolves.toEqual({ status: 'queued' });
     getReviews.mockResolvedValue([{ id: 'R9', body: postedBody(submitReview) }]);
 
-    await reviews.recoverSubmissions();
+    await reviews.sendQueued();
 
     expect(submissions()).toEqual([{ state: 'published', provider_review_id: 'R9' }]);
     expect(listReviewDrafts(db, pullRequestId)).toEqual([]);
+  });
+
+  it('sends a queued review once GitHub can be reached', async () => {
+    const { submitReview, notify, reviews } = setup();
+    const comment = draft();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await reviews.submit(input([comment.id]));
+    expect(reviews.getQueued(pullRequestId)).not.toBeNull();
+
+    await reviews.sendQueued();
+
+    expect(submitReview).toHaveBeenCalledTimes(2);
+    expect(postedBody(submitReview)).toBe(submitReview.mock.calls[1]![2].body);
+    expect(submitReview.mock.calls[1]![2].comments).toEqual(
+      submitReview.mock.calls[0]![2].comments,
+    );
+    expect(submissions()).toEqual([{ state: 'published', provider_review_id: 'R1' }]);
+    expect(listReviewDrafts(db, pullRequestId)).toEqual([]);
+    expect(reviews.getQueued(pullRequestId)).toBeNull();
+    expect(notify).toHaveBeenCalledWith('Review sent', 'PReview sent your queued review of #7.');
+  });
+
+  it('keeps a review queued while GitHub still cannot be reached', async () => {
+    const { submitReview, getReviews, reviews } = setup();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await reviews.submit(input([draft().id]));
+    getReviews.mockRejectedValueOnce(new Error('offline'));
+
+    await reviews.sendQueued();
+
+    expect(submitReview).toHaveBeenCalledTimes(1);
+    expect(submissions()).toEqual([{ state: 'publishing', provider_review_id: null }]);
+  });
+
+  it('drops a queued review when the branch moved, and keeps its drafts', async () => {
+    const { submitReview, getPullRequestRefs, notify, reviews } = setup();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await reviews.submit(input([draft().id]));
+    getPullRequestRefs.mockResolvedValue({ headSha: 'c'.repeat(40), baseBranch: 'main' });
+
+    await reviews.sendQueued();
+
+    expect(submitReview).toHaveBeenCalledTimes(1);
+    expect(submissions()).toEqual([{ state: 'failed', provider_review_id: null }]);
+    expect(listReviewDrafts(db, pullRequestId)).toHaveLength(1);
+    expect(notify).toHaveBeenCalledWith(
+      'Your review of #7 wasn’t sent',
+      'The branch has new commits since you wrote it. Its comments are still in your drafts.',
+    );
+  });
+
+  it('drops a queued review when one of its drafts was edited', async () => {
+    const { submitReview, reviews } = setup();
+    const comment = draft();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await reviews.submit(input([comment.id]));
+    db.prepare("UPDATE review_drafts SET body = 'Changed.' WHERE id = ?").run(comment.id);
+
+    await reviews.sendQueued();
+
+    expect(submitReview).toHaveBeenCalledTimes(1);
+    expect(submissions()).toEqual([{ state: 'failed', provider_review_id: null }]);
+  });
+
+  it('drops a queued review GitHub refuses', async () => {
+    const { submitReview, notify, reviews } = setup();
+    submitReview.mockRejectedValueOnce(new Error('offline'));
+    await reviews.submit(input([draft().id]));
+    submitReview.mockRejectedValueOnce(new GitHubApiError(422, 'POST', 'Unprocessable'));
+
+    await reviews.sendQueued();
+
+    expect(submissions()).toEqual([{ state: 'failed', provider_review_id: null }]);
+    expect(notify).toHaveBeenCalledTimes(1);
   });
 
   it('queues one agent task for a review sent to the agent', async () => {
@@ -558,11 +634,13 @@ describe('PullRequestReviews durable submissions', () => {
     const { submitReview, getReviews, reviews } = setup();
     const comment = draft();
     submitReview.mockRejectedValueOnce(new Error('offline'));
-    await expect(reviews.submit(input([comment.id], true))).rejects.toThrow();
+    await expect(reviews.submit(input([comment.id], true))).resolves.toEqual({
+      status: 'queued',
+    });
     expect(tasks()).toEqual([]);
     getReviews.mockResolvedValue([{ id: 'R9', body: postedBody(submitReview) }]);
 
-    await reviews.recoverSubmissions();
+    await reviews.sendQueued();
 
     expect(tasks()).toHaveLength(1);
   });

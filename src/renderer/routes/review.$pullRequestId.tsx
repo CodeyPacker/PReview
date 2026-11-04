@@ -47,6 +47,7 @@ import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
 import { useReviewFindings } from '../hooks/useReviewFindings.ts';
+import { useQueuedReview } from '../hooks/useQueuedReview.ts';
 import { useReviewCompletion } from '../hooks/useReviewCompletion.ts';
 import { useReviewTime } from '../hooks/useReviewTime.ts';
 import { useReviewChanges } from '../hooks/useReviewChanges.ts';
@@ -140,6 +141,7 @@ function ReviewPage() {
   // group of tests and generated files is skipped.
   const visibleFiles = listedFiles && orderForReview(listedFiles, groupSupport, supportOpen);
   const reviewFindings = useReviewFindings(pullRequestId);
+  const queuedReview = useQueuedReview(pullRequestId).data;
   const { finish: finishReview } = useReviewCompletion(pullRequestId);
   const roundFinished = round?.finishedAt != null;
   const findings = reviewFindings.findings.data ?? [];
@@ -399,6 +401,11 @@ function ReviewPage() {
         </div>
         <div className={styles.headerActions}>
           {agentTask && <StatusPill status={agentStatus[agentTask.status]} />}
+          {queuedReview && (
+            <span role="status" className={styles.queued}>
+              Review waiting to send
+            </span>
+          )}
           <span role="status" className={styles.newCommits}>
             {newCommits && 'New commits'}
           </span>

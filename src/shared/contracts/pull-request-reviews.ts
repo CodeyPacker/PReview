@@ -22,8 +22,10 @@ export const submitReviewInputSchema = z.object({
 export type SubmitReviewInput = z.infer<typeof submitReviewInputSchema>;
 
 // rejected: the provider refused the review. The message says why and is safe to show.
+// queued: the provider couldn't be reached. The review is saved and sent later.
 export const submitReviewResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('submitted') }),
+  z.object({ status: z.literal('queued') }),
   z.object({ status: z.literal('rejected'), message: z.string() }),
 ]);
 export type SubmitReviewResult = z.infer<typeof submitReviewResultSchema>;
@@ -105,3 +107,7 @@ export const threadActionResultSchema = z.discriminatedUnion('status', [
   z.object({ status: z.literal('rejected'), message: z.string() }),
 ]);
 export type ThreadActionResult = z.infer<typeof threadActionResultSchema>;
+
+// A review saved to send once the provider can be reached.
+export const queuedReviewSchema = z.object({ queuedAt: z.string() });
+export type QueuedReview = z.infer<typeof queuedReviewSchema>;
