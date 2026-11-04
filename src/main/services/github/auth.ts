@@ -61,7 +61,7 @@ export class GitHubAuth {
     if (!stored) return undefined;
     if (stored.source === 'oauth') return stored.token;
     try {
-      return await this.deps.ghToken();
+      return await this.deps.ghToken(stored.user.login);
     } catch (error) {
       this.deps.log.warn('Could not read the GitHub CLI token', error);
       return undefined;
@@ -74,7 +74,8 @@ export class GitHubAuth {
     const stored = await this.deps.store.load();
     if (!stored) return;
     try {
-      const token = stored.source === 'oauth' ? stored.token : await this.deps.ghToken();
+      const token =
+        stored.source === 'oauth' ? stored.token : await this.deps.ghToken(stored.user.login);
       const user = await fetchUser(this.deps.fetch, token);
       await this.deps.store.save({ ...stored, user });
       if (this.state.status === 'connected') this.state = { ...this.state, user };
@@ -120,7 +121,8 @@ export class GitHubAuth {
   }
 
   // Connects with the GitHub CLI's active account. Stores only the profile, since gh
-  // keeps the token. Cancels a device flow in progress.
+  // keeps the token. Later reads ask gh for this login's token, not the active account's.
+  // Cancels a device flow in progress.
   async connectWithCli(): Promise<GitHubAuthState> {
     this.flow?.abort();
     this.flow = undefined;

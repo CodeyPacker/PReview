@@ -223,6 +223,21 @@ describe('GitHubAuth with the GitHub CLI', () => {
     expect(await auth.getToken()).toBe('gho_second');
   });
 
+  it('asks the CLI for the active account to connect, then for that login', async () => {
+    const ghToken = vi.fn<GitHubAuthDeps['ghToken']>(() => Promise.resolve('gho_cli'));
+    const { auth } = await setup(
+      { 'https://api.github.com/user': [json(githubUser), json(githubUser)] },
+      undefined,
+      ghToken,
+    );
+
+    await auth.connectWithCli();
+    await auth.getToken();
+    await auth.verify();
+
+    expect(ghToken.mock.calls).toEqual([[], ['octo'], ['octo']]);
+  });
+
   it('hands out no token when the CLI has none', async () => {
     const { auth } = await setup({}, { source: 'cli', user }, () =>
       Promise.reject(new GhCliError('The GitHub CLI is not signed in.')),
