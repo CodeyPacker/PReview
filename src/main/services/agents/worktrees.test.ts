@@ -57,6 +57,12 @@ function addTask(): number {
   );
 }
 
+// The service commits as the user. CI machines have no Git identity, so give it one.
+process.env.GIT_AUTHOR_NAME = 'Test';
+process.env.GIT_AUTHOR_EMAIL = 'test@example.com';
+process.env.GIT_COMMITTER_NAME = 'Test';
+process.env.GIT_COMMITTER_EMAIL = 'test@example.com';
+
 let head: string;
 
 beforeEach(() => {
