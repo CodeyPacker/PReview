@@ -64,7 +64,9 @@ describe('findRepositories', () => {
     const target = mkdtempSync(join(tmpdir(), 'preview-scan-target-'));
     try {
       mkdirSync(join(target, '.git'));
-      symlinkSync(target, join(root, 'link'), 'dir');
+      // Windows needs admin rights for a folder symlink but not for a junction, which
+      // the scanner must skip the same way.
+      symlinkSync(target, join(root, 'link'), process.platform === 'win32' ? 'junction' : 'dir');
       expect(await findRepositories(root, 3)).toEqual([]);
     } finally {
       rmSync(target, { recursive: true, force: true });
