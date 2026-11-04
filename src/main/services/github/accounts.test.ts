@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GitHubAuth, type GitHubAuthDeps } from './auth.ts';
-import type { CredentialStore, GitHubCredentials } from './credential-store.ts';
+import { GitHubAccounts, type GitHubAccountsDeps } from './accounts.ts';
+import type { CredentialDirectory, GitHubCredentials } from './credential-store.ts';
 import {
   GITHUB_CLIENT_ID,
   pollForToken,
@@ -12,6 +12,7 @@ import { GhCliError } from './gh-cli.ts';
 
 const user = { login: 'octo', name: 'Octo Cat', avatarUrl: 'https://avatars.example/octo' };
 const githubUser = { login: 'octo', name: 'Octo Cat', avatar_url: 'https://avatars.example/octo' };
+const hubot = { login: 'Hubot', name: null, avatarUrl: 'https://avatars.example/hubot' };
 const deviceCode = {
   device_code: 'device-1',
   user_code: 'ABCD-1234',
@@ -34,30 +35,31 @@ function fakeGitHub(routes: Record<string, Response[]>) {
   });
 }
 
-function memoryStore(initial?: GitHubCredentials): CredentialStore & { value?: GitHubCredentials } {
-  return {
-    value: initial,
-    load() {
-      return Promise.resolve(this.value);
-    },
-    save(credentials) {
-      this.value = credentials;
-      return Promise.resolve();
-    },
-    clear() {
-      this.value = undefined;
-    },
+// Credential files kept in memory, keyed by lowercase login.
+function memoryDirectory(initial: GitHubCredentials[]) {
+  const files = new Map(initial.map((stored) => [stored.user.login.toLowerCase(), stored]));
+  const directory: CredentialDirectory = {
+    logins: () => [...files.keys()].sort(),
+    store: (login) => ({
+      load: () => Promise.resolve(files.get(login.toLowerCase())),
+      save: (credentials) => {
+        files.set(login.toLowerCase(), credentials);
+        return Promise.resolve();
+      },
+      clear: () => void files.delete(login.toLowerCase()),
+    }),
   };
+  return { directory, files };
 }
 
 async function setup(
   routes: Record<string, Response[]>,
-  stored?: GitHubCredentials,
-  ghToken: GitHubAuthDeps['ghToken'] = () => Promise.resolve('gho_cli'),
+  stored: GitHubCredentials[] = [],
+  ghToken: GitHubAccountsDeps['ghToken'] = () => Promise.resolve('gho_cli'),
 ) {
-  const store = memoryStore(stored);
-  const deps: GitHubAuthDeps = {
-    store,
+  const { directory, files } = memoryDirectory(stored);
+  const deps: GitHubAccountsDeps = {
+    directory,
     fetch: fakeGitHub(routes),
     ghToken,
     sleep: () => Promise.resolve(),
@@ -65,7 +67,7 @@ async function setup(
     copyText: vi.fn(),
     log: { info: vi.fn(), warn: vi.fn() },
   };
-  return { auth: await GitHubAuth.restore(deps), store, deps };
+  return { accounts: await GitHubAccounts.restore(deps), files, deps };
 }
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -108,176 +110,211 @@ describe('pollForToken', () => {
   });
 });
 
-describe('GitHubAuth', () => {
-  it('hands out the stored token only while connected', async () => {
-    const connected = await setup({}, { source: 'oauth', token: 'gho_token', user });
-    expect(await connected.auth.getToken()).toBe('gho_token');
+describe('GitHubAccounts', () => {
+  it('hands out each stored token while connected', async () => {
+    const connected = await setup({}, [{ source: 'oauth', token: 'gho_token', user }]);
+    expect(await connected.accounts.get('OCTO')?.getToken()).toBe('gho_token');
 
-    connected.auth.disconnect();
-    expect(await connected.auth.getToken()).toBeUndefined();
+    connected.accounts.disconnect('octo');
+    expect(connected.accounts.get('octo')).toBeUndefined();
 
     const signedOut = await setup({});
-    expect(await signedOut.auth.getToken()).toBeUndefined();
+    expect(signedOut.accounts.list()).toEqual([]);
   });
 
   it('connects through the device flow and stores the token', async () => {
-    const { auth, store, deps } = await setup({
+    const { accounts, files, deps } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],
       'https://github.com/login/oauth/access_token': [json({ access_token: 'gho_token' })],
       'https://api.github.com/user': [json(githubUser)],
     });
 
-    const pending = await auth.connect();
+    const pending = await accounts.connect();
     expect(pending).toMatchObject({ status: 'pending', userCode: 'ABCD-1234' });
     expect(deps.copyText).toHaveBeenCalledWith('ABCD-1234');
     expect(deps.openUrl).toHaveBeenCalledWith('https://github.com/login/device');
 
     await flush();
-    expect(auth.getState()).toEqual({ status: 'connected', source: 'oauth', user });
-    expect(store.value).toEqual({ source: 'oauth', token: 'gho_token', user });
+    expect(accounts.getState()).toEqual({ status: 'connected', source: 'oauth', user });
+    expect(files.get('octo')).toEqual({ source: 'oauth', token: 'gho_token', user });
   });
 
   it('reports a denied authorization and stores nothing', async () => {
-    const { auth, store } = await setup({
+    const { accounts, files } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],
       'https://github.com/login/oauth/access_token': [json({ error: 'access_denied' })],
     });
 
-    await auth.connect();
+    await accounts.connect();
     await flush();
-    expect(auth.getState()).toEqual({
+    expect(accounts.getState()).toEqual({
       status: 'disconnected',
       error: 'Authorization was canceled on GitHub.',
     });
-    expect(store.value).toBeUndefined();
+    expect(files.size).toBe(0);
   });
 
   it('reports a network failure without the raw error', async () => {
-    const { auth } = await setup({});
-    expect(await auth.connect()).toEqual({
+    const { accounts } = await setup({});
+    expect(await accounts.connect()).toEqual({
       status: 'disconnected',
       error: 'Could not reach GitHub. Check your connection and try again.',
     });
   });
 
   it('stops polling when canceled', async () => {
-    const { auth, store } = await setup({
+    const { accounts, files } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],
       'https://github.com/login/oauth/access_token': [json({ access_token: 'gho_token' })],
       'https://api.github.com/user': [json(githubUser)],
     });
 
-    await auth.connect();
-    expect(auth.cancel()).toEqual({ status: 'disconnected' });
+    await accounts.connect();
+    expect(accounts.cancel()).toEqual({ status: 'disconnected' });
     await flush();
-    expect(auth.getState()).toEqual({ status: 'disconnected' });
-    expect(store.value).toBeUndefined();
+    expect(accounts.getState()).toEqual({ status: 'disconnected' });
+    expect(files.size).toBe(0);
   });
 
   it('starts connected from stored credentials and forgets them on disconnect', async () => {
-    const { auth, store } = await setup({}, { source: 'oauth', token: 'gho_token', user });
-    expect(auth.getState()).toEqual({ status: 'connected', source: 'oauth', user });
-    expect(auth.disconnect()).toEqual({ status: 'disconnected' });
-    expect(store.value).toBeUndefined();
+    const { accounts, files } = await setup({}, [{ source: 'oauth', token: 'gho_token', user }]);
+    expect(accounts.getState()).toEqual({ status: 'connected', source: 'oauth', user });
+    expect(accounts.disconnect()).toEqual({ status: 'disconnected' });
+    expect(files.size).toBe(0);
   });
 
-  it('disconnects when GitHub rejects the stored token', async () => {
-    const { auth, store } = await setup(
+  it('restores every stored account in login order and disconnects one at a time', async () => {
+    const { accounts, files } = await setup({}, [
+      { source: 'oauth', token: 'gho_token', user },
+      { source: 'cli', user: hubot },
+    ]);
+    expect(accounts.list().map((account) => account.login)).toEqual(['Hubot', 'octo']);
+
+    accounts.disconnect('hubot');
+    expect(accounts.list().map((account) => account.login)).toEqual(['octo']);
+    expect([...files.keys()]).toEqual(['octo']);
+  });
+
+  it('tells listeners about added and removed accounts', async () => {
+    const added = vi.fn();
+    const removed = vi.fn();
+    const first = await setup({}, [{ source: 'cli', user: hubot }]);
+    first.accounts.listen({ added, removed });
+    first.accounts.disconnect('hubot');
+    expect(removed).toHaveBeenCalledWith('Hubot');
+
+    const second = await setup({ 'https://api.github.com/user': [json(githubUser)] });
+    second.accounts.listen({ added });
+    await second.accounts.connectWithCli();
+    expect(added).toHaveBeenCalledWith('octo');
+  });
+
+  it('disconnects an account when GitHub rejects its stored token', async () => {
+    const { accounts, files } = await setup(
       { 'https://api.github.com/user': [json({ message: 'Bad credentials' }, 401)] },
-      { source: 'oauth', token: 'gho_revoked', user },
+      [{ source: 'oauth', token: 'gho_revoked', user }],
     );
-    await auth.verify();
-    expect(auth.getState()).toEqual({
+    await accounts.verify();
+    expect(accounts.getState()).toEqual({
       status: 'disconnected',
       error: 'GitHub signed you out. Connect again to keep syncing pull requests.',
     });
-    expect(store.value).toBeUndefined();
+    expect(files.size).toBe(0);
   });
 
   it('stays connected when GitHub cannot be reached', async () => {
-    const { auth, store } = await setup({}, { source: 'oauth', token: 'gho_token', user });
-    await auth.verify();
-    expect(auth.getState()).toEqual({ status: 'connected', source: 'oauth', user });
-    expect(store.value).toEqual({ source: 'oauth', token: 'gho_token', user });
+    const { accounts, files } = await setup({}, [{ source: 'oauth', token: 'gho_token', user }]);
+    await accounts.verify();
+    expect(accounts.getState()).toEqual({ status: 'connected', source: 'oauth', user });
+    expect(files.get('octo')).toEqual({ source: 'oauth', token: 'gho_token', user });
+  });
+
+  it('refreshes the profile but keeps the stored login', async () => {
+    const renamed = { ...githubUser, login: 'OCTO', name: 'New Name' };
+    const { accounts } = await setup({ 'https://api.github.com/user': [json(renamed)] }, [
+      { source: 'oauth', token: 'gho_token', user },
+    ]);
+    await accounts.verify();
+    expect(accounts.get('octo')?.user).toEqual({ ...user, name: 'New Name' });
   });
 });
 
-describe('GitHubAuth with the GitHub CLI', () => {
+describe('GitHubAccounts with the GitHub CLI', () => {
   it('connects with the CLI token and stores no token', async () => {
-    const { auth, store, deps } = await setup({
+    const { accounts, files, deps } = await setup({
       'https://api.github.com/user': [json(githubUser)],
     });
 
-    expect(await auth.connectWithCli()).toEqual({ status: 'connected', source: 'cli', user });
-    expect(store.value).toEqual({ source: 'cli', user });
+    expect(await accounts.connectWithCli()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(files.get('octo')).toEqual({ source: 'cli', user });
     const headers = vi.mocked(deps.fetch).mock.calls[0]?.[1]?.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer gho_cli');
   });
 
   it('reads the token from the CLI on each request', async () => {
     let token = 'gho_first';
-    const { auth } = await setup({}, { source: 'cli', user }, () => Promise.resolve(token));
-    expect(auth.getState()).toEqual({ status: 'connected', source: 'cli', user });
-    expect(await auth.getToken()).toBe('gho_first');
+    const { accounts } = await setup({}, [{ source: 'cli', user }], () => Promise.resolve(token));
+    expect(accounts.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(await accounts.get('octo')?.getToken()).toBe('gho_first');
     token = 'gho_second';
-    expect(await auth.getToken()).toBe('gho_second');
+    expect(await accounts.get('octo')?.getToken()).toBe('gho_second');
   });
 
   it('asks the CLI for the active account to connect, then for that login', async () => {
-    const ghToken = vi.fn<GitHubAuthDeps['ghToken']>(() => Promise.resolve('gho_cli'));
-    const { auth } = await setup(
+    const ghToken = vi.fn<GitHubAccountsDeps['ghToken']>(() => Promise.resolve('gho_cli'));
+    const { accounts } = await setup(
       { 'https://api.github.com/user': [json(githubUser), json(githubUser)] },
-      undefined,
+      [],
       ghToken,
     );
 
-    await auth.connectWithCli();
-    await auth.getToken();
-    await auth.verify();
+    await accounts.connectWithCli();
+    await accounts.get('octo')?.getToken();
+    await accounts.verify();
 
     expect(ghToken.mock.calls).toEqual([[], ['octo'], ['octo']]);
   });
 
   it('hands out no token when the CLI has none', async () => {
-    const { auth } = await setup({}, { source: 'cli', user }, () =>
+    const { accounts } = await setup({}, [{ source: 'cli', user }], () =>
       Promise.reject(new GhCliError('The GitHub CLI is not signed in.')),
     );
-    expect(await auth.getToken()).toBeUndefined();
-    expect(auth.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(await accounts.get('octo')?.getToken()).toBeUndefined();
+    expect(accounts.getState()).toEqual({ status: 'connected', source: 'cli', user });
   });
 
   it('explains a CLI that is missing or signed out', async () => {
-    const { auth, store } = await setup({}, undefined, () =>
+    const { accounts, files } = await setup({}, [], () =>
       Promise.reject(new GhCliError('The GitHub CLI is not installed. Install gh and try again.')),
     );
-    expect(await auth.connectWithCli()).toEqual({
+    expect(await accounts.connectWithCli()).toEqual({
       status: 'disconnected',
       error: 'The GitHub CLI is not installed. Install gh and try again.',
     });
-    expect(store.value).toBeUndefined();
+    expect(files.size).toBe(0);
   });
 
   it('explains a CLI token that GitHub rejects', async () => {
-    const { auth } = await setup({
+    const { accounts } = await setup({
       'https://api.github.com/user': [json({ message: 'Bad credentials' }, 401)],
     });
-    expect(await auth.connectWithCli()).toEqual({
+    expect(await accounts.connectWithCli()).toEqual({
       status: 'disconnected',
       error: 'GitHub rejected the GitHub CLI’s token. Run gh auth login again.',
     });
   });
 
   it('cancels a device flow in progress', async () => {
-    const { auth, store } = await setup({
+    const { accounts, files } = await setup({
       'https://github.com/login/device/code': [json(deviceCode)],
       'https://github.com/login/oauth/access_token': [json({ access_token: 'gho_token' })],
       'https://api.github.com/user': [json(githubUser), json(githubUser)],
     });
 
-    await auth.connect();
-    await auth.connectWithCli();
+    await accounts.connect();
+    await accounts.connectWithCli();
     await flush();
-    expect(auth.getState()).toEqual({ status: 'connected', source: 'cli', user });
-    expect(store.value).toEqual({ source: 'cli', user });
+    expect(accounts.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(files.get('octo')).toEqual({ source: 'cli', user });
   });
 });

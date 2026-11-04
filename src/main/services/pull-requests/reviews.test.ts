@@ -53,7 +53,6 @@ function setup() {
   const setThreadResolved = vi.fn<GitProvider['setThreadResolved']>().mockResolvedValue(undefined);
   const getChangesBetween = vi.fn<GitProvider['getChangesBetween']>().mockResolvedValue([]);
   const provider = {
-    getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
     getPullRequestRefs,
     getPullRequestFiles: vi.fn(),
@@ -693,19 +692,19 @@ describe('PullRequestReviews thread changes', () => {
   it('posts a trimmed reply', async () => {
     const { replyToThread, reviews } = setup();
 
-    await expect(reviews.reply({ threadId: 'T1', body: ' Fixed. ' })).resolves.toEqual({
-      status: 'saved',
-    });
-    expect(replyToThread).toHaveBeenCalledWith('T1', 'Fixed.');
+    await expect(
+      reviews.reply({ pullRequestId, threadId: 'T1', body: ' Fixed. ' }),
+    ).resolves.toEqual({ status: 'saved' });
+    expect(replyToThread).toHaveBeenCalledWith('octo/app', 'T1', 'Fixed.');
   });
 
   it.each([true, false])('sets resolved to %s', async (resolved) => {
     const { setThreadResolved, reviews } = setup();
 
-    await expect(reviews.setThreadResolved({ threadId: 'T1', resolved })).resolves.toEqual({
-      status: 'saved',
-    });
-    expect(setThreadResolved).toHaveBeenCalledWith('T1', resolved);
+    await expect(
+      reviews.setThreadResolved({ pullRequestId, threadId: 'T1', resolved }),
+    ).resolves.toEqual({ status: 'saved' });
+    expect(setThreadResolved).toHaveBeenCalledWith('octo/app', 'T1', resolved);
   });
 
   it("passes on GitHub's reason when it refuses", async () => {
@@ -714,7 +713,9 @@ describe('PullRequestReviews thread changes', () => {
       new GitHubApiError(200, '/graphql', 'Resource not accessible by integration'),
     );
 
-    await expect(reviews.setThreadResolved({ threadId: 'T1', resolved: true })).resolves.toEqual({
+    await expect(
+      reviews.setThreadResolved({ pullRequestId, threadId: 'T1', resolved: true }),
+    ).resolves.toEqual({
       status: 'rejected',
       message: 'Resource not accessible by integration',
     });
@@ -724,7 +725,9 @@ describe('PullRequestReviews thread changes', () => {
     const { replyToThread, reviews } = setup();
     replyToThread.mockRejectedValue(new GitHubApiError(502, '/graphql'));
 
-    await expect(reviews.reply({ threadId: 'T1', body: 'Fixed.' })).rejects.toThrow();
+    await expect(
+      reviews.reply({ pullRequestId, threadId: 'T1', body: 'Fixed.' }),
+    ).rejects.toThrow();
   });
 });
 

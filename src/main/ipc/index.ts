@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import type { DatabaseSync } from 'node:sqlite';
 import type { AppInfo } from '../../shared/contracts/ipc.ts';
-import type { GitHubAuth } from '../services/github/auth.ts';
+import type { GitHubAccounts } from '../services/github/accounts.ts';
 import type { RepositoryDiscovery } from '../services/repositories/discovery.ts';
 import {
   createReviewDraft,
@@ -44,7 +44,7 @@ import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
 
 export interface IpcServices {
-  github: GitHubAuth;
+  github: GitHubAccounts;
   discovery: RepositoryDiscovery;
   pullRequests: PullRequestSync;
   pullRequestFiles: PullRequestFiles;

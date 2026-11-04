@@ -12,13 +12,13 @@ export function useThreadActions(pullRequestId: number) {
     queryClient.invalidateQueries({ queryKey: ['reviewThreads', pullRequestId] });
 
   const reply = useMutation({
-    mutationFn: (input: ReplyToThreadInput) =>
-      window.preview.pullRequestReviews.replyToThread(input),
+    mutationFn: (input: Omit<ReplyToThreadInput, 'pullRequestId'>) =>
+      window.preview.pullRequestReviews.replyToThread({ ...input, pullRequestId }),
     onSuccess: refresh,
   });
   const setResolved = useMutation({
-    mutationFn: (input: SetThreadResolvedInput) =>
-      window.preview.pullRequestReviews.setThreadResolved(input),
+    mutationFn: (input: Omit<SetThreadResolvedInput, 'pullRequestId'>) =>
+      window.preview.pullRequestReviews.setThreadResolved({ ...input, pullRequestId }),
     onSuccess: refresh,
   });
   return { reply, setResolved };

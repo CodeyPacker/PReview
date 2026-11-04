@@ -35,7 +35,6 @@ const BASE = 'b'.repeat(40);
 
 function setup(contents: Record<string, string | undefined> = {}) {
   const provider = {
-    getRepositories: vi.fn(),
     getPullRequests: vi.fn(),
     getPullRequestRefs: vi
       .fn<GitProvider['getPullRequestRefs']>()

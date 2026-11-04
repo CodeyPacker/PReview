@@ -1,8 +1,13 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createCredentialStore, type Encryptor } from './credential-store.ts';
+import {
+  createCredentialDirectory,
+  createCredentialStore,
+  moveLegacyCredentials,
+  type Encryptor,
+} from './credential-store.ts';
 
 // Reverses the bytes, so the stored file never contains the plain token.
 const encryptor: Encryptor = {
@@ -66,5 +71,90 @@ describe('credential store', () => {
       isEncryptionAvailable: () => Promise.resolve(false),
     });
     await expect(store.save(credentials)).rejects.toThrow('Secure storage is not available');
+  });
+});
+
+describe('credential directory', () => {
+  it('keeps one file per login, named in lowercase', async () => {
+    const directory = createCredentialDirectory(path, encryptor);
+    expect(directory.logins()).toEqual([]);
+    await directory.store('Octo').save(credentials);
+    await directory.store('hubot').save({ source: 'cli', user: { ...user, login: 'hubot' } });
+
+    expect(directory.logins()).toEqual(['hubot', 'octo']);
+    expect(await directory.store('OCTO').load()).toEqual(credentials);
+    directory.store('octo').clear();
+    expect(directory.logins()).toEqual(['hubot']);
+  });
+
+  it('refuses a login that could name a path', () => {
+    const directory = createCredentialDirectory(path, encryptor);
+    expect(() => directory.store('../octo')).toThrow('Not a GitHub login');
+    expect(() => directory.store('')).toThrow('Not a GitHub login');
+  });
+
+  it('ignores files that are not named by a login', () => {
+    mkdirSync(path);
+    writeFileSync(join(path, '.DS_Store'), '');
+    expect(createCredentialDirectory(path, encryptor).logins()).toEqual([]);
+  });
+});
+
+describe('moveLegacyCredentials', () => {
+  const writeLegacy = async (at: string) =>
+    writeFileSync(at, await encryptor.encryptString(JSON.stringify(credentials)));
+  const logins = () => createCredentialDirectory(path, encryptor).logins();
+
+  it('moves the old file into the folder of the same name', async () => {
+    await writeLegacy(path);
+    await moveLegacyCredentials(path, encryptor);
+
+    expect(logins()).toEqual(['octo']);
+    expect(await createCredentialDirectory(path, encryptor).store('octo').load()).toEqual(
+      credentials,
+    );
+    expect(existsSync(`${path}.legacy`)).toBe(false);
+  });
+
+  it('finishes a move that stopped after the rename', async () => {
+    await writeLegacy(`${path}.legacy`);
+    await moveLegacyCredentials(path, encryptor);
+    expect(logins()).toEqual(['octo']);
+    expect(existsSync(`${path}.legacy`)).toBe(false);
+  });
+
+  it('finishes a move that stopped after writing the new file', async () => {
+    await createCredentialDirectory(path, encryptor).store('octo').save(credentials);
+    await writeLegacy(`${path}.legacy`);
+    await moveLegacyCredentials(path, encryptor);
+    expect(logins()).toEqual(['octo']);
+    expect(existsSync(`${path}.legacy`)).toBe(false);
+  });
+
+  it('keeps the old file while secure storage is unavailable', async () => {
+    await writeLegacy(path);
+    await moveLegacyCredentials(path, {
+      ...encryptor,
+      isEncryptionAvailable: () => Promise.resolve(false),
+    });
+    expect(existsSync(`${path}.legacy`)).toBe(true);
+
+    await moveLegacyCredentials(path, encryptor);
+    expect(logins()).toEqual(['octo']);
+  });
+
+  it('drops an old file that holds nothing readable', async () => {
+    writeFileSync(path, 'garbage');
+    await moveLegacyCredentials(path, encryptor);
+    expect(existsSync(`${path}.legacy`)).toBe(false);
+    expect(logins()).toEqual([]);
+  });
+
+  it('does nothing on a new install or after the move', async () => {
+    await moveLegacyCredentials(path, encryptor);
+    expect(existsSync(path)).toBe(false);
+    await createCredentialDirectory(path, encryptor).store('octo').save(credentials);
+    await moveLegacyCredentials(path, encryptor);
+    expect(logins()).toEqual(['octo']);
   });
 });

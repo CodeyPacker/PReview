@@ -423,4 +423,20 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 22,
+    name: 'github_repository_accounts',
+    // The GitHub account each repository's requests go out with. Keyed by owner/name, so two
+    // clones of one repository share it. manual is 1 when the user picked the account, 0 when
+    // PReview assigned it.
+    sql: `
+      CREATE TABLE github_repository_accounts (
+        full_name TEXT PRIMARY KEY COLLATE NOCASE,
+        login TEXT NOT NULL COLLATE NOCASE,
+        manual INTEGER NOT NULL DEFAULT 0 CHECK (manual IN (0, 1))
+      ) STRICT;
+
+      CREATE INDEX github_repository_accounts_login ON github_repository_accounts (login);
+    `,
+  },
 ];

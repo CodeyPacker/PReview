@@ -3,13 +3,30 @@ import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
 import {
   GitHubApiError,
+  GitHubNoAccessError,
   GitHubNotConnectedError,
   GitHubRateLimitError,
 } from '../../providers/github/client.ts';
 import type { GitProvider, ProviderPullRequest } from '../../providers/types.ts';
+import { GitHubUnauthorizedError } from '../github/device-flow.ts';
 import { reconcileRepositories } from '../repositories/registry.ts';
 import { updateRepositorySettings } from '../repositories/registry.ts';
-import { MAX_BACKOFF_MS, PullRequestSync, SYNC_INTERVAL_MS } from './sync.ts';
+import {
+  MAX_BACKOFF_MS,
+  PullRequestSync,
+  SYNC_INTERVAL_MS,
+  type PullRequestSyncDeps,
+} from './sync.ts';
+
+// Each repository's account: personal/* repositories use personal, the rest use work.
+const byOwner = () =>
+  vi.fn((fullName: string) => (fullName.startsWith('personal/') ? 'personal' : 'work'));
+
+function rateLimited(login: string, resetAt: Date) {
+  const error = new GitHubRateLimitError(resetAt);
+  error.login = login;
+  return error;
+}
 
 let db: ReturnType<typeof openDatabase>;
 
@@ -62,9 +79,17 @@ function pull(number: number, overrides: Partial<ProviderPullRequest> = {}): Pro
   };
 }
 
-function setup(getPullRequests: Mock<GitProvider['getPullRequests']>) {
-  const provider: GitProvider = {
-    getRepositories: vi.fn(),
+interface Routing {
+  accountFor?: Mock<(fullName: string) => string | undefined>;
+  assign?: Mock<(fullName: string) => Promise<string>>;
+}
+
+function setup(getPullRequests: Mock<GitProvider['getPullRequests']>, routing: Routing = {}) {
+  const accountFor = routing.accountFor ?? vi.fn(() => 'octo');
+  const assign = routing.assign ?? vi.fn(() => Promise.resolve('octo'));
+  const provider: PullRequestSyncDeps['provider'] = {
+    accountFor,
+    assign,
     getPullRequests,
     getPullRequestRefs: vi.fn(),
     getPullRequestFiles: vi.fn(),
@@ -86,7 +111,7 @@ function setup(getPullRequests: Mock<GitProvider['getPullRequests']>) {
     getChecks: vi.fn(),
   };
   const log = { info: vi.fn(), warn: vi.fn() };
-  return { sync: new PullRequestSync({ db, provider, log }), getPullRequests };
+  return { sync: new PullRequestSync({ db, provider, log }), getPullRequests, accountFor, assign };
 }
 
 describe('PullRequestSync', () => {
@@ -217,6 +242,121 @@ describe('PullRequestSync', () => {
     await sync.refresh();
 
     expect(sync.getState().errors).toEqual([]);
+  });
+
+  it('picks an account for a repository before its first sync', async () => {
+    addRepository('app');
+    const accountFor = vi.fn<(fullName: string) => string | undefined>(() => undefined);
+    const { sync, assign, getPullRequests } = setup(vi.fn().mockResolvedValue([pull(1)]), {
+      accountFor,
+    });
+
+    await sync.refresh();
+
+    expect(assign).toHaveBeenCalledWith('octo/app');
+    expect(getPullRequests).toHaveBeenCalledWith('octo/app');
+    expect(sync.getState().pullRequests).toHaveLength(1);
+  });
+
+  it('reports a repository no account can access, and keeps syncing the others', async () => {
+    const broken = addRepository('secret');
+    addRepository('app');
+    const getPullRequests = vi.fn().mockResolvedValue([pull(1)]);
+    const { sync } = setup(getPullRequests, {
+      accountFor: vi.fn((name: string) => (name === 'octo/app' ? 'octo' : undefined)),
+      assign: vi.fn(() => Promise.reject(new GitHubNoAccessError())),
+    });
+
+    await sync.refresh();
+
+    expect(sync.getState().errors).toEqual([
+      { repositoryId: broken, message: 'No connected account can access this repository.' },
+    ]);
+    expect(getPullRequests).toHaveBeenCalledWith('octo/app');
+  });
+
+  it('reports nothing when no account is connected', async () => {
+    addRepository('app');
+    const { sync, getPullRequests } = setup(vi.fn(), {
+      accountFor: vi.fn(() => undefined),
+      assign: vi.fn(() => Promise.reject(new GitHubNotConnectedError('no accounts'))),
+    });
+
+    await sync.refresh();
+
+    expect(getPullRequests).not.toHaveBeenCalled();
+    expect(sync.getState().errors).toEqual([]);
+  });
+
+  it('keeps syncing one account while GitHub rate limits another', async () => {
+    addRepository('first', 'git@github.com:work/first.git');
+    addRepository('second', 'git@github.com:work/second.git');
+    addRepository('site', 'git@github.com:personal/site.git');
+    const getPullRequests = vi.fn<GitProvider['getPullRequests']>((name) =>
+      name.startsWith('work/')
+        ? Promise.reject(rateLimited('work', new Date(Date.now() + 10 * 60_000)))
+        : Promise.resolve([]),
+    );
+    const { sync } = setup(getPullRequests, { accountFor: byOwner() });
+
+    await sync.refresh();
+    // The first work repository hit the limit, so the second was not tried.
+    expect(getPullRequests.mock.calls.map(([name]) => name)).toEqual([
+      'personal/site',
+      'work/first',
+    ]);
+
+    await sync.refresh();
+    expect(getPullRequests.mock.calls.map(([name]) => name)).toEqual([
+      'personal/site',
+      'work/first',
+      'personal/site',
+    ]);
+  });
+
+  it('stops an account after GitHub rejects its token, but not the others', async () => {
+    addRepository('first', 'git@github.com:work/first.git');
+    addRepository('second', 'git@github.com:work/second.git');
+    addRepository('site', 'git@github.com:personal/site.git');
+    const rejected = new GitHubUnauthorizedError('rejected');
+    rejected.login = 'work';
+    const getPullRequests = vi.fn<GitProvider['getPullRequests']>((name) =>
+      name.startsWith('work/') ? Promise.reject(rejected) : Promise.resolve([pull(1)]),
+    );
+    const { sync } = setup(getPullRequests, { accountFor: byOwner() });
+
+    await sync.refresh();
+
+    expect(getPullRequests.mock.calls.map(([name]) => name)).toEqual([
+      'personal/site',
+      'work/first',
+    ]);
+    expect(sync.getState().errors[0]?.message).toBe(
+      'GitHub rejected the token for work. Connect that account again.',
+    );
+    expect(sync.getState().pullRequests).toHaveLength(1);
+  });
+
+  it('backs off a failing account on the timer while the other keeps its interval', async () => {
+    addRepository('api', 'git@github.com:work/api.git');
+    addRepository('site', 'git@github.com:personal/site.git');
+    const getPullRequests = vi.fn<GitProvider['getPullRequests']>((name) =>
+      name.startsWith('work/') ? Promise.reject(new Error('offline')) : Promise.resolve([]),
+    );
+    const { sync } = setup(getPullRequests, { accountFor: byOwner() });
+    const calls = (name: string) =>
+      getPullRequests.mock.calls.filter(([called]) => called === name).length;
+
+    sync.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(SYNC_INTERVAL_MS);
+    expect(calls('personal/site')).toBe(2);
+    expect(calls('work/api')).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(SYNC_INTERVAL_MS);
+    expect(calls('personal/site')).toBe(3);
+    expect(calls('work/api')).toBe(2);
+    sync.stop();
   });
 
   it('runs one sync at a time', async () => {

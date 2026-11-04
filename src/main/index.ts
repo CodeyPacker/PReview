@@ -11,11 +11,17 @@ import { AgentWorktrees } from './services/agents/worktrees.ts';
 import { migrate } from './database/migrate.ts';
 import { registerIpcHandlers } from './ipc/index.ts';
 import { initLogging, log } from './logging/log.ts';
-import { GitHubAuth } from './services/github/auth.ts';
-import { createCredentialStore, type Encryptor } from './services/github/credential-store.ts';
+import { GitHubAccounts } from './services/github/accounts.ts';
+import {
+  createCredentialDirectory,
+  moveLegacyCredentials,
+  type Encryptor,
+} from './services/github/credential-store.ts';
 import { readGhToken } from './services/github/gh-cli.ts';
+import { clearAccountRepositories } from './services/github/repository-accounts.ts';
 import { GitHubClient } from './providers/github/client.ts';
 import { GitHubProvider } from './providers/github/provider.ts';
+import { RoutingProvider } from './providers/routing.ts';
 import { PullRequestFiles } from './services/pull-requests/files.ts';
 import { RepositorySearch } from './services/pull-requests/repository-search.ts';
 import { PullRequestReviews } from './services/pull-requests/reviews.ts';
@@ -93,9 +99,17 @@ const encryptor: Encryptor = {
   },
 };
 
-async function createGitHubAuth(): Promise<GitHubAuth> {
-  const auth = await GitHubAuth.restore({
-    store: createCredentialStore(join(app.getPath('userData'), 'github-credentials'), encryptor),
+// Loads every connected account. Credentials saved before multiple accounts move into the
+// per-account folder first.
+async function createGitHubAccounts(): Promise<GitHubAccounts> {
+  const dir = join(app.getPath('userData'), 'github-credentials');
+  try {
+    await moveLegacyCredentials(dir, encryptor);
+  } catch (error) {
+    log.warn('Could not move the stored GitHub credentials', error);
+  }
+  return GitHubAccounts.restore({
+    directory: createCredentialDirectory(dir, encryptor),
     fetch,
     ghToken: readGhToken,
     sleep: (ms, signal) => sleep(ms, undefined, { signal }),
@@ -105,8 +119,6 @@ async function createGitHubAuth(): Promise<GitHubAuth> {
     copyText: (text) => void clipboard.writeText(text),
     log,
   });
-  void auth.verify();
-  return auth;
 }
 
 // Resolves to the real path, so a symlinked folder is watched once.
@@ -150,11 +162,27 @@ void app.whenReady().then(async () => {
   }
 
   const discovery = new RepositoryDiscovery({ db, git: runGit, log });
-  const github = await createGitHubAuth();
-  const provider = new GitHubProvider(
-    new GitHubClient({ fetch, getToken: () => github.getToken() }),
-  );
+  const github = await createGitHubAccounts();
+  // Each call goes out with the account assigned to its repository.
+  const provider = new RoutingProvider({
+    db,
+    logins: () => github.list().map((account) => account.login),
+    createProvider: (login) =>
+      new GitHubProvider(
+        new GitHubClient({
+          fetch,
+          getToken: () => github.get(login)?.getToken() ?? Promise.resolve(undefined),
+        }),
+      ),
+  });
   const pullRequests = new PullRequestSync({ db, provider, log });
+  github.listen({
+    // A new account may be the one that can read repositories still unassigned.
+    added: () => void pullRequests.refresh(),
+    // Its repositories go to a remaining account on the next sync.
+    removed: (login) => clearAccountRepositories(db, login),
+  });
+  void github.verify();
   const pullRequestFiles = new PullRequestFiles({ db, provider });
   const pullRequestReviews = new PullRequestReviews({ db, provider });
   const repositorySearch = new RepositorySearch({ db, provider, git: runGit, grep: runGitGrep });

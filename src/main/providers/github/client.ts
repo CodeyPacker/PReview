@@ -7,11 +7,22 @@ const MAX_PAGES = 20;
 const JSON_ACCEPT = 'application/vnd.github+json';
 const RAW_ACCEPT = 'application/vnd.github.raw+json';
 
-// There is no stored token. The user has to connect GitHub.
+// There is no token for the call: GitHub is not connected, or no connected account is
+// assigned to the repository.
 export class GitHubNotConnectedError extends Error {}
 
-// GitHub is limiting requests. resetAt is when to try again, when GitHub says.
+// No connected account can read the repository.
+export class GitHubNoAccessError extends Error {
+  constructor() {
+    super('No connected account can access this repository.');
+  }
+}
+
+// GitHub is limiting requests. resetAt is when to try again, when GitHub says. login names the
+// limited account, when the call went out with a connected account.
 export class GitHubRateLimitError extends Error {
+  login: string | undefined;
+
   constructor(readonly resetAt: Date | undefined) {
     super('GitHub rate limit reached.');
   }

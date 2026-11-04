@@ -63,48 +63,48 @@ function pull(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe('GitHubProvider.getRepositories', () => {
-  it('maps repositories and sends the token', async () => {
-    const { fetch, provider } = setup([json([repository])]);
-    await expect(provider.getRepositories()).resolves.toEqual([
-      {
-        provider: 'github',
-        providerId: '1',
-        fullName: 'octo/app',
-        owner: 'octo',
-        name: 'app',
-        defaultBranch: 'main',
-        private: true,
-        archived: false,
-        canPush: true,
-      },
-    ]);
-    expect(urlOf(fetch, 0).pathname).toBe('/user/repos');
+describe('GitHubProvider.getRepository', () => {
+  it('maps the repository and sends the token', async () => {
+    const { fetch, provider } = setup([json(repository)]);
+    await expect(provider.getRepository('octo/app')).resolves.toEqual({
+      provider: 'github',
+      providerId: '1',
+      fullName: 'octo/app',
+      owner: 'octo',
+      name: 'app',
+      defaultBranch: 'main',
+      private: true,
+      archived: false,
+      canPush: true,
+    });
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app');
     expect(fetch.mock.calls[0]?.[1]?.headers).toMatchObject({ Authorization: 'Bearer token-1' });
   });
 
   it('treats missing permissions as read-only', async () => {
-    const { provider } = setup([json([{ ...repository, permissions: undefined }])]);
-    const [result] = await provider.getRepositories();
-    expect(result?.canPush).toBe(false);
+    const { provider } = setup([json({ ...repository, permissions: undefined })]);
+    const result = await provider.getRepository('octo/app');
+    expect(result.canPush).toBe(false);
   });
+});
 
+describe('GitHubClient paging', () => {
   it('follows next links across pages', async () => {
-    const next = 'https://api.github.com/user/repos?page=2';
+    const next = 'https://api.github.com/repos/octo/app/pulls?page=2';
     const { fetch, provider } = setup([
-      json([repository], { headers: { link: `<${next}>; rel="next"` } }),
-      json([{ ...repository, id: 2, full_name: 'octo/two', name: 'two' }]),
+      json([pull()], { headers: { link: `<${next}>; rel="next"` } }),
+      json([pull({ id: 101, number: 8 })]),
     ]);
-    const result = await provider.getRepositories();
-    expect(result.map((r) => r.fullName)).toEqual(['octo/app', 'octo/two']);
+    const result = await provider.getPullRequests('octo/app');
+    expect(result.map((r) => r.number)).toEqual([7, 8]);
     expect(requestedUrl(fetch, 1)).toBe(next);
   });
 
   it('does not send the token to another host', async () => {
     const { fetch, provider } = setup([
-      json([repository], { headers: { link: '<https://evil.example/page2>; rel="next"' } }),
+      json([pull()], { headers: { link: '<https://evil.example/page2>; rel="next"' } }),
     ]);
-    await provider.getRepositories();
+    await provider.getPullRequests('octo/app');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
@@ -166,13 +166,17 @@ describe('GitHubProvider.getPullRequests', () => {
 describe('GitHubClient errors', () => {
   it('throws when there is no token', async () => {
     const { fetch, provider } = setup([], null);
-    await expect(provider.getRepositories()).rejects.toBeInstanceOf(GitHubNotConnectedError);
+    await expect(provider.getRepository('octo/app')).rejects.toBeInstanceOf(
+      GitHubNotConnectedError,
+    );
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it('throws an unauthorized error on 401', async () => {
     const { provider } = setup([json({}, { status: 401 })]);
-    await expect(provider.getRepositories()).rejects.toBeInstanceOf(GitHubUnauthorizedError);
+    await expect(provider.getRepository('octo/app')).rejects.toBeInstanceOf(
+      GitHubUnauthorizedError,
+    );
   });
 
   it('reports the reset time on a rate limit', async () => {
@@ -186,14 +190,14 @@ describe('GitHubClient errors', () => {
         },
       ),
     ]);
-    const error = await provider.getRepositories().catch((e: unknown) => e);
+    const error = await provider.getRepository('octo/app').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(GitHubRateLimitError);
     expect((error as GitHubRateLimitError).resetAt).toEqual(new Date(reset * 1000));
   });
 
   it('reads retry-after on 429', async () => {
     const { provider } = setup([json({}, { status: 429, headers: { 'retry-after': '30' } })]);
-    const error = await provider.getRepositories().catch((e: unknown) => e);
+    const error = await provider.getRepository('octo/app').catch((e: unknown) => e);
     expect(error).toBeInstanceOf(GitHubRateLimitError);
     expect((error as GitHubRateLimitError).resetAt).toBeInstanceOf(Date);
   });
@@ -740,7 +744,7 @@ describe('GitHubProvider thread changes', () => {
   it('posts a reply to the thread', async () => {
     const { fetch, provider } = setup([json({ data: { addPullRequestReviewThreadReply: {} } })]);
 
-    await provider.replyToThread('T1', 'Fixed.');
+    await provider.replyToThread('octo/app', 'T1', 'Fixed.');
 
     expect(urlOf(fetch, 0).pathname).toBe('/graphql');
     expect(sentBody(fetch)).toMatchObject({
@@ -755,7 +759,7 @@ describe('GitHubProvider thread changes', () => {
   ] as const)('resolved %s uses %s', async (resolved, mutation) => {
     const { fetch, provider } = setup([json({ data: {} })]);
 
-    await provider.setThreadResolved('T1', resolved);
+    await provider.setThreadResolved('octo/app', 'T1', resolved);
 
     const { query } = sentBody(fetch);
     // \b keeps resolveReviewThread from matching inside unresolveReviewThread.
