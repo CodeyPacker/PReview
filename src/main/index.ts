@@ -1,4 +1,14 @@
-import { app, BrowserWindow, clipboard, dialog, Notification, safeStorage, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  clipboard,
+  dialog,
+  net,
+  Notification,
+  powerMonitor,
+  safeStorage,
+  shell,
+} from 'electron';
 import type { DatabaseSync } from 'node:sqlite';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -28,6 +38,7 @@ import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { getSettings } from './services/settings.ts';
+import { ConnectivityWatch } from './services/connectivity.ts';
 import { DatabaseBackups, newestValidBackup, restoreBackup } from './services/backups.ts';
 import { validateReport } from './services/progression/xp.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
@@ -310,6 +321,17 @@ void app.whenReady().then(async () => {
       .catch((error: unknown) => log.warn('Could not send queued reviews', error));
   sendQueuedReviews();
   const queuedReviewsTimer = setInterval(sendQueuedReviews, 60_000);
+  // A refresh skips the backoff after failed syncs, so the Inbox catches up right away.
+  const connectivity = new ConnectivityWatch({
+    isOnline: () => net.isOnline(),
+    onReconnect: () => {
+      log.info('Back online. Syncing now.');
+      void pullRequests.refresh();
+      sendQueuedReviews();
+    },
+  });
+  connectivity.start();
+  powerMonitor.on('resume', () => connectivity.resumed());
   void worktrees
     .cleanUp()
     .then((kept) => {
@@ -323,6 +345,7 @@ void app.whenReady().then(async () => {
     pullRequests.stop();
     backups.stop();
     clearInterval(queuedReviewsTimer);
+    connectivity.stop();
     db.close();
   });
 
