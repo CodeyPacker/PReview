@@ -9,8 +9,7 @@ export function recordSentComments(db: DatabaseSync, submissionId: string): void
   const row = db
     .prepare('SELECT pull_request_id, comments, draft_ids FROM review_submissions WHERE id = ?')
     .get(submissionId) as
-    | { pull_request_id: number; comments: string; draft_ids: string }
-    | undefined;
+    { pull_request_id: number; comments: string; draft_ids: string } | undefined;
   if (!row) return;
   const comments = JSON.parse(row.comments) as ProviderReviewComment[];
   const draftIds = JSON.parse(row.draft_ids) as number[];
@@ -49,7 +48,8 @@ export function syncCommentResolutions(
   for (const comment of comments) {
     const thread = threads.find(
       (candidate) =>
-        candidate.path === comment.path && candidate.comments[0]?.body.trim() === comment.body.trim(),
+        candidate.path === comment.path &&
+        candidate.comments[0]?.body.trim() === comment.body.trim(),
     );
     if (!thread) continue;
     const resolution = thread.resolved ? 'resolved' : 'open';
