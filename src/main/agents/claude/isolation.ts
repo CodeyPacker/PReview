@@ -1,4 +1,5 @@
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
+import { existsSync } from 'node:fs';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import { join, posix } from 'node:path';
@@ -20,6 +21,11 @@ export const PACKAGE_REGISTRIES = [
   'registry.yarnpkg.com',
   'repo.yarnpkg.com',
 ];
+
+// Where pnpm puts packages, inside the temp folder. Claude Code's sandbox blocks writes to any
+// .vscode or .idea folder in the worktree, and some packages ship one, which fails the install.
+// The temp folder has no such block, and node_modules links to the packages there.
+export const PNPM_VIRTUAL_STORE = 'pnpm-virtual';
 
 // Shell commands can write only in the worktree and the temp folder, can't change the
 // worktree's Git link, can't read the home folder outside those two, and reach only the
@@ -66,11 +72,17 @@ export async function prepareIsolation(worktree: string): Promise<Isolation> {
       // The user's .npmrc can hold registry tokens, and commands can't read it anyway.
       npm_config_userconfig: join(temp, 'npmrc'),
       PNPM_HOME: join(temp, 'pnpm'),
+      npm_config_virtual_store_dir: join(temp, PNPM_VIRTUAL_STORE),
       YARN_CACHE_FOLDER: join(temp, 'yarn'),
       COREPACK_HOME: join(temp, 'corepack'),
       BUN_INSTALL_CACHE_DIR: join(temp, 'bun'),
     },
     sandbox: sandboxFor(root, temp, await realpath(homedir())),
-    close: () => rm(temp, { recursive: true, force: true }),
+    close: async () => {
+      // Its links die with the temp folder. Without it, the next run is told to install again.
+      if (existsSync(join(temp, PNPM_VIRTUAL_STORE)))
+        await rm(join(root, 'node_modules'), { recursive: true, force: true });
+      await rm(temp, { recursive: true, force: true });
+    },
   };
 }

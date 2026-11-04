@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import { promisify } from 'node:util';
 import { NOT_INSTALLED, pathFromShell, versionProblem, type ClaudeSetup } from './executable.ts';
 import type { Isolation } from './isolation.ts';
-import { sandboxFor } from './isolation.ts';
+import { PNPM_VIRTUAL_STORE, sandboxFor } from './isolation.ts';
 
 // Runs a program and resolves with its output. Rejects like execFile when it fails.
 export type Exec = (file: string, args: string[]) => Promise<{ stdout: string }>;
@@ -152,8 +152,9 @@ export async function prepareWslIsolation(
   run: Exec = exec,
 ): Promise<Isolation> {
   const temp = await wslRun(distro, ['mktemp', '-d', '/tmp/pv-XXXXXX'], run);
+  const root = toWslPath(await realpath(worktree));
   const sandbox = sandboxFor(
-    toWslPath(await realpath(worktree)),
+    root,
     temp,
     await wslRun(distro, ['sh', '-c', 'printf %s "$HOME"'], run),
   );
@@ -169,11 +170,26 @@ export async function prepareWslIsolation(
       npm_config_update_notifier: 'false',
       npm_config_userconfig: `${temp}/npmrc`,
       PNPM_HOME: `${temp}/pnpm`,
+      npm_config_virtual_store_dir: `${temp}/${PNPM_VIRTUAL_STORE}`,
       YARN_CACHE_FOLDER: `${temp}/yarn`,
       COREPACK_HOME: `${temp}/corepack`,
       BUN_INSTALL_CACHE_DIR: `${temp}/bun`,
     },
     sandbox,
-    close: () => wslRun(distro, ['rm', '-rf', temp], run).then(() => {}),
+    // node_modules links into the temp folder, so it goes too when pnpm used it.
+    close: () =>
+      wslRun(
+        distro,
+        [
+          'sh',
+          '-c',
+          'if [ -d "$1/$2" ]; then rm -rf "$3/node_modules"; fi; rm -rf "$1"',
+          'sh',
+          temp,
+          PNPM_VIRTUAL_STORE,
+          root,
+        ],
+        run,
+      ).then(() => {}),
   };
 }
