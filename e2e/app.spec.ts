@@ -240,9 +240,12 @@ test('reloads the window after a crash, and asks before reloading a second time'
       app.evaluate(({ BrowserWindow }) => {
         const contents = BrowserWindow.getAllWindows()[0]?.webContents;
         if (!contents || contents.isCrashed() || contents.isLoading()) return null;
-        return contents.executeJavaScript(
-          `({ heading: document.querySelector('h2')?.textContent, dialog: !!document.querySelector('[role=dialog]') })`,
-        ) as Promise<{ heading?: string; dialog: boolean }>;
+        // A read that lands while the page reloads fails, and the poll tries again.
+        return contents
+          .executeJavaScript(
+            `({ heading: document.querySelector('h2')?.textContent, dialog: !!document.querySelector('[role=dialog]') })`,
+          )
+          .catch(() => null) as Promise<{ heading?: string; dialog: boolean } | null>;
       });
     // The dismissed GitHub prompt was saved, so it stays closed.
     const dashboard = { heading: 'Your Progress', dialog: false };
