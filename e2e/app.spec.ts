@@ -270,10 +270,10 @@ test('reloads the window after a crash, and asks before reloading a second time'
       const asked: string[] = [];
       Object.assign(globalThis, { crashPrompts: asked });
       // The box takes a window only when one is visible, so its options come last.
-      dialog.showMessageBoxSync = ((...args: unknown[]) => {
+      dialog.showMessageBoxSync = (...args: unknown[]) => {
         asked.push((args.at(-1) as { message: string }).message);
         return 0;
-      }) as typeof dialog.showMessageBoxSync;
+      };
     });
     const crash = () =>
       app.evaluate(({ BrowserWindow }) =>
