@@ -46,34 +46,72 @@ export function listBackups(directory: string): Backup[] {
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 }
 
-// A snapshot is usable when SQLite finds no damage and it has a schema.
-export function isValidBackup(path: string): boolean {
+// The snapshot's schema version when SQLite finds no damage in it, or undefined when it's
+// damaged, has no schema or isn't a database.
+export function backupSchemaVersion(path: string): number | undefined {
   let db: DatabaseSync | undefined;
   try {
     db = new DatabaseSync(path, { readOnly: true });
     const check = db.prepare('PRAGMA integrity_check').all() as { integrity_check: string }[];
     const { user_version } = db.prepare('PRAGMA user_version').get() as { user_version: number };
-    return check.length === 1 && check[0]?.integrity_check === 'ok' && user_version > 0;
+    return check.length === 1 && check[0]?.integrity_check === 'ok' && user_version > 0
+      ? user_version
+      : undefined;
   } catch {
-    return false;
+    return undefined;
   } finally {
     db?.close();
   }
 }
+
+// A snapshot is usable when SQLite finds no damage and it has a schema.
+export const isValidBackup = (path: string) => backupSchemaVersion(path) !== undefined;
 
 // The newest snapshot that passes its integrity check.
 export function newestValidBackup(directory: string): Backup | undefined {
   return listBackups(directory).find((backup) => isValidBackup(backup.path));
 }
 
-// Replaces the database file with a snapshot. The old file and its WAL files are renamed, not
-// deleted, so nothing is lost. Returns the old file's new path.
-export function restoreBackup(backup: Backup, databasePath: string, now = new Date()): string {
-  const aside = `${databasePath}.broken-${stamp(now)}`;
+// Replaces the database file with a snapshot. The old file and its WAL files are renamed with
+// the reason, not deleted, so nothing is lost. Returns the old file's new path.
+export function restoreBackup(
+  sourcePath: string,
+  databasePath: string,
+  reason: 'broken' | 'replaced',
+  now = new Date(),
+): string {
+  const aside = `${databasePath}.${reason}-${stamp(now)}`;
   for (const suffix of ['', '-wal', '-shm']) {
     if (existsSync(databasePath + suffix)) renameSync(databasePath + suffix, aside + suffix);
   }
-  copyFileSync(backup.path, databasePath);
+  copyFileSync(sourcePath, databasePath);
+  return aside;
+}
+
+// A backup the user chose waits here until the next start, since the open database can't be
+// replaced.
+export const stagedRestorePath = (databasePath: string) => `${databasePath}.restore`;
+
+// Copies a backup the user chose to put in place at the next start. Throws with a message
+// safe to show when it can't be used.
+export function stageRestore(sourcePath: string, databasePath: string, latestVersion: number) {
+  const version = backupSchemaVersion(sourcePath);
+  if (version === undefined) {
+    throw new Error('This file isn’t a PReview backup, or it’s damaged.');
+  }
+  if (version > latestVersion) {
+    throw new Error('This backup is from a newer version of PReview. Update PReview first.');
+  }
+  copyFileSync(sourcePath, stagedRestorePath(databasePath));
+}
+
+// Puts a staged backup in place. Call at startup, before the database opens. Returns the
+// replaced file's new path, or undefined when nothing was staged.
+export function applyStagedRestore(databasePath: string, now = new Date()): string | undefined {
+  const staged = stagedRestorePath(databasePath);
+  if (!existsSync(staged)) return undefined;
+  const aside = restoreBackup(staged, databasePath, 'replaced', now);
+  rmSync(staged);
   return aside;
 }
 
@@ -112,8 +150,20 @@ export class DatabaseBackups {
     const { directory } = this.deps;
     mkdirSync(directory, { recursive: true });
     const path = join(directory, `preview-${stamp(now)}.db`);
-    // Written under another name first, so a crash midway never leaves a snapshot that looks
-    // finished.
+    this.snapshot(path);
+    for (const old of listBackups(directory).slice(KEPT_BACKUPS)) rmSync(old.path, { force: true });
+    this.deps.log.info('Backed up the database', path);
+    return { path, createdAt: parseStamp(stamp(now)) };
+  }
+
+  // Writes a snapshot to a path the user chose.
+  exportTo(path: string): void {
+    this.snapshot(path);
+  }
+
+  // Written under another name first, so a crash midway never leaves a snapshot that looks
+  // finished. VACUUM INTO refuses to overwrite, so an existing file is replaced at the end.
+  private snapshot(path: string): void {
     const partial = `${path}.partial`;
     rmSync(partial, { force: true });
     this.deps.db.prepare('VACUUM INTO ?').run(partial);
@@ -122,9 +172,6 @@ export class DatabaseBackups {
       throw new Error('The new snapshot failed its integrity check.');
     }
     renameSync(partial, path);
-    for (const old of listBackups(directory).slice(KEPT_BACKUPS)) rmSync(old.path, { force: true });
-    this.deps.log.info('Backed up the database', path);
-    return { path, createdAt: parseStamp(stamp(now)) };
   }
 
   private now(): Date {

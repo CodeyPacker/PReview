@@ -1,9 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { PageHeader } from '../app/PageHeader.tsx';
+import { Button } from '../components/Button/Button.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { Select } from '../components/Select/Select.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
+import { useExportBackup, useRestoreBackup } from '../hooks/useBackups.ts';
 import { defaultSettings, type ReviewLeader } from '../../shared/contracts/settings.ts';
 import { reviewShortcuts, reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
 import { isMac, isWindows } from '../lib/platform.ts';
@@ -24,6 +26,11 @@ function SettingsPage() {
   const settings = useSettings();
   const update = useUpdateSettings();
   const leader = settings.data?.reviewLeader ?? defaultSettings.reviewLeader;
+  const exportBackup = useExportBackup();
+  const restoreBackup = useRestoreBackup();
+  const exported = exportBackup.data?.status === 'exported' ? exportBackup.data.path : undefined;
+  const invalidBackup =
+    restoreBackup.data?.status === 'invalid' ? restoreBackup.data.message : undefined;
   return (
     <div className={styles.page}>
       <PageHeader
@@ -70,6 +77,41 @@ function SettingsPage() {
         {(settings.isError || update.isError) && (
           <p role="alert" className={styles.error}>
             Could not save or load settings. Try again.
+          </p>
+        )}
+      </Panel>
+      <Panel title="Backups">
+        <p className={styles.description}>
+          PReview backs up its data every day and keeps the last 7 backups. Export a copy to keep
+          somewhere else, or restore one. Restoring restarts PReview.
+        </p>
+        <div className={styles.actions}>
+          <Button
+            loading={exportBackup.isPending}
+            disabled={restoreBackup.isPending}
+            onClick={() => exportBackup.mutate()}
+          >
+            Export Backup…
+          </Button>
+          <Button
+            loading={restoreBackup.isPending}
+            disabled={exportBackup.isPending}
+            onClick={() => restoreBackup.mutate()}
+          >
+            Restore Backup…
+          </Button>
+        </div>
+        {exported && (
+          <p role="status" className={styles.description}>
+            Saved to {exported}
+          </p>
+        )}
+        {(invalidBackup || exportBackup.isError || restoreBackup.isError) && (
+          <p role="alert" className={styles.error}>
+            {invalidBackup ??
+              (exportBackup.isError
+                ? 'Could not export a backup.'
+                : 'Could not restore the backup.')}
           </p>
         )}
       </Panel>

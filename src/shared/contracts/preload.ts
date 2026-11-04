@@ -4,6 +4,7 @@ import type {
   AgentTask,
   AnswerAgentQuestionInput,
 } from './agent-tasks.ts';
+import type { ExportBackupResult, RestoreBackupResult } from './backups.ts';
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type {
@@ -64,6 +65,11 @@ export interface PreviewApi {
   settings: {
     getAll(): Promise<Settings>;
     update(patch: SettingsPatch): Promise<Settings>;
+  };
+  backups: {
+    export(): Promise<ExportBackupResult>;
+    // Restarts PReview when the user goes ahead, so it resolves only on cancel or a bad file.
+    restore(): Promise<RestoreBackupResult>;
   };
   github: {
     getAuth(): Promise<GitHubAuthState>;

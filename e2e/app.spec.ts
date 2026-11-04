@@ -6,7 +6,7 @@ import {
   type Page,
 } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -104,6 +104,41 @@ test('rejects an invalid setting', async () => {
     wslDistro: 'Ubuntu',
     groupSupportFiles: true,
   });
+
+  await app.close();
+});
+
+test('exports a backup and refuses a file that is not one', async () => {
+  const app = await launch();
+  const page = await app.firstWindow();
+  await dismissGitHubPrompt(page);
+  const exportPath = join(userDataDir, 'exported.db');
+  const junkPath = join(userDataDir, 'junk.db');
+  writeFileSync(junkPath, 'not a database');
+  // The system file dialogs can't be driven, so they answer with these files.
+  await app.evaluate(
+    ({ dialog }, paths) => {
+      dialog.showSaveDialog = () => Promise.resolve({ canceled: false, filePath: paths.save });
+      dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [paths.open] });
+    },
+    { save: exportPath, open: junkPath },
+  );
+
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: 'Settings' })
+    .click();
+  await page.getByRole('button', { name: 'Export Backup…' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved to' })).toHaveText(
+    `Saved to ${exportPath}`,
+  );
+  expect(existsSync(exportPath)).toBe(true);
+
+  await page.getByRole('button', { name: 'Restore Backup…' }).click();
+  await expect(page.getByRole('alert')).toHaveText(
+    'This file isn’t a PReview backup, or it’s damaged.',
+  );
+  await page.screenshot({ path: test.info().outputPath('backups.png') });
 
   await app.close();
 });
