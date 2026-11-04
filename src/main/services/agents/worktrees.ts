@@ -1,10 +1,11 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import type { AgentChange } from '../../../shared/contracts/agent-tasks.ts';
 import { isGitHubLogin } from '../github/credential-store.ts';
 import type { Git } from '../repositories/git-info.ts';
+import { readFileInside } from '../../security/read-inside.ts';
 
 export type OpenWorktreeResult =
   | { status: 'ready'; path: string }
@@ -154,7 +155,7 @@ export class AgentWorktrees {
       });
     }
     for (const path of untracked.split('\0').filter(Boolean)) {
-      changes.push({ path, status: 'added', patch: await newFilePatch(join(row.path, path)) });
+      changes.push({ path, status: 'added', patch: await newFilePatch(row.path, path) });
     }
     return changes;
   }
@@ -409,11 +410,12 @@ const hunksOf = (patch: string) => {
   return start === -1 ? '' : patch.slice(start);
 };
 
-// A new file as one hunk of added lines. Null when it is binary.
-async function newFilePatch(path: string): Promise<string | null> {
-  const content = await readFile(path).catch(() => null);
-  if (content?.includes(0)) return null;
-  if (!content?.length) return '';
+// A new file as one hunk of added lines. Null when it is binary, or a symlink, whose target
+// the agent chose.
+async function newFilePatch(root: string, path: string): Promise<string | null> {
+  const content = await readFileInside(root, path);
+  if (!content || content.includes(0)) return null;
+  if (!content.length) return '';
   const lines = content.toString('utf8').replace(/\n$/, '').split('\n');
   return clipPatch(`@@ -0,0 +1,${lines.length} @@\n${lines.map((line) => `+${line}`).join('\n')}`);
 }

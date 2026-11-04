@@ -383,6 +383,17 @@ describe('GitHubProvider changed files', () => {
     );
   });
 
+  it('refuses a path that would leave the repository contents', async () => {
+    const { fetch, provider } = setup([]);
+
+    for (const path of ['../../../../user', 'src/./a.ts', '/etc/passwd', 'src//a.ts']) {
+      await expect(provider.getFileContent('octo/app', path, 'abc')).rejects.toThrow(
+        'Not a file path in the repository',
+      );
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('returns undefined for a file that does not exist at the commit', async () => {
     const { provider } = setup([new Response('', { status: 404 })]);
 

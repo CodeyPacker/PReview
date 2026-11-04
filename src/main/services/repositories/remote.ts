@@ -48,11 +48,18 @@ export function stripCredentials(remote: string): string {
   }
 }
 
+// The characters GitHub allows in owner and repository names. The names go into API paths,
+// so . and .. are refused too.
+const OWNER = /^[A-Za-z0-9-]+$/;
+const NAME = /^[A-Za-z0-9._-]+$/;
+
 export function githubRepoFromRemote(remote: string): GitHubRepoName | undefined {
   const parts = parseRemote(remote);
   if (!parts || (parts.host !== 'github.com' && parts.host !== 'www.github.com')) return undefined;
   const [owner, name, ...rest] = parts.path.split('/');
-  return owner && name && rest.length === 0 ? { owner, name } : undefined;
+  if (!owner || !name || rest.length > 0) return undefined;
+  if (!OWNER.test(owner) || !NAME.test(name) || name === '.' || name === '..') return undefined;
+  return { owner, name };
 }
 
 // The same repository reads the same over https and ssh, in any case.
