@@ -6,6 +6,7 @@ import type {
 } from './agent-tasks.ts';
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
+import type { CharacterId, Progression } from './progression.ts';
 import type {
   PullRequestChanges,
   RepositoryFiles,
@@ -151,6 +152,11 @@ export interface PreviewApi {
     getActive(): Promise<number | null>;
     // Null when no review is on show.
     setActive(pullRequestId: number | null): Promise<null>;
+  };
+  progression: {
+    get(): Promise<Progression>;
+    setActiveCharacter(characterId: CharacterId): Promise<Progression>;
+    addReviewTime(pullRequestId: number, ms: number): Promise<null>;
   };
   agentTasks: {
     list(): Promise<AgentTask[]>;

@@ -439,4 +439,45 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX github_repository_accounts_login ON github_repository_accounts (login);
     `,
   },
+  {
+    version: 23,
+    name: 'xp_progression',
+    // Every XP award. reward_key names what earned it, so a retried award adds nothing. The
+    // pull request is named by repository and number with no foreign key, because XP stays
+    // after the pull request closes. reason is checked in code, so new reasons need no rebuild.
+    // review_progress is the character a review earns XP for, picked when the review opens,
+    // and its active review time so far. account_progress has one row, the chosen character.
+    sql: `
+      CREATE TABLE xp_transactions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reward_key TEXT NOT NULL UNIQUE,
+        reason TEXT NOT NULL,
+        base_xp INTEGER NOT NULL CHECK (base_xp > 0),
+        multiplier REAL NOT NULL CHECK (multiplier >= 1 AND multiplier <= 1.5),
+        amount INTEGER NOT NULL CHECK (amount > 0),
+        active_ms INTEGER NOT NULL CHECK (active_ms >= 0),
+        pull_request_id INTEGER NOT NULL,
+        repository TEXT NOT NULL,
+        number INTEGER NOT NULL,
+        finding_id INTEGER,
+        character_id TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+
+      CREATE INDEX xp_transactions_character ON xp_transactions (character_id);
+
+      CREATE TABLE review_progress (
+        pull_request_id INTEGER PRIMARY KEY REFERENCES pull_requests (id) ON DELETE CASCADE,
+        character_id TEXT NOT NULL,
+        active_ms INTEGER NOT NULL DEFAULT 0 CHECK (active_ms >= 0)
+      ) STRICT;
+
+      CREATE TABLE account_progress (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        active_character TEXT NOT NULL
+      ) STRICT;
+
+      INSERT INTO account_progress (id, active_character) VALUES (1, 'shadow');
+    `,
+  },
 ];

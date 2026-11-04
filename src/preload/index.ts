@@ -94,6 +94,12 @@ const api: PreviewApi = {
     getActive: () => invoke('reviewSessions.getActive', undefined),
     setActive: (pullRequestId) => invoke('reviewSessions.setActive', { pullRequestId }),
   },
+  progression: {
+    get: () => invoke('progression.get', undefined),
+    setActiveCharacter: (characterId) => invoke('progression.setActiveCharacter', { characterId }),
+    addReviewTime: (pullRequestId, ms) =>
+      invoke('progression.addReviewTime', { pullRequestId, ms }),
+  },
   agentTasks: {
     list: () => invoke('agentTasks.list', undefined),
     listActivity: (taskId) => invoke('agentTasks.listActivity', { taskId }),

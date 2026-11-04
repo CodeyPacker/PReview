@@ -7,7 +7,7 @@ import type {
 } from '../../shared/contracts/review-findings.ts';
 
 // A pull request's findings, stored on this machine. Each change returns the full list,
-// which replaces the cached one.
+// which replaces the cached one. Resolving a finding may award XP.
 export function useReviewFindings(pullRequestId: number) {
   const queryClient = useQueryClient();
   const queryKey = ['reviewFindings', pullRequestId] as const;
@@ -30,7 +30,10 @@ export function useReviewFindings(pullRequestId: number) {
   const setResolution = useMutation({
     mutationFn: (change: SetFindingResolutionInput) =>
       window.preview.reviewFindings.setResolution(change),
-    onSuccess: replace,
+    onSuccess: (saved) => {
+      replace(saved);
+      return queryClient.invalidateQueries({ queryKey: ['progression'] });
+    },
   });
   const remove = useMutation({
     mutationFn: (id: number) => window.preview.reviewFindings.delete(pullRequestId, id),

@@ -26,6 +26,12 @@ import {
   setActiveReview,
 } from '../services/pull-requests/sessions.ts';
 import { syncReviewRounds } from '../services/pull-requests/rounds.ts';
+import {
+  addReviewTime,
+  getProgression,
+  setActiveCharacter,
+  startReviewProgress,
+} from '../services/progression/xp.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
@@ -229,8 +235,18 @@ export function registerIpcHandlers(
   handle('reviewSessions.get', ({ pullRequestId }) => getReviewSession(db, pullRequestId));
   handle('reviewSessions.save', (session) => saveReviewSession(db, session));
   handle('reviewSessions.getActive', () => getActiveReview(db));
+  // Opening a review picks the character it earns XP for.
   handle('reviewSessions.setActive', ({ pullRequestId }) => {
     setActiveReview(db, pullRequestId);
+    if (pullRequestId !== null) startReviewProgress(db, pullRequestId);
+    return null;
+  });
+  handle('progression.get', () => getProgression(db));
+  handle('progression.setActiveCharacter', ({ characterId }) =>
+    setActiveCharacter(db, characterId),
+  );
+  handle('progression.addReviewTime', ({ pullRequestId, ms }) => {
+    addReviewTime(db, pullRequestId, ms);
     return null;
   });
 }
