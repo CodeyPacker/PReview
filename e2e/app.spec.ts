@@ -882,8 +882,30 @@ test('submits a review, and only allows a comment on your own pull request', asy
       });
       const handlers: Record<string, (input: never) => unknown> = {
         'github.getAuth': () => ({
-          status: 'connected',
-          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+          accounts: [
+            {
+              login: 'me',
+              name: null,
+              avatarUrl: 'https://avatars.githubusercontent.com/u/2',
+              source: 'oauth',
+            },
+          ],
+        }),
+        // The review screen takes the reviewer from the repository's account.
+        'repositories.list': () => ({
+          repositories: [
+            {
+              id: 1,
+              path: '/code/app',
+              name: 'app',
+              remoteUrl: 'https://github.com/octo/app.git',
+              github: { owner: 'octo', name: 'app' },
+              account: { login: 'me', manual: false },
+              status: 'available',
+              settings: { monitored: true, includeDrafts: true, includeAutomated: true },
+            },
+          ],
+          scanning: false,
         }),
         'pullRequests.list': () => ({
           pullRequests: [pull(1, 'me'), pull(2, 'someone-else')],
@@ -1671,8 +1693,14 @@ test("shows an agent's work in the Inbox and answers its question", async () => 
       };
       const handlers: Record<string, (input: never) => unknown> = {
         'github.getAuth': () => ({
-          status: 'connected',
-          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+          accounts: [
+            {
+              login: 'me',
+              name: null,
+              avatarUrl: 'https://avatars.githubusercontent.com/u/2',
+              source: 'oauth',
+            },
+          ],
         }),
         'repositories.list': () => ({
           repositories: [
@@ -1682,6 +1710,7 @@ test("shows an agent's work in the Inbox and answers its question", async () => 
               name: 'app',
               remoteUrl: 'https://github.com/octo/app.git',
               github: { owner: 'octo', name: 'app' },
+              account: { login: 'me', manual: false },
               status: 'available',
               settings: { monitored: true, includeDrafts: true, includeAutomated: true },
             },
@@ -1793,8 +1822,14 @@ test('shows CI on pushed agent changes and sends the agent back on request', asy
       const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
       const handlers: Record<string, (input: never) => unknown> = {
         'github.getAuth': () => ({
-          status: 'connected',
-          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+          accounts: [
+            {
+              login: 'me',
+              name: null,
+              avatarUrl: 'https://avatars.githubusercontent.com/u/2',
+              source: 'oauth',
+            },
+          ],
         }),
         'repositories.list': () => ({
           repositories: [
@@ -1804,6 +1839,7 @@ test('shows CI on pushed agent changes and sends the agent back on request', asy
               name: 'app',
               remoteUrl: 'https://github.com/octo/app.git',
               github: { owner: 'octo', name: 'app' },
+              account: { login: 'me', manual: false },
               status: 'available',
               settings: { monitored: true, includeDrafts: true, includeAutomated: true },
             },
@@ -1908,8 +1944,30 @@ test("shows the agent's unpushed changes and warns before merging without them",
       Object.assign(globalThis, { pushed });
       const handlers: Record<string, (input: never) => unknown> = {
         'github.getAuth': () => ({
-          status: 'connected',
-          user: { login: 'me', name: null, avatarUrl: 'https://avatars.githubusercontent.com/u/2' },
+          accounts: [
+            {
+              login: 'me',
+              name: null,
+              avatarUrl: 'https://avatars.githubusercontent.com/u/2',
+              source: 'oauth',
+            },
+          ],
+        }),
+        // The review screen takes the reviewer from the repository's account.
+        'repositories.list': () => ({
+          repositories: [
+            {
+              id: 1,
+              path: '/code/app',
+              name: 'app',
+              remoteUrl: 'https://github.com/octo/app.git',
+              github: { owner: 'octo', name: 'app' },
+              account: { login: 'me', manual: false },
+              status: 'available',
+              settings: { monitored: true, includeDrafts: true, includeAutomated: true },
+            },
+          ],
+          scanning: false,
         }),
         'pullRequests.list': () => ({
           pullRequests: [
