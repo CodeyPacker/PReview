@@ -2,8 +2,8 @@
 import type { SpawnedProcess, SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import { execFile, spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, realpath, rm } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { realpath } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { Isolation } from './isolation.ts';
@@ -87,10 +87,10 @@ export function wslSpawner(distro?: string) {
   };
 }
 
-async function wslHome(distro?: string): Promise<string> {
+async function wslRun(distro: string | undefined, command: string[]): Promise<string> {
   const { stdout } = await execFileAsync(
     'wsl.exe',
-    [...(distro ? ['-d', distro] : []), '--exec', 'sh', '-c', 'printf %s "$HOME"'],
+    [...(distro ? ['-d', distro] : []), '--exec', ...command],
     { windowsHide: true },
   );
   return stdout.trim();
@@ -98,11 +98,16 @@ async function wslHome(distro?: string): Promise<string> {
 
 // The same rules as on macOS, in WSL's paths. Both home folders stay unreadable: WSL's own and
 // the Windows one under /mnt/c.
+// The temp folder lives in Linux's /tmp. The sandbox opens Unix sockets there, and /mnt/c
+// doesn't support them.
 export async function prepareWslIsolation(worktree: string, distro?: string): Promise<Isolation> {
-  const temp = await realpath(await mkdtemp(join(tmpdir(), 'pv-')));
-  const linuxTemp = toWslPath(temp);
+  const linuxTemp = await wslRun(distro, ['mktemp', '-d', '/tmp/pv-XXXXXX']);
   const linuxWorktree = toWslPath(await realpath(worktree));
-  const sandbox = sandboxFor(linuxWorktree, linuxTemp, await wslHome(distro));
+  const sandbox = sandboxFor(
+    linuxWorktree,
+    linuxTemp,
+    await wslRun(distro, ['sh', '-c', 'printf %s "$HOME"']),
+  );
   sandbox.filesystem = {
     ...sandbox.filesystem,
     denyRead: [...(sandbox.filesystem?.denyRead ?? []), toWslPath(homedir())],
@@ -122,6 +127,6 @@ export async function prepareWslIsolation(worktree: string, distro?: string): Pr
       BUN_INSTALL_CACHE_DIR: `${linuxTemp}/bun`,
     },
     sandbox,
-    close: () => rm(temp, { recursive: true, force: true }),
+    close: () => wslRun(distro, ['rm', '-rf', linuxTemp]).then(() => {}),
   };
 }
