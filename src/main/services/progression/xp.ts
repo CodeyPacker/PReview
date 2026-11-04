@@ -8,9 +8,12 @@ import {
   defaultCharacter,
   findingXp,
   levelOf,
+  outfitIdSchema,
+  outfits,
   REVIEW_COMPLETED_XP,
   reviewTimeMultiplier,
   type CharacterId,
+  type OutfitId,
   type Progression,
   type XpReason,
   type XpTransaction,
@@ -44,6 +47,14 @@ export function getProgression(db: DatabaseSync): Progression {
         .all() as { character_id: string; total: number }[]
     ).map((row) => [row.character_id, row.total]),
   );
+  const worn = new Map(
+    (
+      db.prepare('SELECT character_id, outfit_id FROM character_outfits').all() as {
+        character_id: string;
+        outfit_id: string;
+      }[]
+    ).map((row) => [row.character_id, row.outfit_id]),
+  );
   return {
     account,
     streak: weeklyStreak(db),
@@ -52,6 +63,7 @@ export function getProgression(db: DatabaseSync): Progression {
       ...character,
       ...levelOf(byCharacter.get(character.id) ?? 0, CHARACTER_XP_PER_LEVEL),
       unlocked: account.level >= character.unlockLevel,
+      outfit: outfitIdSchema.catch('default').parse(worn.get(character.id)),
     })),
   };
 }
@@ -64,6 +76,24 @@ export function setActiveCharacter(db: DatabaseSync, characterId: CharacterId): 
   if (!character?.unlocked) throw new Error('That character is still locked.');
   db.prepare('UPDATE account_progress SET active_character = ? WHERE id = 1').run(characterId);
   return { ...progression, activeCharacter: characterId };
+}
+
+// Dresses a character in an outfit its level has unlocked.
+export function setOutfit(
+  db: DatabaseSync,
+  characterId: CharacterId,
+  outfitId: OutfitId,
+): Progression {
+  const character = getProgression(db).characters.find((candidate) => candidate.id === characterId);
+  const outfit = outfits.find((candidate) => candidate.id === outfitId);
+  if (!character?.unlocked || !outfit || character.level < outfit.unlockLevel) {
+    throw new Error('That outfit is still locked.');
+  }
+  db.prepare(
+    `INSERT INTO character_outfits (character_id, outfit_id) VALUES (?, ?)
+     ON CONFLICT (character_id) DO UPDATE SET outfit_id = excluded.outfit_id`,
+  ).run(characterId, outfitId);
+  return getProgression(db);
 }
 
 // Picks the character the review earns XP for. Opening the review again keeps the first pick.

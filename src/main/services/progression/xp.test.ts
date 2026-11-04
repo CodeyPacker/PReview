@@ -13,6 +13,7 @@ import {
   listXpTransactions,
   MAX_REVIEW_TIME_REPORT_MS,
   setActiveCharacter,
+  setOutfit,
   startReviewProgress,
   validateReport,
 } from './xp.ts';
@@ -163,6 +164,22 @@ describe('characters', () => {
       false,
     ]);
     expect(progression.characters[0]).toMatchObject({ xp: 2000, level: 5, levelXp: 0 });
+  });
+});
+
+describe('outfits', () => {
+  it('wears the default until a character level unlocks another', () => {
+    expect(getProgression(db).characters[0]?.outfit).toBe('default');
+    expect(() => setOutfit(db, 'shadow', 'midnight')).toThrow('locked');
+    db.prepare(
+      `INSERT INTO xp_transactions
+         (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
+          repository, number, character_id)
+       VALUES ('seed', 'review-completed', 1000, 1, 1000, 0, 1, 'octo/app', 1, 'shadow')`,
+    ).run();
+    expect(setOutfit(db, 'shadow', 'midnight').characters[0]?.outfit).toBe('midnight');
+    expect(() => setOutfit(db, 'shadow', 'crimson')).toThrow('locked');
+    expect(() => setOutfit(db, 'ember', 'default')).toThrow('locked');
   });
 });
 

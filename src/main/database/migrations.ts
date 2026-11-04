@@ -527,4 +527,15 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 26,
+    name: 'character_outfits',
+    // The outfit each character wears. A character with no row wears its default outfit.
+    sql: `
+      CREATE TABLE character_outfits (
+        character_id TEXT PRIMARY KEY,
+        outfit_id TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ];

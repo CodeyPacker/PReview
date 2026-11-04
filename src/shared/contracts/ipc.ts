@@ -54,6 +54,7 @@ import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sess
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 import {
   characterIdSchema,
+  outfitIdSchema,
   progressionSchema,
   progressStatsSchema,
   xpTransactionSchema,
@@ -284,6 +285,11 @@ export const ipcContract = {
   },
   // Every achievement with its progress, in definition order.
   'achievements.list': { input: z.undefined(), output: z.array(achievementSchema) },
+  // Dresses a character in an unlocked outfit.
+  'progression.setOutfit': {
+    input: z.object({ characterId: characterIdSchema, outfitId: outfitIdSchema }),
+    output: progressionSchema,
+  },
   // Adds focused time on a review screen. The main process caps each report.
   'progression.addReviewTime': {
     input: z.object({ pullRequestId: z.number().int(), ms: z.number().int().min(0) }),

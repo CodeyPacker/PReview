@@ -21,6 +21,18 @@ export const characters = [
 
 export const defaultCharacter: CharacterId = 'shadow';
 
+export const outfitIdSchema = z.enum(['default', 'midnight', 'crimson', 'sage']);
+export type OutfitId = z.infer<typeof outfitIdSchema>;
+
+// Complete outfits every character has, each unlocked at a character level (SCOPE 13.3).
+// They have no art yet.
+export const outfits = [
+  { id: 'default', name: 'Default', unlockLevel: 1 },
+  { id: 'midnight', name: 'Midnight', unlockLevel: 3 },
+  { id: 'crimson', name: 'Crimson', unlockLevel: 5 },
+  { id: 'sage', name: 'Sage', unlockLevel: 8 },
+] as const satisfies readonly { id: OutfitId; name: string; unlockLevel: number }[];
+
 // Fixed XP per level for both the account and each character (SCOPE 13.2).
 export const ACCOUNT_XP_PER_LEVEL = 1000;
 export const CHARACTER_XP_PER_LEVEL = 500;
@@ -75,6 +87,8 @@ export const characterProgressSchema = levelSchema.extend({
   title: z.string(),
   unlockLevel: z.number().int(),
   unlocked: z.boolean(),
+  // The outfit the character wears.
+  outfit: outfitIdSchema,
 });
 export type CharacterProgress = z.infer<typeof characterProgressSchema>;
 

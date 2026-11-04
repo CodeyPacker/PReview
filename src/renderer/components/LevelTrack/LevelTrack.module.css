@@ -1,1 +1,133 @@
 /* LevelTrack styles. Read values from tokens.css custom properties only. */
+
+.track {
+  position: relative;
+  display: grid;
+  gap: var(--space-12);
+  font-family: var(--font-sans);
+}
+
+.rail {
+  position: absolute;
+  top: 15px;
+  right: calc(100% / var(--cols) / 2);
+  left: calc(100% / var(--cols) / 2);
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--chart-track);
+}
+
+.fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--chart-1), var(--accent));
+}
+
+.list {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  gap: var(--space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-12);
+}
+
+.node {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--ink-secondary);
+  font: 600 var(--text-md) / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.done .node {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.current .node {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    var(--shadow-accent);
+}
+
+.card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-12) var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  text-align: center;
+}
+
+.current .card {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.icon {
+  margin-bottom: var(--space-4);
+  color: var(--accent-text);
+}
+
+.icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.locked .icon {
+  color: var(--ink-tertiary);
+}
+
+.check {
+  position: absolute;
+  top: var(--space-8);
+  left: var(--space-8);
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--success-fill);
+  color: #ffffff;
+}
+
+.current .check {
+  background: var(--accent);
+}
+
+.check svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 3;
+}
+
+.title {
+  color: var(--ink);
+  font: 600 var(--text-md) / 18px var(--font-sans);
+}
+
+.sub {
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}

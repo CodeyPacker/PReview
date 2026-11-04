@@ -1,0 +1,93 @@
+/* Characters page. Read values from tokens.css custom properties only. */
+
+.page {
+  display: grid;
+  align-content: start;
+  gap: var(--space-16);
+  max-width: 1280px;
+}
+
+.top {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr) minmax(0, 300px);
+  gap: var(--space-16);
+}
+
+.bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+  gap: var(--space-16);
+}
+
+.roster {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  justify-items: center;
+  gap: var(--space-12);
+}
+
+.detail {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-12);
+}
+
+.detailHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.detailHead h2 {
+  margin: 0;
+}
+
+.levelBar {
+  width: 100%;
+  max-width: 320px;
+}
+
+.art {
+  display: grid;
+  place-items: center;
+  justify-self: stretch;
+  height: 240px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--accent-soft), var(--canvas-tint));
+  color: var(--accent-text);
+  font: 700 96px / 1 var(--font-display);
+}
+
+.outfits {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: var(--space-8);
+}
+
+.next {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-8);
+}
+
+.nextBar {
+  width: 100%;
+}
+
+.text,
+.note {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.note {
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 1100px) {
+  .top,
+  .bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
