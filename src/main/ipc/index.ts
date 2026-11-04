@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import type { ExportBackupResult, RestoreBackupResult } from '../../shared/contracts/backups.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import type { AppInfo } from '../../shared/contracts/ipc.ts';
 import type { GitHubAccounts } from '../services/github/accounts.ts';
@@ -58,6 +59,11 @@ import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
 
 export interface IpcServices {
+  // Exports a backup, or restores one, through the system file dialogs.
+  backupFiles: {
+    export(): Promise<ExportBackupResult>;
+    restore(): Promise<RestoreBackupResult>;
+  };
   github: GitHubAccounts;
   discovery: RepositoryDiscovery;
   pullRequests: PullRequestSync;
@@ -76,6 +82,7 @@ export interface IpcServices {
 export function registerIpcHandlers(
   db: DatabaseSync,
   {
+    backupFiles,
     github,
     discovery,
     pullRequests,
@@ -96,6 +103,8 @@ export function registerIpcHandlers(
 
   handle('settings.getAll', () => getSettings(db));
   handle('settings.update', (patch) => updateSettings(db, patch));
+  handle('backups.export', () => backupFiles.export());
+  handle('backups.restore', () => backupFiles.restore());
 
   handle('github.getAuth', () => github.getState());
   handle('github.connect', () => github.connect());

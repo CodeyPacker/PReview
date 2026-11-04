@@ -21,6 +21,10 @@ const api: PreviewApi = {
     cancel: () => invoke('github.cancel', undefined),
     disconnect: (login) => invoke('github.disconnect', { login }),
   },
+  backups: {
+    export: () => invoke('backups.export', undefined),
+    restore: () => invoke('backups.restore', undefined),
+  },
   folders: {
     list: () => invoke('folders.list', undefined),
     add: () => invoke('folders.add', undefined),

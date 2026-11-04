@@ -6,6 +6,7 @@ import {
   agentTaskSchema,
   answerAgentQuestionInputSchema,
 } from './agent-tasks.ts';
+import { exportBackupResultSchema, restoreBackupResultSchema } from './backups.ts';
 import { githubAuthStateSchema } from './github.ts';
 import {
   repositoriesStateSchema,
@@ -76,6 +77,10 @@ export const ipcContract = {
   'app.getInfo': { input: z.undefined(), output: appInfoSchema },
   'settings.getAll': { input: z.undefined(), output: settingsSchema },
   'settings.update': { input: settingsPatchSchema, output: settingsSchema },
+  // Saves a copy of the database where the user chooses.
+  'backups.export': { input: z.undefined(), output: exportBackupResultSchema },
+  // Asks for a backup and restarts to put it in place.
+  'backups.restore': { input: z.undefined(), output: restoreBackupResultSchema },
   'github.getAuth': { input: z.undefined(), output: githubAuthStateSchema },
   'github.connect': { input: z.undefined(), output: githubAuthStateSchema },
   'github.connectWithCli': { input: z.undefined(), output: githubAuthStateSchema },

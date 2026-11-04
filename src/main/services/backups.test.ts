@@ -5,14 +5,18 @@ import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { checkIntegrity, openDatabase } from '../database/connection.ts';
 import { migrate } from '../database/migrate.ts';
+import { migrations } from '../database/migrations.ts';
 import {
   BACKUP_INTERVAL_MS,
   DatabaseBackups,
   isValidBackup,
   KEPT_BACKUPS,
   listBackups,
+  applyStagedRestore,
   newestValidBackup,
   restoreBackup,
+  stagedRestorePath,
+  stageRestore,
 } from './backups.ts';
 
 const log = { info: () => {}, warn: () => {} };
@@ -97,7 +101,7 @@ describe('restoring a backup', () => {
     writeFileSync(join(folder, 'preview-20261106T000000Z.db'), 'not a database');
     const backup = newestValidBackup(folder);
     expect(backup?.createdAt).toEqual(now);
-    const aside = restoreBackup(backup!, databasePath, now);
+    const aside = restoreBackup(backup!.path, databasePath, 'broken', now);
 
     expect(existsSync(aside)).toBe(true);
     db = openDatabase(databasePath);
@@ -107,5 +111,50 @@ describe('restoring a backup', () => {
 
   it('finds nothing when no snapshot is valid', () => {
     expect(newestValidBackup(join(directory, 'backups'))).toBeUndefined();
+  });
+});
+
+describe('exporting and restoring a chosen backup', () => {
+  const latest = migrations.at(-1)!.version;
+  const databasePath = () => join(directory, 'preview.db');
+
+  it('exports a valid copy, replacing a file already there', () => {
+    const path = join(directory, 'export.db');
+    writeFileSync(path, 'old');
+    backups().exportTo(path);
+    expect(isValidBackup(path)).toBe(true);
+    expect(existsSync(`${path}.partial`)).toBe(false);
+  });
+
+  it('puts a staged backup in place at the next start and keeps the replaced file', () => {
+    const path = join(directory, 'export.db');
+    db.prepare("INSERT INTO watched_folders (path, scan_depth) VALUES ('/code', 2)").run();
+    backups().exportTo(path);
+    db.prepare('DELETE FROM watched_folders').run();
+
+    stageRestore(path, databasePath(), latest);
+    db.close();
+    const aside = applyStagedRestore(databasePath(), now);
+
+    expect(aside).toMatch(/preview\.db\.replaced-20261104T153000Z$/);
+    expect(existsSync(aside!)).toBe(true);
+    expect(existsSync(stagedRestorePath(databasePath()))).toBe(false);
+    db = openDatabase(databasePath());
+    expect(db.prepare('SELECT path FROM watched_folders').all()).toEqual([{ path: '/code' }]);
+  });
+
+  it('does nothing at start when no backup is staged', () => {
+    expect(applyStagedRestore(databasePath())).toBeUndefined();
+  });
+
+  it('refuses a file that is not a backup, or is from a newer version', () => {
+    const junk = join(directory, 'junk.db');
+    writeFileSync(junk, 'not a database');
+    expect(() => stageRestore(junk, databasePath(), latest)).toThrow('isn’t a PReview backup');
+
+    const path = join(directory, 'export.db');
+    backups().exportTo(path);
+    expect(() => stageRestore(path, databasePath(), latest - 1)).toThrow('newer version');
+    expect(existsSync(stagedRestorePath(databasePath()))).toBe(false);
   });
 });

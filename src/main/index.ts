@@ -10,6 +10,7 @@ import {
   shell,
 } from 'electron';
 import type { DatabaseSync } from 'node:sqlite';
+import { rmSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
@@ -39,7 +40,16 @@ import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { getSettings } from './services/settings.ts';
 import { ConnectivityWatch } from './services/connectivity.ts';
-import { DatabaseBackups, newestValidBackup, restoreBackup } from './services/backups.ts';
+import {
+  applyStagedRestore,
+  DatabaseBackups,
+  newestValidBackup,
+  restoreBackup,
+  stagedRestorePath,
+  stageRestore,
+} from './services/backups.ts';
+import { migrations } from './database/migrations.ts';
+import type { ExportBackupResult, RestoreBackupResult } from '../shared/contracts/backups.ts';
 import { validateReport } from './services/progression/xp.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
 import { createGit, runGit } from './services/repositories/git-info.ts';
@@ -176,6 +186,7 @@ async function pickFolder(): Promise<string | undefined> {
 }
 
 const backupDirectory = () => join(app.getPath('userData'), 'backups');
+const databasePath = () => join(app.getPath('userData'), 'preview.db');
 
 function openAppDatabase(path: string): DatabaseSync {
   const db = openDatabase(path);
@@ -193,7 +204,14 @@ function openAppDatabase(path: string): DatabaseSync {
 // Opens the database. When it can't be opened, offers to put back the newest valid snapshot.
 // Returns undefined when the user quits or nothing could be opened.
 function openOrRestoreDatabase(): DatabaseSync | undefined {
-  const path = join(app.getPath('userData'), 'preview.db');
+  const path = databasePath();
+  // A backup the user chose to restore goes in place before the database opens.
+  try {
+    const replaced = applyStagedRestore(path);
+    if (replaced) log.warn('Restored the database from a chosen backup', { replaced });
+  } catch (error) {
+    log.error('Could not restore the chosen backup', error);
+  }
   let failure: unknown;
   try {
     return openAppDatabase(path);
@@ -215,7 +233,7 @@ function openOrRestoreDatabase(): DatabaseSync | undefined {
     });
     if (response !== 0) return undefined;
     try {
-      const aside = restoreBackup(backup, path);
+      const aside = restoreBackup(backup.path, path, 'broken');
       log.warn('Restored the database from a backup', { backup: backup.path, damaged: aside });
       return openAppDatabase(path);
     } catch (error) {
@@ -244,6 +262,68 @@ void app.whenReady().then(async () => {
 
   const backups = new DatabaseBackups({ db, directory: backupDirectory(), log });
   backups.start();
+  const backupFiles = {
+    async export(): Promise<ExportBackupResult> {
+      const day = new Date().toISOString().slice(0, 10);
+      const options = {
+        title: 'Export Backup',
+        defaultPath: join(app.getPath('documents'), `PReview backup ${day}.db`),
+        filters: [{ name: 'PReview backup', extensions: ['db'] }],
+      };
+      const window = BrowserWindow.getFocusedWindow();
+      const result = await (window
+        ? dialog.showSaveDialog(window, options)
+        : dialog.showSaveDialog(options));
+      if (result.canceled || !result.filePath) return { status: 'canceled' };
+      backups.exportTo(result.filePath);
+      log.info('Exported a backup', result.filePath);
+      return { status: 'exported', path: result.filePath };
+    },
+    // Restarts PReview to put the chosen backup in place, so it resolves only when the user
+    // cancels or the file can't be used.
+    async restore(): Promise<RestoreBackupResult> {
+      const options = {
+        title: 'Restore Backup',
+        defaultPath: backupDirectory(),
+        filters: [{ name: 'PReview backup', extensions: ['db'] }],
+        properties: ['openFile' as const],
+      };
+      const window = BrowserWindow.getFocusedWindow();
+      const result = await (window
+        ? dialog.showOpenDialog(window, options)
+        : dialog.showOpenDialog(options));
+      const [picked] = result.filePaths;
+      if (result.canceled || !picked) return { status: 'canceled' };
+      try {
+        stageRestore(picked, databasePath(), migrations.at(-1)?.version ?? 0);
+      } catch (error) {
+        return {
+          status: 'invalid',
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+      const confirm = {
+        type: 'warning' as const,
+        message: 'Restore this backup?',
+        detail:
+          'PReview restarts to restore it. Changes made since the backup are lost. The current database is kept next to it.',
+        buttons: ['Restart and Restore', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1,
+      };
+      const { response } = await (window
+        ? dialog.showMessageBox(window, confirm)
+        : dialog.showMessageBox(confirm));
+      if (response !== 0) {
+        rmSync(stagedRestorePath(databasePath()), { force: true });
+        return { status: 'canceled' };
+      }
+      log.warn('Restarting to restore a backup', picked);
+      app.relaunch();
+      app.quit();
+      return new Promise(() => {});
+    },
+  };
 
   const discovery = new RepositoryDiscovery({ db, git: runGit, log });
   const github = await createGitHubAccounts();
@@ -297,6 +377,7 @@ void app.whenReady().then(async () => {
     },
   });
   registerIpcHandlers(db, {
+    backupFiles,
     github,
     discovery,
     pullRequests,
