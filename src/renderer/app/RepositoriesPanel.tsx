@@ -55,6 +55,11 @@ export function RepositoriesPanel({ className, selectedId, onSelect }: Repositor
                 <span className={styles.text}>
                   <span className="headline">{repositoryName(repository)}</span>
                   <span className={styles.path}>{repository.path}</span>
+                  {repository.github && (
+                    <span className={styles.path}>
+                      {repository.account ? `@${repository.account.login}` : 'Not assigned'}
+                    </span>
+                  )}
                 </span>
                 {repository.status === 'unavailable' ? (
                   <StatusPill tone="warning" icon={<TriangleAlert aria-hidden />}>

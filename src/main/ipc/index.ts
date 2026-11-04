@@ -29,7 +29,11 @@ import { syncReviewRounds } from '../services/pull-requests/rounds.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
-import { updateRepositorySettings } from '../services/repositories/registry.ts';
+import {
+  clearRepositoryAccount,
+  setRepositoryAccount,
+} from '../services/github/repository-accounts.ts';
+import { listRepositories, updateRepositorySettings } from '../services/repositories/registry.ts';
 import {
   addWatchedFolder,
   listWatchedFolders,
@@ -87,7 +91,7 @@ export function registerIpcHandlers(
   handle('github.connect', () => github.connect());
   handle('github.connectWithCli', () => github.connectWithCli());
   handle('github.cancel', () => github.cancel());
-  handle('github.disconnect', () => github.disconnect());
+  handle('github.disconnect', ({ login }) => github.disconnect(login));
 
   handle('folders.list', () => listWatchedFolders(db));
   handle('folders.add', async () => {
@@ -116,6 +120,22 @@ export function registerIpcHandlers(
   });
   handle('repositories.updateSettings', ({ id, patch }) => {
     updateRepositorySettings(db, id, patch);
+    return discovery.getState();
+  });
+  // Saves the account for the repository's owner/name, then syncs, since another account may
+  // see other pull requests. Stored pull requests are kept, so their drafts are too.
+  handle('repositories.setAccount', ({ id, login }) => {
+    const repository = listRepositories(db).find((candidate) => candidate.id === id);
+    if (!repository?.github) throw new Error('This repository has no GitHub remote.');
+    const fullName = `${repository.github.owner}/${repository.github.name}`;
+    if (login === null) {
+      clearRepositoryAccount(db, fullName);
+    } else {
+      const account = github.get(login);
+      if (!account) throw new Error('That GitHub account is not connected.');
+      setRepositoryAccount(db, fullName, account.login, true);
+    }
+    void pullRequests.refresh();
     return discovery.getState();
   });
 

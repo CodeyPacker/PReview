@@ -148,9 +148,7 @@ test('prompts to connect GitHub until the prompt is dismissed', async () => {
   const dialog = page.getByRole('dialog', { name: 'Connect GitHub' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Connect GitHub' })).toBeVisible();
-  expect(await page.evaluate(() => window.preview.github.getAuth())).toEqual({
-    status: 'disconnected',
-  });
+  expect(await page.evaluate(() => window.preview.github.getAuth())).toEqual({ accounts: [] });
   await dismissGitHubPrompt(page);
   await app.close();
 

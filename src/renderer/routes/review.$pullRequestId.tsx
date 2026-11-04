@@ -40,7 +40,7 @@ import {
   type FileReviewFilter,
   type FileReviewState,
 } from '../lib/fileReview.ts';
-import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
+import { findAccount, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { useAgentTasks } from '../hooks/useAgentTasks.ts';
 import { agentStatus } from '../app/agentStatus.ts';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
@@ -88,6 +88,8 @@ function ReviewPage() {
   const repository = repositoryState?.repositories.find(
     (item) => item.id === pullRequest?.repositoryId,
   );
+  // The account this repository's reviews go out as.
+  const reviewer = findAccount(auth, repository?.account?.login);
 
   const {
     files,
@@ -452,7 +454,8 @@ function ReviewPage() {
             .filter((finding) => finding.publishedAt === null)
             .map((finding) => finding.id)}
           ownPullRequest={
-            auth?.status === 'connected' && auth.user.login === pullRequest.author?.login
+            reviewer !== undefined &&
+            reviewer.login.toLowerCase() === pullRequest.author?.login.toLowerCase()
           }
           agentTask={agentTask}
           onDone={({ merged }) =>
@@ -663,10 +666,9 @@ function ReviewPage() {
                     : {
                         items: currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],
                         hunks: selected.hunks,
-                        author:
-                          auth?.status === 'connected'
-                            ? { name: auth.user.login, avatarUrl: auth.user.avatarUrl }
-                            : { name: 'You' },
+                        author: reviewer
+                          ? { name: reviewer.login, avatarUrl: reviewer.avatarUrl }
+                          : { name: 'You' },
                         composer: composer?.path === selected.path ? composer : undefined,
                         onComposerChange: changeComposer,
                         onSave: saveComposer,

@@ -8,25 +8,28 @@ export const githubUserSchema = z.object({
 export type GitHubUser = z.infer<typeof githubUserSchema>;
 
 // Where the token comes from. oauth: PReview's own device flow, stored by PReview.
-// cli: the GitHub CLI's active account, read from gh on each request.
+// cli: the GitHub CLI's account, read from gh on each request.
 export const githubAuthSourceSchema = z.enum(['oauth', 'cli']);
 export type GitHubAuthSource = z.infer<typeof githubAuthSourceSchema>;
 
-// The GitHub connection as the renderer sees it. Never includes the token.
+export const githubAccountSchema = githubUserSchema.extend({ source: githubAuthSourceSchema });
+export type GitHubAccountInfo = z.infer<typeof githubAccountSchema>;
+
+// The GitHub connections as the renderer sees them. Never includes a token.
+// accounts: every connected account, in login order.
 // pending: the user has a code to enter on GitHub's device page.
-// disconnected.error: why the last attempt or the stored connection failed.
-export const githubAuthStateSchema = z.discriminatedUnion('status', [
-  z.object({ status: z.literal('disconnected'), error: z.string().optional() }),
-  z.object({
-    status: z.literal('pending'),
-    userCode: z.string(),
-    verificationUri: z.url(),
-    expiresAt: z.iso.datetime(),
-  }),
-  z.object({
-    status: z.literal('connected'),
-    source: githubAuthSourceSchema,
-    user: githubUserSchema,
-  }),
-]);
+// connected: the account the last connect added. replaced: it was connected already.
+// error: why the last attempt or a stored account failed.
+export const githubAuthStateSchema = z.object({
+  accounts: z.array(githubAccountSchema),
+  pending: z
+    .object({
+      userCode: z.string(),
+      verificationUri: z.url(),
+      expiresAt: z.iso.datetime(),
+    })
+    .optional(),
+  connected: z.object({ login: z.string(), replaced: z.boolean() }).optional(),
+  error: z.string().optional(),
+});
 export type GitHubAuthState = z.infer<typeof githubAuthStateSchema>;

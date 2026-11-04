@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
+import { setRepositoryAccount } from '../github/repository-accounts.ts';
 import {
   listRepositories,
   reconcileRepositories,
@@ -35,10 +36,17 @@ describe('reconcileRepositories', () => {
         name: 'hello',
         remoteUrl: 'git@github.com:octo/hello.git',
         github: { owner: 'octo', name: 'hello' },
+        account: null,
         status: 'available',
         settings: { monitored: true, includeDrafts: true, includeAutomated: true },
       },
     ]);
+  });
+
+  it('lists the account assigned to the repository, in any case', () => {
+    reconcileRepositories(db, [scanned('/code/hello')]);
+    setRepositoryAccount(db, 'Octo/Hello', 'octo-work', true);
+    expect(listRepositories(db)[0]?.account).toEqual({ login: 'octo-work', manual: true });
   });
 
   it('keeps a repository without a GitHub remote, with no GitHub name', () => {

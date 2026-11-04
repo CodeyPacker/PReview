@@ -15,12 +15,24 @@ export function useWatchedFolders() {
 }
 
 // The discovered repositories. Polls once a second during a scan, since the main process
-// scans in the background.
+// scans in the background. Polls more slowly while a monitored repository waits for the sync
+// to assign it a GitHub account.
 export function useRepositories() {
   return useQuery({
     queryKey: repositoriesKey,
     queryFn: () => window.preview.repositories.list(),
-    refetchInterval: (query) => (query.state.data?.scanning ? 1000 : false),
+    refetchInterval: (query) => {
+      const state = query.state.data;
+      if (state?.scanning) return 1000;
+      const unassigned = state?.repositories.some(
+        (repository) =>
+          repository.github &&
+          !repository.account &&
+          repository.status === 'available' &&
+          repository.settings.monitored,
+      );
+      return unassigned ? 5000 : false;
+    },
   });
 }
 
@@ -48,6 +60,15 @@ export function useRescan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => window.preview.repositories.scan(),
+    onSuccess: (state) => queryClient.setQueryData(repositoriesKey, state),
+  });
+}
+
+export function useSetRepositoryAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (change: { id: number; login: string | null }) =>
+      window.preview.repositories.setAccount(change.id, change.login),
     onSuccess: (state) => queryClient.setQueryData(repositoriesKey, state),
   });
 }

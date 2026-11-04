@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { CircleAlert, GitPullRequest } from 'lucide-react';
+import { CircleAlert, GitPullRequest, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { GitHubConnectDialog } from '../app/GitHubConnectDialog.tsx';
 import { LocalFoldersPanel } from '../app/LocalFoldersPanel.tsx';
@@ -10,7 +10,6 @@ import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { IconTile } from '../components/IconTile/IconTile.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
-import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { useDisconnectGitHub, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
 import styles from './integrations.module.css';
@@ -52,56 +51,65 @@ function GitHubPanel() {
   const { data: auth } = useGitHubAuth();
   const disconnect = useDisconnectGitHub();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const connected = auth?.status === 'connected' ? auth : undefined;
+  const accounts = auth?.accounts ?? [];
+  const error = auth?.error && (
+    <p className={styles.error} role="alert">
+      <CircleAlert aria-hidden />
+      {auth.error}
+    </p>
+  );
 
   return (
-    <Panel title="GitHub">
-      <div className={styles.row}>
-        {connected ? (
-          <Avatar
-            name={connected.user.name ?? connected.user.login}
-            src={connected.user.avatarUrl}
-            size="lg"
-          />
-        ) : (
+    <Panel
+      title="GitHub"
+      action={
+        accounts.length > 0 ? (
+          <Button size="sm" iconStart={<Plus aria-hidden />} onClick={() => setDialogOpen(true)}>
+            Add account
+          </Button>
+        ) : undefined
+      }
+    >
+      {accounts.length === 0 ? (
+        <div className={styles.row}>
           <IconTile icon={<GitPullRequest />} size="lg" tone="neutral" />
-        )}
-        <div className={styles.text}>
-          <p className="headline">
-            {connected ? (connected.user.name ?? connected.user.login) : 'Not connected'}
-          </p>
-          <p className={styles.detail}>
-            {connected
-              ? `@${connected.user.login}${connected.source === 'cli' ? ' · GitHub CLI' : ''}`
-              : 'Connect to bring in pull requests and post reviews.'}
-          </p>
-          {auth?.status === 'disconnected' && auth.error && (
-            <p className={styles.error} role="alert">
-              <CircleAlert aria-hidden />
-              {auth.error}
-            </p>
-          )}
-        </div>
-        {connected ? (
-          <div className={styles.actions}>
-            <StatusPill tone="success" icon={null}>
-              Connected
-            </StatusPill>
-            <Button
-              variant="outline"
-              tone="danger"
-              loading={disconnect.isPending}
-              onClick={() => disconnect.mutate()}
-            >
-              Disconnect
-            </Button>
+          <div className={styles.text}>
+            <p className="headline">Not connected</p>
+            <p className={styles.detail}>Connect to bring in pull requests and post reviews.</p>
+            {error}
           </div>
-        ) : (
           <Button variant="primary" onClick={() => setDialogOpen(true)}>
             Connect GitHub
           </Button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <>
+          <ul className={styles.accounts}>
+            {accounts.map((account) => (
+              <li key={account.login} className={styles.row}>
+                <Avatar name={account.name ?? account.login} src={account.avatarUrl} size="lg" />
+                <div className={styles.text}>
+                  <p className="headline">{account.name ?? account.login}</p>
+                  <p className={styles.detail}>
+                    @{account.login}
+                    {account.source === 'cli' ? ' · through the GitHub CLI' : ''}
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  tone="danger"
+                  aria-label={`Disconnect ${account.login}`}
+                  loading={disconnect.isPending && disconnect.variables === account.login}
+                  onClick={() => disconnect.mutate(account.login)}
+                >
+                  Disconnect
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {error}
+        </>
+      )}
       <GitHubConnectDialog open={dialogOpen} onOpenChange={setDialogOpen} />
     </Panel>
   );

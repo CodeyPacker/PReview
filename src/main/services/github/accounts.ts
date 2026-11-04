@@ -53,6 +53,7 @@ export class GitHubAccounts {
   private readonly accounts = new Map<string, GitHubAccount>();
   private readonly listeners: GitHubAccountsListener[] = [];
   private pending: Pending | undefined;
+  private connected: GitHubAuthState['connected'];
   private error: string | undefined;
   private flow: AbortController | undefined;
 
@@ -85,12 +86,14 @@ export class GitHubAccounts {
     return this.accounts.get(key(login));
   }
 
-  // The state the renderer reads. Shows the first account until the screens list them all.
+  // The state the renderer reads. Never includes a token.
   getState(): GitHubAuthState {
-    if (this.pending) return { status: 'pending', ...this.pending };
-    const [first] = this.list();
-    if (first) return { status: 'connected', source: first.source, user: first.user };
-    return this.error ? { status: 'disconnected', error: this.error } : { status: 'disconnected' };
+    return {
+      accounts: this.list().map((account) => ({ ...account.user, source: account.source })),
+      ...(this.pending && { pending: this.pending }),
+      ...(this.connected && { connected: this.connected }),
+      ...(this.error && { error: this.error }),
+    };
   }
 
   // Checks every account with GitHub. An account whose token GitHub rejects is forgotten.
@@ -111,6 +114,7 @@ export class GitHubAccounts {
     const flow = new AbortController();
     this.flow = flow;
     this.error = undefined;
+    this.connected = undefined;
 
     let code: DeviceCode;
     try {
@@ -137,6 +141,7 @@ export class GitHubAccounts {
   async connectWithCli(): Promise<GitHubAuthState> {
     this.stopFlow();
     this.error = undefined;
+    this.connected = undefined;
     try {
       const user = await fetchUser(this.deps.fetch, await this.deps.ghToken());
       await this.add({ source: 'cli', user });
@@ -156,13 +161,14 @@ export class GitHubAccounts {
     return this.getState();
   }
 
-  // Forgets an account's credentials on this computer, the first account when no login is
-  // given. An OAuth authorization stays listed on GitHub until the user revokes it there,
-  // since revoking needs the client secret. A CLI account leaves gh signed in.
-  disconnect(login?: string): GitHubAuthState {
+  // Forgets an account's credentials on this computer. An OAuth authorization stays listed on
+  // GitHub until the user revokes it there, since revoking needs the client secret. A CLI
+  // account leaves gh signed in.
+  disconnect(login: string): GitHubAuthState {
     this.stopFlow();
     this.error = undefined;
-    const account = login ? this.get(login) : this.list()[0];
+    this.connected = undefined;
+    const account = this.get(login);
     if (account) {
       this.remove(account);
       this.deps.log.info(`Disconnected GitHub account ${account.login}`);
@@ -190,7 +196,9 @@ export class GitHubAccounts {
   // Saves the credentials and connects the account, replacing one with the same login.
   private async add(credentials: GitHubCredentials) {
     await this.deps.directory.store(credentials.user.login).save(credentials);
+    const replaced = this.accounts.has(key(credentials.user.login));
     const account = this.put(credentials);
+    this.connected = { login: account.login, replaced };
     for (const listener of this.listeners) listener.added?.(account.login);
   }
 

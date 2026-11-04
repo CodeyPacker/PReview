@@ -130,12 +130,15 @@ describe('GitHubAccounts', () => {
     });
 
     const pending = await accounts.connect();
-    expect(pending).toMatchObject({ status: 'pending', userCode: 'ABCD-1234' });
+    expect(pending).toMatchObject({ pending: { userCode: 'ABCD-1234' } });
     expect(deps.copyText).toHaveBeenCalledWith('ABCD-1234');
     expect(deps.openUrl).toHaveBeenCalledWith('https://github.com/login/device');
 
     await flush();
-    expect(accounts.getState()).toEqual({ status: 'connected', source: 'oauth', user });
+    expect(accounts.getState()).toEqual({
+      accounts: [{ ...user, source: 'oauth' }],
+      connected: { login: 'octo', replaced: false },
+    });
     expect(files.get('octo')).toEqual({ source: 'oauth', token: 'gho_token', user });
   });
 
@@ -148,7 +151,7 @@ describe('GitHubAccounts', () => {
     await accounts.connect();
     await flush();
     expect(accounts.getState()).toEqual({
-      status: 'disconnected',
+      accounts: [],
       error: 'Authorization was canceled on GitHub.',
     });
     expect(files.size).toBe(0);
@@ -157,7 +160,7 @@ describe('GitHubAccounts', () => {
   it('reports a network failure without the raw error', async () => {
     const { accounts } = await setup({});
     expect(await accounts.connect()).toEqual({
-      status: 'disconnected',
+      accounts: [],
       error: 'Could not reach GitHub. Check your connection and try again.',
     });
   });
@@ -170,16 +173,16 @@ describe('GitHubAccounts', () => {
     });
 
     await accounts.connect();
-    expect(accounts.cancel()).toEqual({ status: 'disconnected' });
+    expect(accounts.cancel()).toEqual({ accounts: [] });
     await flush();
-    expect(accounts.getState()).toEqual({ status: 'disconnected' });
+    expect(accounts.getState()).toEqual({ accounts: [] });
     expect(files.size).toBe(0);
   });
 
   it('starts connected from stored credentials and forgets them on disconnect', async () => {
     const { accounts, files } = await setup({}, [{ source: 'oauth', token: 'gho_token', user }]);
-    expect(accounts.getState()).toEqual({ status: 'connected', source: 'oauth', user });
-    expect(accounts.disconnect()).toEqual({ status: 'disconnected' });
+    expect(accounts.getState()).toEqual({ accounts: [{ ...user, source: 'oauth' }] });
+    expect(accounts.disconnect('octo')).toEqual({ accounts: [] });
     expect(files.size).toBe(0);
   });
 
@@ -216,7 +219,7 @@ describe('GitHubAccounts', () => {
     );
     await accounts.verify();
     expect(accounts.getState()).toEqual({
-      status: 'disconnected',
+      accounts: [],
       error: 'GitHub signed you out. Connect again to keep syncing pull requests.',
     });
     expect(files.size).toBe(0);
@@ -225,7 +228,7 @@ describe('GitHubAccounts', () => {
   it('stays connected when GitHub cannot be reached', async () => {
     const { accounts, files } = await setup({}, [{ source: 'oauth', token: 'gho_token', user }]);
     await accounts.verify();
-    expect(accounts.getState()).toEqual({ status: 'connected', source: 'oauth', user });
+    expect(accounts.getState()).toEqual({ accounts: [{ ...user, source: 'oauth' }] });
     expect(files.get('octo')).toEqual({ source: 'oauth', token: 'gho_token', user });
   });
 
@@ -245,16 +248,35 @@ describe('GitHubAccounts with the GitHub CLI', () => {
       'https://api.github.com/user': [json(githubUser)],
     });
 
-    expect(await accounts.connectWithCli()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(await accounts.connectWithCli()).toEqual({
+      accounts: [{ ...user, source: 'cli' }],
+      connected: { login: 'octo', replaced: false },
+    });
     expect(files.get('octo')).toEqual({ source: 'cli', user });
     const headers = vi.mocked(deps.fetch).mock.calls[0]?.[1]?.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer gho_cli');
   });
 
+  it('adds a second account beside the first, and replaces one already connected', async () => {
+    const { accounts, files } = await setup(
+      { 'https://api.github.com/user': [json(githubUser), json(githubUser)] },
+      [{ source: 'cli', user: hubot }],
+    );
+
+    await accounts.connectWithCli();
+    expect(accounts.getState().accounts.map((account) => account.login)).toEqual(['Hubot', 'octo']);
+
+    expect((await accounts.connectWithCli()).connected).toEqual({
+      login: 'octo',
+      replaced: true,
+    });
+    expect([...files.keys()].sort()).toEqual(['hubot', 'octo']);
+  });
+
   it('reads the token from the CLI on each request', async () => {
     let token = 'gho_first';
     const { accounts } = await setup({}, [{ source: 'cli', user }], () => Promise.resolve(token));
-    expect(accounts.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(accounts.getState()).toEqual({ accounts: [{ ...user, source: 'cli' }] });
     expect(await accounts.get('octo')?.getToken()).toBe('gho_first');
     token = 'gho_second';
     expect(await accounts.get('octo')?.getToken()).toBe('gho_second');
@@ -280,7 +302,7 @@ describe('GitHubAccounts with the GitHub CLI', () => {
       Promise.reject(new GhCliError('The GitHub CLI is not signed in.')),
     );
     expect(await accounts.get('octo')?.getToken()).toBeUndefined();
-    expect(accounts.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(accounts.getState()).toEqual({ accounts: [{ ...user, source: 'cli' }] });
   });
 
   it('explains a CLI that is missing or signed out', async () => {
@@ -288,7 +310,7 @@ describe('GitHubAccounts with the GitHub CLI', () => {
       Promise.reject(new GhCliError('The GitHub CLI is not installed. Install gh and try again.')),
     );
     expect(await accounts.connectWithCli()).toEqual({
-      status: 'disconnected',
+      accounts: [],
       error: 'The GitHub CLI is not installed. Install gh and try again.',
     });
     expect(files.size).toBe(0);
@@ -299,7 +321,7 @@ describe('GitHubAccounts with the GitHub CLI', () => {
       'https://api.github.com/user': [json({ message: 'Bad credentials' }, 401)],
     });
     expect(await accounts.connectWithCli()).toEqual({
-      status: 'disconnected',
+      accounts: [],
       error: 'GitHub rejected the GitHub CLI’s token. Run gh auth login again.',
     });
   });
@@ -314,7 +336,10 @@ describe('GitHubAccounts with the GitHub CLI', () => {
     await accounts.connect();
     await accounts.connectWithCli();
     await flush();
-    expect(accounts.getState()).toEqual({ status: 'connected', source: 'cli', user });
+    expect(accounts.getState()).toEqual({
+      accounts: [{ ...user, source: 'cli' }],
+      connected: { login: 'octo', replaced: false },
+    });
     expect(files.get('octo')).toEqual({ source: 'cli', user });
   });
 });

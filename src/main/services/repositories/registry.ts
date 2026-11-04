@@ -29,14 +29,21 @@ interface ListedRow extends RepositoryRow {
   monitored: number;
   include_drafts: number;
   include_automated: number;
+  account_login: string | null;
+  account_manual: number | null;
 }
 
 const COLUMNS = 'id, path, name, remote_url, github_owner, github_name, root_commit, status';
 
 export function listRepositories(db: DatabaseSync): Repository[] {
+  // The account table's full_name compares without case.
   const rows = db
     .prepare(
-      `SELECT ${COLUMNS}, monitored, include_drafts, include_automated FROM repositories
+      `SELECT ${COLUMNS}, monitored, include_drafts, include_automated,
+              a.login AS account_login, a.manual AS account_manual
+       FROM repositories
+       LEFT JOIN github_repository_accounts a
+         ON a.full_name = github_owner || '/' || github_name
        ORDER BY status, COALESCE(github_owner, '') COLLATE NOCASE, name COLLATE NOCASE, path`,
     )
     .all() as unknown as ListedRow[];
@@ -49,6 +56,9 @@ export function listRepositories(db: DatabaseSync): Repository[] {
       row.github_owner && row.github_name
         ? { owner: row.github_owner, name: row.github_name }
         : null,
+    account: row.account_login
+      ? { login: row.account_login, manual: row.account_manual === 1 }
+      : null,
     status: row.status,
     settings: {
       monitored: row.monitored === 1,

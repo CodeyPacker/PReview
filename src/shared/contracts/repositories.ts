@@ -38,6 +38,9 @@ export const repositorySchema = z.object({
   remoteUrl: z.string().nullable(),
   // Parsed from the origin remote. Null when origin is not a GitHub repository.
   github: z.object({ owner: z.string(), name: z.string() }).nullable(),
+  // The GitHub account the repository's requests go out with. manual: the user picked it.
+  // Null until PReview assigns one on the next sync.
+  account: z.object({ login: z.string(), manual: z.boolean() }).nullable(),
   status: repositoryStatusSchema,
   settings: repositorySettingsSchema,
 });
