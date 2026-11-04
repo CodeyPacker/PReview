@@ -19,7 +19,8 @@
 }
 
 .field:focus-within {
-  border-color: var(--accent-border);
+  border-color: var(--focus-ring);
+  box-shadow: 0 0 0 1px var(--focus-ring);
 }
 
 .fieldSm {
@@ -40,9 +41,13 @@
   height: 100%;
   border: 0;
   background: transparent;
-  outline: none;
   color: var(--ink);
   font: 400 var(--text-base) / 20px var(--font-sans);
+}
+
+/* The field around it shows the focus, so the input doesn't also take the global ring. */
+.input:focus-visible {
+  outline: none;
 }
 
 .input::placeholder {

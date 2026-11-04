@@ -2,7 +2,28 @@
   display: grid;
   align-content: start;
   gap: var(--space-24);
-  max-width: 760px;
+  max-width: 1200px;
+  container-type: inline-size;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-24);
+}
+
+.column {
+  display: grid;
+  gap: var(--space-24);
+  min-width: 0;
+}
+
+/* Too narrow for two columns of settings. */
+@container (max-width: 720px) {
+  .columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .leader {
