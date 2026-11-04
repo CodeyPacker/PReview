@@ -1439,6 +1439,47 @@ test('opens a re-review on the changes since the last review', async () => {
   }
 });
 
+test('keeps a pull request with thousands of files quick to scroll and select', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    const files = Array.from({ length: 3000 }, (_, index) =>
+      changedFile(`src/part${index % 40}/file${index}.ts`),
+    );
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Big change') });
+    await mockIpc(app, {
+      'pullRequestFiles.list': { headSha: 'abcdef1', mergeBase: 'abcdef0', files },
+      'pullRequestFiles.listCommits': [],
+      'pullRequestFiles.getDiff': changedLine,
+      'reviewRounds.sync': [],
+    });
+    await openReview(app, page);
+    const list = page.locator('#review-files ul');
+    await expect(list.locator('button[title="src/part0/file0.ts"]')).toBeVisible();
+    // Only the rows in view are rendered.
+    expect(await list.locator('button').count()).toBeLessThan(100);
+
+    await list.locator('button[title="src/part1/file1.ts"]').click();
+    await expect(list.locator('button[aria-current="true"]')).toHaveAttribute(
+      'title',
+      'src/part1/file1.ts',
+    );
+
+    await list.evaluate((element) => (element.scrollTop = element.scrollHeight));
+    const last = list.locator('button[title="src/part39/file2999.ts"]');
+    await expect(last).toBeVisible();
+    await last.click();
+    await expect(list.locator('button[aria-current="true"]')).toHaveAttribute(
+      'title',
+      'src/part39/file2999.ts',
+    );
+    await page.screenshot({ path: test.info().outputPath('large-pr.png') });
+  } finally {
+    await app.close();
+  }
+});
+
 test('browses a file the pull request does not change', async () => {
   const app = await launch();
   try {
