@@ -1367,7 +1367,6 @@ test('submits a review, and only allows a comment on your own pull request', asy
         findingIds: [],
         verdict: 'comment',
         body: 'Nice work.',
-        sendToAgent: false,
       },
     ]);
 
@@ -1632,7 +1631,6 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
         findingIds: [],
         verdict: 'comment',
         body: 'A few notes.',
-        sendToAgent: false,
       },
     ]);
     // Sending the review returns to the Inbox. The mocked drafts are still there to delete.
@@ -1850,6 +1848,96 @@ test('adds, edits and resolves findings, and keeps published ones read-only', as
     await dialog.getByRole('button', { name: 'Close' }).click();
     // The resolved finding no longer counts as open.
     await expect(page.getByRole('button', { name: 'Findings, 0 open' })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test('submits to the agent with an optional message', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Agent'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+      'pullRequestReviews.listThreads': [],
+      'reviewFindings.list': [],
+    });
+    await app.evaluate(({ ipcMain }) => {
+      const submitted: unknown[] = [];
+      Object.assign(globalThis, { submittedReviews: submitted });
+      ipcMain.removeHandler('pullRequestReviews.submit');
+      ipcMain.handle('pullRequestReviews.submit', (_event, input) => {
+        submitted.push(input);
+        return { status: 'submitted' };
+      });
+    });
+    await openReview(app, page);
+    const dialog = page.getByRole('dialog');
+    const open = () => page.getByRole('button', { name: 'Submit to Agent' }).click();
+    const submit = dialog.getByRole('button', { name: 'Submit', exact: true });
+
+    // With nothing to work on, it needs a message.
+    await open();
+    await expect(
+      dialog.getByText('There are no comments or findings yet.', { exact: false }),
+    ).toBeVisible();
+    await expect(submit).toBeDisabled();
+    await dialog.getByLabel('Message (optional)').fill('Rename this file.');
+    await expect(submit).toBeEnabled();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+    // With an open discussion, an empty message gets the default GitHub needs.
+    await mockIpc(app, {
+      'pullRequestReviews.listThreads': [
+        {
+          id: 'T1',
+          path: 'a.ts',
+          side: 'modified',
+          startLine: null,
+          line: 1,
+          resolved: false,
+          outdated: false,
+          comments: [
+            {
+              id: 'C1',
+              author: { login: 'octo', avatarUrl: '' },
+              body: 'Why 2?',
+              createdAt: '2026-11-01T12:00:00Z',
+              url: 'https://github.com/octo/app/pull/7#discussion_r1',
+            },
+          ],
+        },
+      ],
+    });
+    await page.reload();
+    await open();
+    await expect(dialog.getByText('The agent works on 1 open discussion.')).toBeVisible();
+    await dialog.getByLabel('Message (optional)').fill('');
+    await submit.click();
+    await expect(dialog.getByRole('heading', { name: 'Sent to the agent' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Done' }).click();
+    await expect(page).toHaveURL(/#\/inbox$/);
+    expect(
+      await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
+    ).toEqual([
+      {
+        pullRequestId: 1,
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        draftIds: [],
+        findingIds: [],
+        verdict: 'comment',
+        body: 'Findings are in the comments.',
+        sendToAgent: true,
+      },
+    ]);
   } finally {
     await app.close();
   }
