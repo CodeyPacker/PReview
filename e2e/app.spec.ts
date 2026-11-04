@@ -143,6 +143,52 @@ test('turns desktop notifications off by kind and opens the notifications list',
   await app.close();
 });
 
+test('shows where updates stand and restarts only when no agent is running', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+    const panel = page.getByRole('region', { name: 'Updates' });
+    await expect(panel.getByText('Development builds don’t update.')).toBeVisible();
+    await expect(panel.getByRole('button')).toHaveCount(0);
+
+    // The panel reads the state every few seconds, so these show without a reload.
+    await mockIpc(app, {
+      'updates.get': { status: 'downloading', version: '1.2.0', percent: 41.6 },
+    });
+    await expect(panel.getByText('Downloading PReview 1.2.0… 42%')).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Check for Updates' })).toBeDisabled();
+
+    await mockIpc(app, {
+      'updates.get': { status: 'ready', version: '1.2.0' },
+      'updates.install': { status: 'busy' },
+    });
+    await panel.getByRole('button', { name: 'Restart to Update' }).click();
+    await expect(panel.getByRole('alert')).toHaveText(
+      'An agent is running. Restart once it finishes.',
+    );
+
+    // Where PReview can't install an update, it links to the download.
+    await mockIpc(app, {
+      'updates.get': {
+        status: 'available',
+        version: '1.2.0',
+        url: 'https://github.com/CodeyPacker/PReview/releases/tag/v1.2.0',
+      },
+    });
+    await expect(panel.getByRole('button', { name: 'Download' })).toHaveAttribute(
+      'href',
+      'https://github.com/CodeyPacker/PReview/releases/tag/v1.2.0',
+    );
+  } finally {
+    await app.close();
+  }
+});
+
 test('exports a backup and refuses a file that is not one', async () => {
   const app = await launch();
   const page = await app.firstWindow();

@@ -8,6 +8,13 @@ import { TextField } from '../components/TextField/TextField.tsx';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
 import { useExportBackup, useRestoreBackup } from '../hooks/useBackups.ts';
 import {
+  useAppVersion,
+  useCheckForUpdates,
+  useInstallUpdate,
+  useUpdates,
+} from '../hooks/useUpdates.ts';
+import type { UpdateState } from '../../shared/contracts/updates.ts';
+import {
   defaultSettings,
   type ReviewLeader,
   type Settings,
@@ -45,6 +52,25 @@ const notificationSettings = [
   },
 ] as const satisfies readonly { key: keyof Settings; label: string; description: string }[];
 
+function updateStatus(state: UpdateState): string {
+  switch (state.status) {
+    case 'unsupported':
+      return 'Development builds don’t update.';
+    case 'idle':
+      return 'PReview is up to date.';
+    case 'checking':
+      return 'Checking for updates…';
+    case 'available':
+      return `PReview ${state.version} is available. Download it to replace this copy.`;
+    case 'downloading':
+      return `Downloading PReview ${state.version}… ${Math.round(state.percent)}%`;
+    case 'ready':
+      return `PReview ${state.version} is ready. It installs when PReview restarts.`;
+    case 'error':
+      return 'Could not check for updates. Try again later.';
+  }
+}
+
 function SettingsPage() {
   const settings = useSettings();
   const update = useUpdateSettings();
@@ -54,6 +80,10 @@ function SettingsPage() {
   const exported = exportBackup.data?.status === 'exported' ? exportBackup.data.path : undefined;
   const invalidBackup =
     restoreBackup.data?.status === 'invalid' ? restoreBackup.data.message : undefined;
+  const version = useAppVersion().data;
+  const updates = useUpdates().data;
+  const checkForUpdates = useCheckForUpdates();
+  const installUpdate = useInstallUpdate();
   return (
     <div className={styles.page}>
       <PageHeader
@@ -158,6 +188,46 @@ function SettingsPage() {
               (exportBackup.isError
                 ? 'Could not export a backup.'
                 : 'Could not restore the backup.')}
+          </p>
+        )}
+      </Panel>
+      <Panel title="Updates">
+        <p className={styles.description}>
+          {version && `Version ${version}. `}
+          {updates && updateStatus(updates)}
+        </p>
+        {updates && updates.status !== 'unsupported' && (
+          <div className={styles.actions}>
+            {updates.status === 'ready' ? (
+              <Button
+                variant="primary"
+                loading={installUpdate.isPending}
+                onClick={() => installUpdate.mutate()}
+              >
+                Restart to Update
+              </Button>
+            ) : updates.status === 'available' ? (
+              <Button
+                variant="primary"
+                render={<a href={updates.url} target="_blank" rel="noreferrer" />}
+                nativeButton={false}
+              >
+                Download
+              </Button>
+            ) : (
+              <Button
+                loading={checkForUpdates.isPending || updates.status === 'checking'}
+                disabled={updates.status === 'downloading'}
+                onClick={() => checkForUpdates.mutate()}
+              >
+                Check for Updates
+              </Button>
+            )}
+          </div>
+        )}
+        {installUpdate.data?.status === 'busy' && (
+          <p role="alert" className={styles.error}>
+            An agent is running. Restart once it finishes.
           </p>
         )}
       </Panel>

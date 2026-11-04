@@ -79,6 +79,11 @@ export class AgentRunner {
 
   constructor(private readonly deps: AgentRunnerDeps) {}
 
+  // Whether an agent is running.
+  get busy(): boolean {
+    return this.running.size > 0;
+  }
+
   // Puts tasks a crash left mid-run back in the queue. Call once at startup, before wake.
   // Tasks waiting on a question keep waiting. The answer resumes them.
   recover(): void {

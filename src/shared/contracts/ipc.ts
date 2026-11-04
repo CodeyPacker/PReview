@@ -9,6 +9,7 @@ import {
 import { exportBackupResultSchema, restoreBackupResultSchema } from './backups.ts';
 import { githubAuthStateSchema } from './github.ts';
 import { notificationsStateSchema, setQuietInputSchema } from './notifications.ts';
+import { installUpdateResultSchema, updateStateSchema } from './updates.ts';
 import {
   repositoriesStateSchema,
   repositorySettingsPatchSchema,
@@ -86,6 +87,10 @@ export const ipcContract = {
   'notifications.markAllRead': { input: z.undefined(), output: notificationsStateSchema },
   // Quiet while the user is in Zen Mode: no desktop notifications.
   'notifications.setQuiet': { input: setQuietInputSchema, output: z.null() },
+  'updates.get': { input: z.undefined(), output: updateStateSchema },
+  'updates.check': { input: z.undefined(), output: updateStateSchema },
+  // Restarts to install a downloaded update, unless an agent is running.
+  'updates.install': { input: z.undefined(), output: installUpdateResultSchema },
   'github.getAuth': { input: z.undefined(), output: githubAuthStateSchema },
   'github.connect': { input: z.undefined(), output: githubAuthStateSchema },
   'github.connectWithCli': { input: z.undefined(), output: githubAuthStateSchema },

@@ -1,7 +1,8 @@
 name: Package
 
 # Builds the installers on each platform, since each build ships that machine's Claude Code
-# binary. Runs on version tags, by hand, and on pull requests that change the packaging.
+# binary. Runs on version tags, by hand, and on pull requests that change the packaging. A
+# version tag also publishes them as a GitHub release, which is where the app finds updates.
 on:
   push:
     tags: ['v*']
@@ -55,3 +56,27 @@ jobs:
             release/*.blockmap
             release/latest*.yml
           if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      # The app compares its own version with the release's, so they must match.
+      - name: Check the tag matches the version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "The tag is $GITHUB_REF_NAME but package.json says $version."
+            exit 1
+          fi
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - run: gh release create "$GITHUB_REF_NAME" --generate-notes installers/*
+        env:
+          GH_TOKEN: ${{ github.token }}
