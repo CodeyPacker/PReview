@@ -28,6 +28,7 @@ import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { getSettings } from './services/settings.ts';
+import { DatabaseBackups } from './services/backups.ts';
 import { validateReport } from './services/progression/xp.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
 import { createGit, runGit } from './services/repositories/git-info.ts';
@@ -163,6 +164,13 @@ void app.whenReady().then(async () => {
     return;
   }
 
+  const backups = new DatabaseBackups({
+    db,
+    directory: join(app.getPath('userData'), 'backups'),
+    log,
+  });
+  backups.start();
+
   const discovery = new RepositoryDiscovery({ db, git: runGit, log });
   const github = await createGitHubAccounts();
   // Each call goes out with the account assigned to its repository.
@@ -246,6 +254,7 @@ void app.whenReady().then(async () => {
     agentRunner.shutdown();
     agentPublisher.stop();
     pullRequests.stop();
+    backups.stop();
     db.close();
   });
 
