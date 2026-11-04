@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import { mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 // A new snapshot once a day, keeping the last week.
@@ -59,6 +59,22 @@ export function isValidBackup(path: string): boolean {
   } finally {
     db?.close();
   }
+}
+
+// The newest snapshot that passes its integrity check.
+export function newestValidBackup(directory: string): Backup | undefined {
+  return listBackups(directory).find((backup) => isValidBackup(backup.path));
+}
+
+// Replaces the database file with a snapshot. The old file and its WAL files are renamed, not
+// deleted, so nothing is lost. Returns the old file's new path.
+export function restoreBackup(backup: Backup, databasePath: string, now = new Date()): string {
+  const aside = `${databasePath}.broken-${stamp(now)}`;
+  for (const suffix of ['', '-wal', '-shm']) {
+    if (existsSync(databasePath + suffix)) renameSync(databasePath + suffix, aside + suffix);
+  }
+  copyFileSync(backup.path, databasePath);
+  return aside;
 }
 
 // Copies the database to a local folder once a day. Each copy is a consistent snapshot, checked
