@@ -195,8 +195,8 @@ describe('AgentRunner', () => {
     expect(runs).toHaveLength(3);
   });
 
-  it('fails at once when trying again cannot help', async () => {
-    const { runner, runs } = setup();
+  it('fails at once when trying again cannot help, and tells the user', async () => {
+    const { runner, runs, notify } = setup();
     const id = addTask(addPullRequest(7));
 
     runner.wake();
@@ -205,6 +205,10 @@ describe('AgentRunner', () => {
 
     await vi.waitFor(() => expect(task(id).status).toBe('failed'));
     expect(task(id).attempts).toBe(1);
+    expect(notify).toHaveBeenCalledWith(
+      'An agent run failed',
+      expect.stringContaining('Not signed in.'),
+    );
   });
 
   it("fails without starting the agent when the worktree can't be used", async () => {

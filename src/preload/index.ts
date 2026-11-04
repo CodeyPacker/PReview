@@ -25,6 +25,11 @@ const api: PreviewApi = {
     export: () => invoke('backups.export', undefined),
     restore: () => invoke('backups.restore', undefined),
   },
+  notifications: {
+    list: () => invoke('notifications.list', undefined),
+    markAllRead: () => invoke('notifications.markAllRead', undefined),
+    setQuiet: (quiet) => invoke('notifications.setQuiet', { quiet }),
+  },
   folders: {
     list: () => invoke('folders.list', undefined),
     add: () => invoke('folders.add', undefined),

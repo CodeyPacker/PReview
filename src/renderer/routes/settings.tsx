@@ -3,10 +3,15 @@ import { PageHeader } from '../app/PageHeader.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { Select } from '../components/Select/Select.tsx';
+import { Switch } from '../components/Switch/Switch.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
 import { useExportBackup, useRestoreBackup } from '../hooks/useBackups.ts';
-import { defaultSettings, type ReviewLeader } from '../../shared/contracts/settings.ts';
+import {
+  defaultSettings,
+  type ReviewLeader,
+  type Settings,
+} from '../../shared/contracts/settings.ts';
 import { reviewShortcuts, reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
 import { isMac, isWindows } from '../lib/platform.ts';
 import styles from './settings.module.css';
@@ -21,6 +26,24 @@ const leaders: { value: ReviewLeader; label: string }[] = [
   { value: 'Alt+Shift', label: 'Alt / Option+Shift' },
   { value: 'Meta+Shift', label: 'Command / Windows+Shift' },
 ];
+
+const notificationSettings = [
+  {
+    key: 'notifyPullRequests',
+    label: 'New pull requests',
+    description: 'When a pull request needs your review.',
+  },
+  {
+    key: 'notifyAgents',
+    label: 'Agents',
+    description: 'When an agent asks a question, fails, runs long, or its CI finishes.',
+  },
+  {
+    key: 'notifyAchievements',
+    label: 'Achievements',
+    description: 'When you unlock an achievement.',
+  },
+] as const satisfies readonly { key: keyof Settings; label: string; description: string }[];
 
 function SettingsPage() {
   const settings = useSettings();
@@ -79,6 +102,29 @@ function SettingsPage() {
             Could not save or load settings. Try again.
           </p>
         )}
+      </Panel>
+      <Panel title="Notifications">
+        <p className={styles.description}>
+          Choose which events show desktop notifications. Every event still appears in the
+          notifications list, and Zen Mode pauses desktop notifications.
+        </p>
+        <ul className={styles.switches}>
+          {notificationSettings.map(({ key, label, description }) => (
+            <li key={key}>
+              <Switch
+                label={
+                  <span className={styles.setting}>
+                    <span className="headline">{label}</span>
+                    <span className={styles.description}>{description}</span>
+                  </span>
+                }
+                checked={settings.data?.[key] ?? defaultSettings[key]}
+                disabled={!settings.data}
+                onCheckedChange={(checked) => update.mutate({ [key]: checked })}
+              />
+            </li>
+          ))}
+        </ul>
       </Panel>
       <Panel title="Backups">
         <p className={styles.description}>

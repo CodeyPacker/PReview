@@ -1,7 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
-import { listAchievements, unlockAchievements, weeklyStreak } from './achievements.ts';
+import {
+  listAchievements,
+  onAchievementsUnlocked,
+  unlockAchievements,
+  weeklyStreak,
+} from './achievements.ts';
 
 let db: ReturnType<typeof openDatabase>;
 let key = 0;
@@ -55,6 +60,19 @@ describe('weekly streak', () => {
 });
 
 describe('achievements', () => {
+  it('tells listeners about newly earned achievements only', () => {
+    const listener = vi.fn();
+    const stop = onAchievementsUnlocked(listener);
+    addAward(day(3));
+    unlockAchievements(db);
+    unlockAchievements(db);
+    stop();
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls[0]?.[0]).toMatchObject([
+      { id: 'first-review', name: 'First Review' },
+    ]);
+  });
+
   it('unlocks once its target is met and keeps it', () => {
     expect(unlockAchievements(db)).toEqual([]);
     addAward(day(3));
