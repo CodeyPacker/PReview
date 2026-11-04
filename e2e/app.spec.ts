@@ -178,6 +178,87 @@ test('exports a backup and refuses a file that is not one', async () => {
   await app.close();
 });
 
+test('restores a chosen backup when it restarts', async () => {
+  let app = await launch();
+  let page = await app.firstWindow();
+  await dismissGitHubPrompt(page);
+  const backupPath = join(userDataDir, 'chosen.db');
+  await app.evaluate(({ app, dialog }, path) => {
+    dialog.showSaveDialog = () => Promise.resolve({ canceled: false, filePath: path });
+    dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [path] });
+    dialog.showMessageBox = () => Promise.resolve({ response: 0, checkboxChecked: false });
+    // The test starts the app again itself.
+    app.relaunch = () => {};
+  }, backupPath);
+  const settings = page.getByRole('navigation', { name: 'Main' }).getByRole('link', {
+    name: 'Settings',
+  });
+  await settings.click();
+  await page.getByRole('button', { name: 'Export Backup…' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Saved to' })).toBeVisible();
+  // A change made after the backup is lost when it's restored.
+  await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
+
+  const closed = app.waitForEvent('close');
+  await page.getByRole('button', { name: 'Restore Backup…' }).click();
+  await closed;
+
+  app = await launch();
+  page = await app.firstWindow();
+  try {
+    expect(await page.evaluate(() => window.preview.settings.getAll())).toMatchObject({
+      theme: 'system',
+      githubPromptDismissed: true,
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test('reloads the window after a crash, and asks before reloading a second time', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ dialog }) => {
+      const asked: string[] = [];
+      Object.assign(globalThis, { crashPrompts: asked });
+      dialog.showMessageBoxSync = ((_window: unknown, options: { message: string }) => {
+        asked.push(options.message);
+        return 0;
+      }) as typeof dialog.showMessageBoxSync;
+    });
+    const crash = () =>
+      app.evaluate(({ BrowserWindow }) =>
+        BrowserWindow.getAllWindows()[0]?.webContents.forcefullyCrashRenderer(),
+      );
+    const crashPrompts = () =>
+      app.evaluate(() => (globalThis as { crashPrompts?: string[] }).crashPrompts);
+    // Playwright loses the page when it crashes, so the main process reads the reloaded one:
+    // its heading, and whether a dialog is open.
+    const shown = () =>
+      app.evaluate(({ BrowserWindow }) => {
+        const contents = BrowserWindow.getAllWindows()[0]?.webContents;
+        if (!contents || contents.isCrashed() || contents.isLoading()) return null;
+        return contents.executeJavaScript(
+          `({ heading: document.querySelector('h2')?.textContent, dialog: !!document.querySelector('[role=dialog]') })`,
+        ) as Promise<{ heading?: string; dialog: boolean }>;
+      });
+    // The dismissed GitHub prompt was saved, so it stays closed.
+    const dashboard = { heading: 'Your Progress', dialog: false };
+
+    await crash();
+    await expect.poll(shown).toEqual(dashboard);
+    expect(await crashPrompts()).toEqual([]);
+
+    await crash();
+    await expect.poll(crashPrompts).toEqual(['PReview keeps crashing']);
+    await expect.poll(shown).toEqual(dashboard);
+  } finally {
+    await app.close();
+  }
+});
+
 test('opens on the dashboard and navigates from the sidebar', async () => {
   const app = await launch();
   const page = await app.firstWindow();
@@ -307,6 +388,161 @@ test('shows the Inbox empty state until GitHub is connected', async () => {
   await expect(page.getByRole('heading', { level: 1, name: 'Inbox' })).toBeVisible();
   await expect(page.getByText('Connect GitHub on the Integrations page')).toBeVisible();
   await app.close();
+});
+
+test('starts with one character and every badge unearned', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    const nav = page.getByRole('navigation', { name: 'Main' });
+
+    await nav.getByRole('link', { name: 'Characters' }).click();
+    await expect(page.getByRole('button', { name: 'Your Companion' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: /^Shadow/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await page.getByRole('button', { name: /Unlocks at Account Level 3/ }).click();
+    await expect(page.getByText('Unlocks at Account Level 3.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Set as Companion' })).toBeDisabled();
+
+    await nav.getByRole('link', { name: 'Achievements' }).click();
+    await expect(page.getByText('Finish a review this week to start a streak.')).toBeVisible();
+    const badges = page.getByRole('radiogroup', { name: 'Show badges' });
+    await expect(badges.getByRole('radio', { name: 'Earned 0' })).toBeVisible();
+    await badges.getByRole('radio', { name: /^Earned/ }).click();
+    await expect(page.getByText('No badges here yet.')).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test('celebrates a merged pull request and picks a new companion', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    // Shadow earned the pull request's XP, which reached Account Level 3 and unlocked Ember
+    // and the First Bug Caught badge.
+    await app.evaluate(({ ipcMain }) => {
+      const level = (xp: number, perLevel: number) => ({
+        xp,
+        level: Math.floor(xp / perLevel) + 1,
+        levelXp: xp % perLevel,
+        nextLevelXp: perLevel,
+      });
+      const character = (id: string, name: string, unlockLevel: number, xp: number) => ({
+        ...level(xp, 500),
+        id,
+        name,
+        title: 'Placeholder',
+        unlockLevel,
+        unlocked: unlockLevel <= 3,
+        outfit: 'default',
+      });
+      const progression = {
+        account: level(2150, 1000),
+        streak: { current: 1, longest: 1, thisWeek: true },
+        activeCharacter: 'shadow',
+        characters: [
+          character('shadow', 'Shadow', 1, 1200),
+          character('ember', 'Ember', 3, 0),
+          character('frost', 'Frost', 6, 0),
+          character('bolt', 'Bolt', 10, 0),
+        ],
+      };
+      const award = (id: number, reason: string, category: string | null, amount: number) => ({
+        id,
+        reason,
+        baseXp: amount,
+        multiplier: 1,
+        amount,
+        activeMs: 0,
+        pullRequestId: 1,
+        repository: 'octo/app',
+        number: 7,
+        findingId: category ? id : null,
+        commentId: null,
+        category,
+        characterId: 'shadow',
+        createdAt: '2026-11-02T12:00:00.000Z',
+      });
+      const handlers: Record<string, (input: never) => unknown> = {
+        'mergedPullRequests.get': () => ({
+          pullRequestId: 1,
+          repository: 'octo/app',
+          number: 7,
+          url: 'https://github.com/octo/app/pull/7',
+          mergedAt: '2026-11-02T12:05:00.000Z',
+          comments: 2,
+          suggestions: 0,
+          bugsCaught: 1,
+          filesReviewed: 3,
+        }),
+        'progression.listXp': () => [
+          award(1, 'review-completed', null, 20),
+          award(2, 'finding-resolved', 'bug', 50),
+        ],
+        'progression.get': () => progression,
+        'progression.setActiveCharacter': ({ characterId }: { characterId: string }) => {
+          progression.activeCharacter = characterId;
+          return progression;
+        },
+        'achievements.list': () => [
+          {
+            id: 'first-bug',
+            name: 'First Bug Caught',
+            description: 'Catch your first bug.',
+            metric: 'bugs',
+            target: 1,
+            progress: 1,
+            earnedAt: '2026-11-02T12:00:01.000Z',
+          },
+        ],
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await page.evaluate(() => {
+      location.hash = '/post-merge/1';
+    });
+    await page.reload();
+
+    await expect(page.getByText('octo/app')).toBeVisible();
+    await expect(page.getByText('#7')).toBeVisible();
+    // The total, and the same XP for the account and the character.
+    await expect(page.getByText('+70', { exact: true })).toBeVisible();
+    await expect(page.getByText('+70 XP')).toHaveCount(2);
+    await expect(page.getByText('+50 XP')).toBeVisible();
+    await expect(page.getByText('+20 XP')).toBeVisible();
+    await expect(page.getByText('First Bug Caught')).toBeVisible();
+    // The account and Shadow are both at level 3.
+    await expect(page.getByText('Level 3', { exact: true })).toHaveCount(2);
+    await expect(page.getByRole('progressbar', { name: 'Account level progress' })).toHaveAttribute(
+      'aria-valuenow',
+      '150',
+    );
+    // The character's bar is named by its visible level.
+    await expect(page.getByRole('progressbar', { name: 'Level 3' })).toHaveAttribute(
+      'aria-valuenow',
+      '200',
+    );
+    await page.screenshot({ path: test.info().outputPath('post-merge.png') });
+
+    // Ember unlocked at Account Level 3, so it can be the companion now.
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Characters' })
+      .click();
+    await page.getByRole('button', { name: /^Ember/ }).click();
+    await page.getByRole('button', { name: 'Set as Companion' }).click();
+    await expect(page.getByRole('button', { name: 'Your Companion' })).toBeDisabled();
+  } finally {
+    await app.close();
+  }
 });
 
 test('keeps split view at window size and toggles review panels independently', async () => {
@@ -1363,6 +1599,208 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     expect(
       await app.evaluate(() => (globalThis as { reviewDrafts?: () => unknown }).reviewDrafts?.()),
     ).toEqual([]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('reads, replies to and resolves a discussion in the diff', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Threads'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+    });
+    // The thread is kept in memory, and GitHub refuses the second reopen.
+    await app.evaluate(({ ipcMain }) => {
+      const comment = (id: string, login: string, body: string) => ({
+        id,
+        author: { login, avatarUrl: '' },
+        body,
+        createdAt: '2026-11-01T12:00:00Z',
+        url: 'https://github.com/octo/app/pull/7#discussion_r1',
+      });
+      const thread = {
+        id: 'T1',
+        path: 'a.ts',
+        side: 'modified',
+        startLine: null,
+        line: 1,
+        resolved: false,
+        outdated: false,
+        comments: [comment('C1', 'octo', 'Why 2?')],
+      };
+      let reopens = 0;
+      const handlers: Record<string, (input: never) => unknown> = {
+        'pullRequestReviews.listThreads': () => [thread],
+        'pullRequestReviews.replyToThread': ({ body }: { body: string }) => {
+          thread.comments.push(comment(`C${thread.comments.length + 1}`, 'me', body));
+          return { status: 'saved' };
+        },
+        'pullRequestReviews.setThreadResolved': ({ resolved }: { resolved: boolean }) => {
+          if (!resolved && ++reopens > 1) {
+            return { status: 'rejected', message: 'You can’t reopen this thread.' };
+          }
+          thread.resolved = resolved;
+          return { status: 'saved' };
+        },
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await openReview(app, page);
+
+    const thread = page.getByRole('region', { name: 'Thread on new line 1' });
+    await expect(thread.getByText('Why 2?')).toBeVisible();
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    await thread.getByRole('textbox', { name: 'Reply to the thread on line 1' }).fill('It is 2.');
+    await thread.getByRole('button', { name: 'Reply' }).click();
+    await expect(thread.getByText('It is 2.')).toBeVisible();
+    await expect(thread.getByRole('textbox')).toBeHidden();
+
+    // A resolved thread can hide its replies.
+    await thread.getByRole('button', { name: 'Resolve' }).click();
+    await expect(thread.getByText('Resolved')).toBeVisible();
+    await thread.getByRole('button', { name: 'Hide replies' }).click();
+    await expect(thread.getByText('It is 2.')).toBeHidden();
+    await thread.getByRole('button', { name: 'Show 1 reply' }).click();
+    await expect(thread.getByText('It is 2.')).toBeVisible();
+
+    await thread.getByRole('button', { name: 'Reopen' }).click();
+    await expect(thread.getByRole('button', { name: 'Resolve' })).toBeVisible();
+    await thread.getByRole('button', { name: 'Resolve' }).click();
+    await thread.getByRole('button', { name: 'Reopen' }).click();
+    await expect(thread.getByRole('alert')).toHaveText('You can’t reopen this thread.');
+    await expect(thread.getByRole('button', { name: 'Reopen' })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test('adds, edits and resolves findings, and keeps published ones read-only', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Findings'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+    });
+    // Findings are kept in memory. One was published with an earlier review, and an agent
+    // confirmed it.
+    await app.evaluate(({ ipcMain }) => {
+      const now = '2026-11-01T12:00:00Z';
+      type Finding = Record<string, unknown> & { id: number };
+      let findings: Finding[] = [
+        {
+          id: 1,
+          pullRequestId: 1,
+          category: 'security',
+          description: 'Token is logged',
+          steps: 'Open the log.',
+          validation: 'validated',
+          resolution: 'open',
+          publishedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+      let nextId = 2;
+      const handlers: Record<string, (input: never) => unknown> = {
+        'reviewFindings.list': () => findings,
+        'reviewFindings.create': (input: Record<string, unknown>) => {
+          findings.push({
+            ...input,
+            id: nextId++,
+            validation: 'pending',
+            resolution: 'open',
+            publishedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          });
+          return findings;
+        },
+        'reviewFindings.update': ({ id, ...input }: Finding) => {
+          findings = findings.map((finding) =>
+            finding.id === id ? { ...finding, ...input } : finding,
+          );
+          return findings;
+        },
+        'reviewFindings.setResolution': ({ id, resolution }: Finding) => {
+          findings = findings.map((finding) =>
+            finding.id === id ? { ...finding, resolution } : finding,
+          );
+          return findings;
+        },
+        'reviewFindings.delete': ({ id }: Finding) => {
+          findings = findings.filter((finding) => finding.id !== id);
+          return findings;
+        },
+      };
+      Object.assign(globalThis, { reviewFindings: () => findings });
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await openReview(app, page);
+
+    await page.getByRole('button', { name: 'Findings, 1 open' }).click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('button', { name: 'Add finding' }).click();
+    await expect(dialog.getByRole('heading', { name: 'New finding' })).toBeVisible();
+    await dialog.getByRole('radio', { name: 'UI bug' }).click();
+    await dialog.getByLabel('Description').fill('Button overlaps\nOn narrow windows.');
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    await expect(dialog.getByText('Unpublished: 1.')).toBeVisible();
+
+    // An unpublished finding opens to edit.
+    await dialog.getByRole('button', { name: /Button overlaps/ }).click();
+    await expect(dialog.getByRole('heading', { name: 'Edit finding' })).toBeVisible();
+    await dialog.getByLabel('Steps to reproduce (optional)').fill('Make the window narrow.');
+    await dialog.getByRole('button', { name: 'Save' }).click();
+    expect(
+      await app.evaluate(() =>
+        (globalThis as unknown as { reviewFindings: () => unknown[] }).reviewFindings(),
+      ),
+    ).toContainEqual(
+      expect.objectContaining({
+        id: 2,
+        category: 'ui-bug',
+        description: 'Button overlaps\nOn narrow windows.',
+        steps: 'Make the window narrow.',
+      }),
+    );
+
+    // A published finding can only be resolved, and shows the agent's check.
+    await dialog.getByRole('button', { name: /Token is logged/ }).click();
+    await expect(dialog.getByRole('heading', { name: 'Security finding' })).toBeVisible();
+    await expect(dialog.getByText('Validated')).toBeVisible();
+    await expect(dialog.getByLabel('Description')).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Resolve' }).click();
+    await expect(dialog.getByRole('button', { name: 'Reopen' })).toBeVisible();
+
+    await dialog.getByRole('button', { name: 'Back' }).click();
+    await dialog.getByRole('button', { name: /Button overlaps/ }).click();
+    await dialog.getByRole('button', { name: 'Delete' }).click();
+    await expect(dialog.getByRole('button', { name: /Button overlaps/ })).toHaveCount(0);
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    // The resolved finding no longer counts as open.
+    await expect(page.getByRole('button', { name: 'Findings, 0 open' })).toBeVisible();
   } finally {
     await app.close();
   }
