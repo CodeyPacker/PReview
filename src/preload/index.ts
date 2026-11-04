@@ -100,6 +100,9 @@ const api: PreviewApi = {
     addReviewTime: (pullRequestId, ms) =>
       invoke('progression.addReviewTime', { pullRequestId, ms }),
   },
+  achievements: {
+    list: () => invoke('achievements.list', undefined),
+  },
   agentTasks: {
     list: () => invoke('agentTasks.list', undefined),
     listActivity: (taskId) => invoke('agentTasks.listActivity', { taskId }),

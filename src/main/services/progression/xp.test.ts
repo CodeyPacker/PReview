@@ -16,6 +16,7 @@ import {
   startReviewProgress,
   validateReport,
 } from './xp.ts';
+import { listAchievements } from './achievements.ts';
 
 let db: ReturnType<typeof openDatabase>;
 let pullRequestId: number;
@@ -111,6 +112,11 @@ describe('review completion XP', () => {
     expect(listXpTransactions(db, pullRequestId)).toMatchObject([
       { multiplier: 1.25, amount: 25, activeMs: 20 * 60_000 },
     ]);
+  });
+
+  it('unlocks the achievements it completes', () => {
+    finishReview(db, pullRequestId);
+    expect(listAchievements(db).find((item) => item.id === 'first-review')?.earnedAt).toBeTruthy();
   });
 
   it('keeps XP after the pull request closes', () => {

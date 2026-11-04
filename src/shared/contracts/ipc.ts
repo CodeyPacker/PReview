@@ -53,6 +53,7 @@ import { reviewRoundSchema } from './review-rounds.ts';
 import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
 import { characterIdSchema, progressionSchema } from './progression.ts';
+import { achievementSchema } from './achievements.ts';
 
 export const appInfoSchema = z.object({
   name: z.string(),
@@ -269,6 +270,8 @@ export const ipcContract = {
     input: z.object({ characterId: characterIdSchema }),
     output: progressionSchema,
   },
+  // Every achievement with its progress, in definition order.
+  'achievements.list': { input: z.undefined(), output: z.array(achievementSchema) },
   // Adds focused time on a review screen. The main process caps each report.
   'progression.addReviewTime': {
     input: z.object({ pullRequestId: z.number().int(), ms: z.number().int().min(0) }),
