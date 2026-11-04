@@ -4,11 +4,12 @@ import {
   Bot,
   Bug,
   Calendar,
-  CircleCheck,
   CircleDot,
+  FileText,
   GitPullRequest,
   Lightbulb,
   MessageSquare,
+  Star,
 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { AgentTask } from '../../shared/contracts/agent-tasks.ts';
@@ -26,68 +27,19 @@ import { ListItem } from '../components/ListItem/index.ts';
 import { Panel } from '../components/Panel/index.ts';
 import { ProgressBar } from '../components/ProgressBar/index.ts';
 import { StatCard, type StatCardProps } from '../components/StatCard/index.ts';
+import type { ProgressStat } from '../../shared/contracts/progression.ts';
 import { StatusPill } from '../components/StatusPill/index.ts';
 import { TabPanel, Tabs } from '../components/Tabs/index.ts';
 import { useAgentTasks } from '../hooks/useAgentTasks.ts';
 import { useGitHubAuth } from '../hooks/useGitHubAuth.ts';
+import { useProgression, useProgressStats } from '../hooks/useProgression.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
 import { useRepositories } from '../hooks/useRepositories.ts';
 import styles from './dashboard.module.css';
 
 export const Route = createFileRoute('/dashboard')({ component: DashboardPage });
 
-// Placeholder numbers until review statistics, XP, characters and achievements exist (SCOPE 5.1).
-const placeholderStreakDays = 5;
-const placeholderStats: (StatCardProps & { label: string })[] = [
-  {
-    label: 'Bugs Caught',
-    value: 24,
-    delta: 12,
-    tone: 'danger',
-    icon: <Bug />,
-    data: [3, 5, 4, 7, 6, 9, 12],
-  },
-  {
-    label: 'Changes Requested',
-    value: 18,
-    delta: 28,
-    tone: 'info',
-    icon: <GitPullRequest />,
-    data: [2, 4, 3, 6, 5, 8, 9],
-  },
-  {
-    label: 'Reviews Approved',
-    value: 42,
-    delta: 16,
-    tone: 'success',
-    icon: <CircleCheck />,
-    data: [5, 6, 8, 7, 10, 12, 14],
-  },
-  {
-    label: 'Improvements Suggested',
-    value: 31,
-    delta: 24,
-    tone: 'warning',
-    icon: <Lightbulb />,
-    data: [4, 5, 7, 6, 9, 10, 13],
-  },
-];
-const placeholderWeek = {
-  summary: [
-    { label: 'Reviews', value: '12' },
-    { label: 'Findings', value: '8' },
-    { label: 'XP Earned', value: '320' },
-  ],
-  days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, index) => ({
-    label,
-    values: [[3, 7, 11, 7, 14, 5, 11][index]!],
-  })),
-};
-const placeholderCharacters = [
-  { name: 'Shadow', level: 4 },
-  { name: 'Ember', level: 2 },
-  { name: 'Frost', level: 1 },
-];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const PENDING_STATES: readonly PullRequest['reviewState'][] = [
   'needs-review',
@@ -123,6 +75,33 @@ function DashboardPage() {
   const { data: repositoryState } = useRepositories();
   const { data: pullRequestState } = usePullRequests();
   const { data: agentTasks } = useAgentTasks();
+  const { data: progression } = useProgression().progression;
+  const { data: progressStats } = useProgressStats();
+  const accountLevel = progression?.account;
+  const activeCharacter = progression?.characters.find(
+    (character) => character.id === progression.activeCharacter,
+  );
+  const streakWeeks = progression?.streak.current ?? 0;
+  const statCard = (
+    label: string,
+    tone: StatCardProps['tone'],
+    icon: StatCardProps['icon'],
+    stat: ProgressStat | undefined,
+  ): StatCardProps & { label: string } => ({
+    label,
+    tone,
+    icon,
+    value: (stat?.total ?? 0).toLocaleString('en-US'),
+    ...(stat?.delta != null && { delta: stat.delta }),
+    data: stat?.days ?? [],
+  });
+  const stats = [
+    statCard('Reviews Finished', 'accent', <FileText />, progressStats?.reviews),
+    statCard('Bugs Caught', 'danger', <Bug />, progressStats?.bugs),
+    statCard('Improvements Made', 'warning', <Lightbulb />, progressStats?.improvements),
+    statCard('XP Earned', 'success', <Star />, progressStats?.xp),
+  ];
+  const thisWeek = progressStats?.thisWeek;
 
   const repositoryNames = useMemo(
     () =>
@@ -195,7 +174,9 @@ function DashboardPage() {
               {pending.length === 0
                 ? 'No pull requests are waiting for your review.'
                 : `${pending.length} pull ${pending.length === 1 ? 'request' : 'requests'} waiting for your review.`}{' '}
-              You&apos;re on a {placeholderStreakDays}-day streak!
+              {streakWeeks > 0
+                ? `You're on a ${streakWeeks}-week streak!`
+                : 'Finish a review this week to start a streak.'}
             </p>
             <Button variant="primary" iconEnd={<ArrowRight />} onClick={openInbox}>
               Review Pull Requests
@@ -205,19 +186,25 @@ function DashboardPage() {
         <Panel title={`${name ? `${name}'s` : 'Your'} Progress`}>
           <div className={styles.progress}>
             <ProgressBar
-              value={1250}
-              max={2000}
+              value={accountLevel?.levelXp ?? 0}
+              max={accountLevel?.nextLevelXp ?? 1}
               aria-label="Account level progress"
-              label="Level 12"
-              valueLabel="1,250 / 2,000 XP"
+              label={`Level ${accountLevel?.level ?? 1}`}
+              valueLabel={`${(accountLevel?.levelXp ?? 0).toLocaleString('en-US')} / ${(
+                accountLevel?.nextLevelXp ?? 0
+              ).toLocaleString('en-US')} XP`}
             />
             <div className={styles.activeCharacter}>
-              <Avatar name="Shadow" size="lg" tone="accent" />
+              <Avatar name={activeCharacter?.name ?? 'Shadow'} size="lg" tone="accent" />
               <div className={styles.characterText}>
-                <span className={styles.characterName}>Shadow</span>
-                <span className={styles.characterLevel}>Level 4</span>
+                <span className={styles.characterName}>{activeCharacter?.name ?? 'Shadow'}</span>
+                <span className={styles.characterLevel}>Level {activeCharacter?.level ?? 1}</span>
               </div>
-              <Button size="sm" iconEnd={<ArrowRight />}>
+              <Button
+                size="sm"
+                iconEnd={<ArrowRight />}
+                onClick={() => void navigate({ to: '/characters' })}
+              >
                 View Character
               </Button>
             </div>
@@ -226,7 +213,7 @@ function DashboardPage() {
       </div>
 
       <div className={styles.stats}>
-        {placeholderStats.map((stat) => (
+        {stats.map((stat) => (
           <StatCard key={stat.label} {...stat} />
         ))}
       </div>
@@ -274,18 +261,28 @@ function DashboardPage() {
           className={cx(styles.fill, styles.optional)}
           title="This Week"
           icon={<Calendar aria-hidden />}
-          action={<span className={styles.placeholderNote}>Sample data</span>}
         >
           <div className={styles.week}>
             <dl className={styles.weekSummary}>
-              {placeholderWeek.summary.map((item) => (
+              {[
+                { label: 'Reviews', value: thisWeek?.reviews ?? 0 },
+                { label: 'Findings', value: thisWeek?.findings ?? 0 },
+                { label: 'XP Earned', value: thisWeek?.xp ?? 0 },
+              ].map((item) => (
                 <div key={item.label} className={styles.weekStat}>
-                  <dd>{item.value}</dd>
+                  <dd>{item.value.toLocaleString('en-US')}</dd>
                   <dt>{item.label}</dt>
                 </div>
               ))}
             </dl>
-            <BarChart data={placeholderWeek.days} fill />
+            <BarChart
+              data={WEEKDAYS.map((label, index) => ({
+                label,
+                values: [thisWeek?.xpByDay[index] ?? 0],
+              }))}
+              series={[{ label: 'XP', color: 'chart-1' }]}
+              fill
+            />
           </div>
         </Panel>
       </div>
@@ -345,10 +342,18 @@ function DashboardPage() {
           }
         >
           <div className={styles.characters}>
-            {placeholderCharacters.map((character, index) => (
-              <CharacterCard key={character.name} size="sm" selected={index === 0} {...character} />
+            {(progression?.characters ?? []).map((character) => (
+              <CharacterCard
+                key={character.id}
+                size="sm"
+                name={character.name}
+                selected={character.id === progression?.activeCharacter}
+                {...(character.unlocked
+                  ? { level: character.level }
+                  : { locked: true, unlockHint: `Unlock at Level ${character.unlockLevel}` })}
+                onClick={() => void navigate({ to: '/characters' })}
+              />
             ))}
-            <CharacterCard size="sm" name="Locked" locked unlockHint="Unlock at Level 20" />
           </div>
         </Panel>
       </div>

@@ -251,6 +251,7 @@ interface XpTransactionRow {
   number: number;
   finding_id: number | null;
   comment_id: number | null;
+  category: XpTransaction['category'];
   character_id: XpTransaction['characterId'];
   created_at: string;
 }
@@ -272,6 +273,7 @@ export function listXpTransactions(db: DatabaseSync, pullRequestId: number): XpT
     number: row.number,
     findingId: row.finding_id,
     commentId: row.comment_id,
+    category: row.category,
     characterId: row.character_id,
     createdAt: row.created_at,
   }));

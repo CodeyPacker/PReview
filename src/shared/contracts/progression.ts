@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { weeklyStreakSchema } from './achievements.ts';
-import type { FindingCategory } from './review-findings.ts';
+import { findingCategorySchema, type FindingCategory } from './review-findings.ts';
 
 export const characterIdSchema = z.enum(['shadow', 'ember', 'frost', 'bolt']);
 export type CharacterId = z.infer<typeof characterIdSchema>;
@@ -101,7 +101,33 @@ export const xpTransactionSchema = z.object({
   number: z.number().int(),
   findingId: z.number().int().nullable(),
   commentId: z.number().int().nullable(),
+  // The kind of finding or comment. Null for a finished review.
+  category: findingCategorySchema.nullable(),
   characterId: characterIdSchema,
   createdAt: z.string(),
 });
 export type XpTransaction = z.infer<typeof xpTransactionSchema>;
+
+// One Dashboard number: its total, the last 7 days oldest first, and the change of the last
+// 7 days against the 7 before as a percent. delta is null when the 7 before had none.
+export const progressStatSchema = z.object({
+  total: z.number().int(),
+  days: z.array(z.number().int()),
+  delta: z.number().int().nullable(),
+});
+export type ProgressStat = z.infer<typeof progressStatSchema>;
+
+export const progressStatsSchema = z.object({
+  reviews: progressStatSchema,
+  bugs: progressStatSchema,
+  improvements: progressStatSchema,
+  xp: progressStatSchema,
+  // This calendar week, Monday to Sunday. xpByDay has seven values.
+  thisWeek: z.object({
+    reviews: z.number().int(),
+    findings: z.number().int(),
+    xp: z.number().int(),
+    xpByDay: z.array(z.number().int()),
+  }),
+});
+export type ProgressStats = z.infer<typeof progressStatsSchema>;

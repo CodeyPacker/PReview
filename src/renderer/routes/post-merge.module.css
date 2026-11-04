@@ -101,23 +101,10 @@
   font: 600 var(--text-lg) / 22px var(--font-sans);
 }
 
-.cosmetic {
-  display: flex;
-  align-items: center;
-  gap: var(--space-12);
+.empty {
+  margin: 0;
   color: var(--ink-secondary);
-}
-
-.cosmeticBody {
-  display: grid;
-  flex: 1;
-  color: var(--ink);
-  font: 500 var(--text-base) / 20px var(--font-sans);
-}
-
-.cosmeticLabel {
-  color: var(--warning);
-  font: 500 var(--text-sm) / 16px var(--font-sans);
+  font: 400 var(--text-md) / 18px var(--font-sans);
 }
 
 .steps {
@@ -126,7 +113,7 @@
   gap: var(--space-12);
 }
 
-/* Short windows keep the real numbers and drop the placeholder panels. */
+/* Short windows keep the numbers and drop the achievements panel. */
 @media (max-height: 800px) {
   .page {
     gap: var(--space-12);
