@@ -55,3 +55,61 @@
   color: var(--ink-secondary);
   font: 400 var(--text-sm) / 16px var(--font-sans);
 }
+
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.searchRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.group {
+  margin-top: var(--space-8);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-6);
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  padding: var(--space-4) var(--space-12);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-secondary);
+  font: 500 var(--text-sm) / 16px var(--font-sans);
+  text-align: start;
+  cursor: pointer;
+}
+
+.groupHeader:hover {
+  background: var(--surface-hover);
+  color: var(--ink);
+}
+
+.groupHeader:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: -2px;
+}
+
+.groupChevron {
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  transition: transform 120ms ease;
+}
+
+.groupHeader[aria-expanded='true'] .groupChevron {
+  transform: rotate(90deg);
+}
+
+.groupCount {
+  margin-inline-start: auto;
+  font-variant-numeric: tabular-nums;
+}

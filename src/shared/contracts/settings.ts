@@ -19,6 +19,8 @@ export const settingsSchema = z.strictObject({
   githubPromptDismissed: z.boolean(),
   // The WSL distribution agents run in on Windows.
   wslDistro: z.string().trim().min(1).max(100),
+  // The changed files list puts tests, stories and generated files in a collapsed group.
+  groupSupportFiles: z.boolean(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -30,4 +32,5 @@ export const defaultSettings: Settings = {
   reviewLeader: 'Control',
   githubPromptDismissed: false,
   wslDistro: 'Ubuntu',
+  groupSupportFiles: true,
 };

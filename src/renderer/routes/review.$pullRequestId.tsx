@@ -56,7 +56,8 @@ import { useReviewSession } from '../hooks/useReviewSession.ts';
 import type { ReviewSession } from '../../shared/contracts/review-sessions.ts';
 import { useReviewThreads } from '../hooks/useReviewThreads.ts';
 import { useThreadActions } from '../hooks/useThreadActions.ts';
-import { useSettings } from '../hooks/useSettings.ts';
+import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
+import { orderForReview } from '../lib/supportFiles.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
 import { reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
@@ -124,11 +125,18 @@ function ReviewPage() {
     files.data,
   );
   const reviewStates = readOnlyView ? noReviewStates : markedStates;
-  const visibleFiles = changedFiles?.filter(
+  const { data: settings } = useSettings();
+  const updateSettings = useUpdateSettings();
+  const groupSupport = settings?.groupSupportFiles ?? defaultSettings.groupSupportFiles;
+  const [supportOpen, setSupportOpen] = useState(false);
+  const listedFiles = changedFiles?.filter(
     (file) =>
       matchesFileReviewFilter(reviewStates[file.path], fileFilter) &&
       (!searchTerm || matchesFilePath(file, searchTerm) || search.matches.has(file.path)),
   );
+  // The files in the order the list shows them, so next and previous follow it. A collapsed
+  // group of tests and generated files is skipped.
+  const visibleFiles = listedFiles && orderForReview(listedFiles, groupSupport, supportOpen);
   const reviewFindings = useReviewFindings(pullRequestId);
   const { finish: finishReview } = useReviewCompletion(pullRequestId);
   const roundFinished = round?.finishedAt != null;
@@ -166,7 +174,6 @@ function ReviewPage() {
     zen,
     toggleZen,
   } = useSidebar();
-  const { data: settings } = useSettings();
   const leader = settings?.reviewLeader ?? defaultSettings.reviewLeader;
   const shortcut = (key: string) => reviewShortcutLabel(leader, key, isMac);
   const diffViewer = useRef<DiffViewerHandle>(null);
@@ -499,7 +506,13 @@ function ReviewPage() {
             <ChangedFiles
               id="review-files"
               className={styles.files}
-              files={visibleFiles}
+              files={listedFiles}
+              groupSupport={groupSupport}
+              onGroupSupportChange={(grouped) =>
+                updateSettings.mutate({ groupSupportFiles: grouped })
+              }
+              supportOpen={supportOpen}
+              onSupportOpenChange={setSupportOpen}
               totalFiles={changedFiles?.length}
               reviewStates={reviewStates}
               filter={fileFilter}

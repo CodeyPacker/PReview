@@ -1,5 +1,7 @@
-import { FileDiff } from 'lucide-react';
+import { ChevronRight, FileDiff, FlaskConical } from 'lucide-react';
 import { useMemo, useRef } from 'react';
+import { IconButton } from '../components/IconButton/IconButton.tsx';
+import { splitSupportFiles } from '../lib/supportFiles.ts';
 import { useActiveItemRect } from '../lib/useActiveItemRect.ts';
 import { ActiveItemIndicator } from '../components/ActiveItemIndicator/ActiveItemIndicator.tsx';
 import type {
@@ -48,6 +50,11 @@ export interface ChangedFilesProps {
   onSelect: (path: string) => void;
   // Adds the choice of listing the repository's files instead of the changed ones.
   onBrowseChange?: (browsing: boolean) => void;
+  // Puts tests, stories and generated files in a group at the bottom, collapsed until opened.
+  groupSupport?: boolean;
+  onGroupSupportChange?: (grouped: boolean) => void;
+  supportOpen?: boolean;
+  onSupportOpenChange?: (open: boolean) => void;
 }
 
 export function ChangedFiles({
@@ -73,11 +80,32 @@ export function ChangedFiles({
   selectedPath,
   onSelect,
   onBrowseChange,
+  groupSupport = false,
+  onGroupSupportChange,
+  supportOpen = false,
+  onSupportOpenChange,
 }: ChangedFilesProps) {
   const listRef = useRef<HTMLUListElement>(null);
   const activeLayout = useMemo(
-    () => ({ filter, selectedPath, searchQuery, searchMatches }),
-    [filter, selectedPath, searchQuery, searchMatches],
+    () => ({ filter, selectedPath, searchQuery, searchMatches, groupSupport, supportOpen }),
+    [filter, selectedPath, searchQuery, searchMatches, groupSupport, supportOpen],
+  );
+  const { code, support } = groupSupport
+    ? splitSupportFiles(files ?? [])
+    : { code: files ?? [], support: [] };
+  const item = (file: PullRequestFile) => (
+    <li key={file.path}>
+      <FileTreeItem
+        path={file.path}
+        status={file.status}
+        reviewState={reviewStates[file.path]}
+        searchMatch={searchMatches.get(file.path)}
+        additions={file.additions}
+        deletions={file.deletions}
+        selected={file.path === selectedPath}
+        onClick={() => onSelect(file.path)}
+      />
+    </li>
   );
   useActiveItemRect(listRef, ':scope > li > button[aria-current="true"]', activeLayout);
   const additions = files?.reduce((sum, file) => sum + file.additions, 0) ?? 0;
@@ -124,12 +152,24 @@ export function ChangedFiles({
         ]}
       />
       <div className={styles.search}>
-        <SearchField
-          aria-label="Search files or text"
-          placeholder="Search files or text…"
-          value={searchQuery}
-          onValueChange={onSearchChange}
-        />
+        <div className={styles.searchRow}>
+          <SearchField
+            aria-label="Search files or text"
+            placeholder="Search files or text…"
+            value={searchQuery}
+            onValueChange={onSearchChange}
+          />
+          {onGroupSupportChange && (
+            <IconButton
+              size="sm"
+              variant="plain"
+              icon={<FlaskConical aria-hidden />}
+              label="Group tests and generated files"
+              selected={groupSupport}
+              onClick={() => onGroupSupportChange(!groupSupport)}
+            />
+          )}
+        </div>
         {searching && (
           <p role="status" className={styles.searchStatus}>
             Searching file contents…
@@ -174,20 +214,22 @@ export function ChangedFiles({
           data-selected-review-state={selectedPath ? reviewStates[selectedPath] : undefined}
         >
           <ActiveItemIndicator as="li" className={styles.indicator} />
-          {files.map((file) => (
-            <li key={file.path}>
-              <FileTreeItem
-                path={file.path}
-                status={file.status}
-                reviewState={reviewStates[file.path]}
-                searchMatch={searchMatches.get(file.path)}
-                additions={file.additions}
-                deletions={file.deletions}
-                selected={file.path === selectedPath}
-                onClick={() => onSelect(file.path)}
-              />
+          {code.map(item)}
+          {support.length > 0 && (
+            <li className={styles.group}>
+              <button
+                type="button"
+                className={styles.groupHeader}
+                aria-expanded={supportOpen}
+                onClick={() => onSupportOpenChange?.(!supportOpen)}
+              >
+                <ChevronRight aria-hidden className={styles.groupChevron} />
+                <span>Tests, stories & generated</span>
+                <span className={styles.groupCount}>{support.length}</span>
+              </button>
             </li>
-          ))}
+          )}
+          {supportOpen && support.map(item)}
         </ul>
       )}
     </Panel>
