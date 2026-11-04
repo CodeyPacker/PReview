@@ -3,6 +3,7 @@ import type { ExportBackupResult, RestoreBackupResult } from '../../shared/contr
 import type { DatabaseSync } from 'node:sqlite';
 import type { AppInfo } from '../../shared/contracts/ipc.ts';
 import type { GitHubAccounts } from '../services/github/accounts.ts';
+import type { Notifier } from '../services/notifications.ts';
 import type { RepositoryDiscovery } from '../services/repositories/discovery.ts';
 import {
   createReviewDraft,
@@ -64,6 +65,7 @@ export interface IpcServices {
     export(): Promise<ExportBackupResult>;
     restore(): Promise<RestoreBackupResult>;
   };
+  notifier: Notifier;
   github: GitHubAccounts;
   discovery: RepositoryDiscovery;
   pullRequests: PullRequestSync;
@@ -83,6 +85,7 @@ export function registerIpcHandlers(
   db: DatabaseSync,
   {
     backupFiles,
+    notifier,
     github,
     discovery,
     pullRequests,
@@ -105,6 +108,12 @@ export function registerIpcHandlers(
   handle('settings.update', (patch) => updateSettings(db, patch));
   handle('backups.export', () => backupFiles.export());
   handle('backups.restore', () => backupFiles.restore());
+  handle('notifications.list', () => notifier.list());
+  handle('notifications.markAllRead', () => notifier.markAllRead());
+  handle('notifications.setQuiet', ({ quiet }) => {
+    notifier.setQuiet(quiet);
+    return null;
+  });
 
   handle('github.getAuth', () => github.getState());
   handle('github.connect', () => github.connect());

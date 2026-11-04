@@ -24,6 +24,8 @@ export interface PullRequestSyncDeps {
   // Sends each repository's calls with its account, and assigns accounts to new repositories.
   provider: GitProvider & Pick<RoutingProvider, 'accountFor' | 'assign'>;
   log: { info(...args: unknown[]): void; warn(...args: unknown[]): void };
+  // Tells the user about pull requests new to the Inbox.
+  notify?: (title: string, body: string) => void;
 }
 
 // When an account may sync again.
@@ -66,6 +68,8 @@ export class PullRequestSync {
   private started = false;
   private readonly accounts = new Map<string, AccountSync>();
   private readonly errors = new Map<number, string>();
+  // Repositories synced since the app started.
+  private readonly synced = new Set<number>();
 
   constructor(private readonly deps: PullRequestSyncDeps) {}
 
@@ -137,6 +141,10 @@ export class PullRequestSync {
     const eligible = new Set(repositories.map((repository) => repository.id));
     for (const id of this.errors.keys()) if (!eligible.has(id)) this.errors.delete(id);
 
+    const before = new Set(listPullRequests(this.deps.db).map((pull) => pull.id));
+    // Repositories whose new pull requests are announced, with each one's name and account. A
+    // repository's first sync isn't, so adding one doesn't announce everything already open.
+    const announced = new Map<number, { fullName: string; login: string }>();
     const now = Date.now();
     const attempted = new Set<string>();
     const failed = new Set<string>();
@@ -168,6 +176,11 @@ export class PullRequestSync {
       if (!manual && now < account.retryAt) continue;
       attempted.add(key);
 
+      const seen =
+        this.synced.has(repository.id) ||
+        this.deps.db
+          .prepare('SELECT 1 FROM pull_requests WHERE repository_id = ? LIMIT 1')
+          .get(repository.id) !== undefined;
       try {
         replacePullRequests(
           this.deps.db,
@@ -175,6 +188,8 @@ export class PullRequestSync {
           await this.deps.provider.getPullRequests(fullName),
         );
         this.errors.delete(repository.id);
+        this.synced.add(repository.id);
+        if (seen) announced.set(repository.id, { fullName, login: key });
       } catch (error) {
         // The account was disconnected during the sync. The next sync reassigns it.
         if (error instanceof GitHubNotConnectedError) continue;
@@ -189,6 +204,8 @@ export class PullRequestSync {
       }
     }
 
+    this.announce(before, announced);
+
     const done = Date.now();
     for (const key of attempted) {
       const account = this.account(key);
@@ -198,6 +215,33 @@ export class PullRequestSync {
           ? done + Math.min(SYNC_INTERVAL_MS * 2 ** account.failures, MAX_BACKOFF_MS)
           : 0;
     }
+  }
+
+  // Notifies about pull requests that weren't in the Inbox before this sync, except the user's
+  // own.
+  private announce(
+    before: ReadonlySet<number>,
+    announced: ReadonlyMap<number, { fullName: string; login: string }>,
+  ): void {
+    const fresh = listPullRequests(this.deps.db).filter((pull) => {
+      const repository = announced.get(pull.repositoryId);
+      return (
+        repository && !before.has(pull.id) && pull.author?.login.toLowerCase() !== repository.login
+      );
+    });
+    const [first] = fresh;
+    if (!first || !this.deps.notify) return;
+    if (fresh.length === 1) {
+      const { fullName } = announced.get(first.repositoryId)!;
+      this.deps.notify('New pull request', `${fullName}#${first.number}: ${first.title}`);
+      return;
+    }
+    const titles = fresh.slice(0, 3).map((pull) => pull.title);
+    const more = fresh.length - titles.length;
+    this.deps.notify(
+      `${fresh.length} new pull requests`,
+      titles.join(', ') + (more > 0 ? `, and ${more} more` : ''),
+    );
   }
 
   private block(error: GitHubRateLimitError, login = error.login) {

@@ -111,7 +111,14 @@ function setup(getPullRequests: Mock<GitProvider['getPullRequests']>, routing: R
     getChecks: vi.fn(),
   };
   const log = { info: vi.fn(), warn: vi.fn() };
-  return { sync: new PullRequestSync({ db, provider, log }), getPullRequests, accountFor, assign };
+  const notify = vi.fn();
+  return {
+    sync: new PullRequestSync({ db, provider, log, notify }),
+    getPullRequests,
+    accountFor,
+    assign,
+    notify,
+  };
 }
 
 describe('PullRequestSync', () => {
@@ -149,6 +156,26 @@ describe('PullRequestSync', () => {
     expect(sync.getState().pullRequests.map((p) => [p.number, p.title, p.draft])).toEqual([
       [2, 'Renamed', true],
     ]);
+  });
+
+  it('announces pull requests new to the Inbox after the first sync, except your own', async () => {
+    addRepository('app');
+    const mine = { login: 'Octo', avatarUrl: 'https://avatars.example/octo', bot: false };
+    const getPullRequests = vi
+      .fn()
+      .mockResolvedValueOnce([pull(1)])
+      .mockResolvedValueOnce([pull(1), pull(2), pull(3, { author: mine })])
+      .mockResolvedValueOnce([pull(1), pull(2), pull(4), pull(5)]);
+    const { sync, notify } = setup(getPullRequests);
+
+    await sync.refresh();
+    expect(notify).not.toHaveBeenCalled();
+
+    await sync.refresh();
+    expect(notify).toHaveBeenCalledExactlyOnceWith('New pull request', 'octo/app#2: PR 2');
+
+    await sync.refresh();
+    expect(notify).toHaveBeenLastCalledWith('2 new pull requests', 'PR 5, PR 4');
   });
 
   it('leaves out drafts and automated pull requests where the repository excludes them', async () => {

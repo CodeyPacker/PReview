@@ -408,5 +408,6 @@ export class AgentRunner {
       summary: retry ? 'The run failed. Trying again.' : 'The run failed.',
       detail: result.error,
     });
+    if (!retry) this.deps.notify('An agent run failed', `On "${task.title}": ${result.error}`);
   }
 }

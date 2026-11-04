@@ -60,6 +60,15 @@ export function achievementTotals(db: DatabaseSync): Record<AchievementMetric, n
   };
 }
 
+type UnlockListener = (earned: readonly (typeof achievementDefinitions)[number][]) => void;
+const unlockListeners = new Set<UnlockListener>();
+
+// Calls the listener each time achievements are earned. Returns a function that stops it.
+export function onAchievementsUnlocked(listener: UnlockListener): () => void {
+  unlockListeners.add(listener);
+  return () => unlockListeners.delete(listener);
+}
+
 // Records every achievement whose target is now met. An earned achievement is kept. Returns
 // the ids earned by this call.
 export function unlockAchievements(db: DatabaseSync): string[] {
@@ -67,10 +76,11 @@ export function unlockAchievements(db: DatabaseSync): string[] {
   const insert = db.prepare(
     'INSERT OR IGNORE INTO earned_achievements (achievement_id) VALUES (?)',
   );
-  return achievementDefinitions
+  const earned = achievementDefinitions
     .filter((definition) => totals[definition.metric] >= definition.target)
-    .filter((definition) => insert.run(definition.id).changes > 0)
-    .map((definition) => definition.id);
+    .filter((definition) => insert.run(definition.id).changes > 0);
+  if (earned.length > 0) for (const listener of unlockListeners) listener(earned);
+  return earned.map((definition) => definition.id);
 }
 
 export function listAchievements(db: DatabaseSync): Achievement[] {

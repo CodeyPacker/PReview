@@ -1,6 +1,5 @@
 import { Outlet, useLocation } from '@tanstack/react-router';
 import {
-  Bell,
   House,
   Inbox,
   ChevronLeft,
@@ -10,7 +9,7 @@ import {
   Smile,
   Trophy,
 } from 'lucide-react';
-import { useCallback, useMemo, useState, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useState, type SetStateAction } from 'react';
 import wordmarkDark from '../assets/wordmark-dark.png';
 import wordmarkLight from '../assets/wordmark-light.png';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
@@ -25,6 +24,7 @@ import { cx } from '../lib/cx.ts';
 import { isMac, modKey } from '../lib/platform.ts';
 import styles from './AppShell.module.css';
 import { GitHubPrompt } from './GitHubPrompt.tsx';
+import { NotificationsButton } from './NotificationsButton.tsx';
 
 interface PanelVisibility {
   collapsed: boolean;
@@ -72,6 +72,11 @@ export function AppShell() {
     [collapsed, setCollapsed, filesCollapsed, setFilesCollapsed, zen, toggleZen],
   );
   const isReview = useLocation({ select: (location) => location.pathname.startsWith('/review/') });
+  // No desktop notifications in Zen Mode.
+  const quiet = zen && isReview;
+  useEffect(() => {
+    void window.preview.notifications.setQuiet(quiet);
+  }, [quiet]);
   const { data: settings } = useSettings();
   const leader = settings?.reviewLeader ?? defaultSettings.reviewLeader;
   return (
@@ -118,7 +123,7 @@ export function AppShell() {
               <NavItem to="/settings" icon={<Settings />} label="Settings" />
             </nav>
             <div className={styles.footer}>
-              <IconButton icon={<Bell />} label="Notifications" size="lg" />
+              <NotificationsButton />
             </div>
           </aside>
         </div>

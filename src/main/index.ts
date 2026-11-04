@@ -40,6 +40,8 @@ import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { getSettings } from './services/settings.ts';
 import { ConnectivityWatch } from './services/connectivity.ts';
+import { Notifier } from './services/notifications.ts';
+import { onAchievementsUnlocked } from './services/progression/achievements.ts';
 import {
   applyStagedRestore,
   DatabaseBackups,
@@ -339,7 +341,32 @@ void app.whenReady().then(async () => {
         }),
       ),
   });
-  const pullRequests = new PullRequestSync({ db, provider, log });
+  // A click on a desktop notification brings PReview forward without changing the screen.
+  const notifier = new Notifier({
+    db,
+    show: (title, body) => {
+      const notification = new Notification({ title, body });
+      notification.on('click', () => {
+        const [window] = BrowserWindow.getAllWindows();
+        if (!window) return createWindow();
+        if (window.isMinimized()) window.restore();
+        window.show();
+        window.focus();
+      });
+      notification.show();
+    },
+  });
+  onAchievementsUnlocked((earned) => {
+    for (const { name, description } of earned) {
+      notifier.notify('achievement', `Achievement unlocked: ${name}`, description);
+    }
+  });
+  const pullRequests = new PullRequestSync({
+    db,
+    provider,
+    log,
+    notify: (title, body) => notifier.notify('pull-request', title, body),
+  });
   github.listen({
     // A new account may be the one that can read repositories still unassigned.
     added: () => void pullRequests.refresh(),
@@ -348,8 +375,13 @@ void app.whenReady().then(async () => {
   });
   void github.verify();
   const pullRequestFiles = new PullRequestFiles({ db, provider });
-  const notify = (title: string, body: string) => new Notification({ title, body }).show();
-  const pullRequestReviews = new PullRequestReviews({ db, provider, notify, log });
+  const pullRequestReviews = new PullRequestReviews({
+    db,
+    provider,
+    notify: (title, body) => notifier.notify('review', title, body),
+    log,
+  });
+  const notify = (title: string, body: string) => notifier.notify('agent', title, body);
   const repositorySearch = new RepositorySearch({ db, provider, git: runGit, grep: runGitGrep });
   // Fetching a pull request's branch can take a while on a large repository.
   const worktrees = new AgentWorktrees({
@@ -378,6 +410,7 @@ void app.whenReady().then(async () => {
   });
   registerIpcHandlers(db, {
     backupFiles,
+    notifier,
     github,
     discovery,
     pullRequests,

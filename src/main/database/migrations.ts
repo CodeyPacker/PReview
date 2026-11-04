@@ -538,4 +538,20 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 27,
+    name: 'notification_events',
+    // Every notification PReview sent, for the in-app list. read_at is null until the user
+    // opens the list.
+    sql: `
+      CREATE TABLE notification_events (
+        id INTEGER PRIMARY KEY,
+        kind TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        read_at TEXT
+      ) STRICT;
+    `,
+  },
 ];

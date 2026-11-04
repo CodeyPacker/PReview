@@ -72,6 +72,9 @@ test('keeps a saved setting after a restart', async () => {
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
     groupSupportFiles: true,
+    notifyPullRequests: true,
+    notifyAgents: true,
+    notifyAchievements: true,
   });
   await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
   await app.close();
@@ -84,6 +87,9 @@ test('keeps a saved setting after a restart', async () => {
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
     groupSupportFiles: true,
+    notifyPullRequests: true,
+    notifyAgents: true,
+    notifyAchievements: true,
   });
   await app.close();
 });
@@ -103,7 +109,36 @@ test('rejects an invalid setting', async () => {
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
     groupSupportFiles: true,
+    notifyPullRequests: true,
+    notifyAgents: true,
+    notifyAchievements: true,
   });
+
+  await app.close();
+});
+
+test('turns desktop notifications off by kind and opens the notifications list', async () => {
+  const app = await launch();
+  const page = await app.firstWindow();
+  await dismissGitHubPrompt(page);
+
+  await page
+    .getByRole('navigation', { name: 'Main' })
+    .getByRole('link', { name: 'Settings' })
+    .click();
+  const achievements = page.getByRole('switch', { name: /^Achievements/ });
+  await expect(achievements).toBeChecked();
+  await achievements.click();
+  await expect(achievements).not.toBeChecked();
+  expect(await page.evaluate(() => window.preview.settings.getAll())).toMatchObject({
+    notifyPullRequests: true,
+    notifyAchievements: false,
+  });
+
+  await page.getByRole('button', { name: 'Notifications' }).click();
+  const list = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(list).toContainText('No notifications yet.');
+  await page.screenshot({ path: test.info().outputPath('notifications.png') });
 
   await app.close();
 });

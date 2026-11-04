@@ -6,6 +6,7 @@ import type {
 } from './agent-tasks.ts';
 import type { ExportBackupResult, RestoreBackupResult } from './backups.ts';
 import type { GitHubAuthState } from './github.ts';
+import type { NotificationsState } from './notifications.ts';
 import type { AppInfo } from './ipc.ts';
 import type {
   CharacterId,
@@ -70,6 +71,11 @@ export interface PreviewApi {
     export(): Promise<ExportBackupResult>;
     // Restarts PReview when the user goes ahead, so it resolves only on cancel or a bad file.
     restore(): Promise<RestoreBackupResult>;
+  };
+  notifications: {
+    list(): Promise<NotificationsState>;
+    markAllRead(): Promise<NotificationsState>;
+    setQuiet(quiet: boolean): Promise<null>;
   };
   github: {
     getAuth(): Promise<GitHubAuthState>;

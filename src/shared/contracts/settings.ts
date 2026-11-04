@@ -21,6 +21,10 @@ export const settingsSchema = z.strictObject({
   wslDistro: z.string().trim().min(1).max(100),
   // The changed files list puts tests, stories and generated files in a collapsed group.
   groupSupportFiles: z.boolean(),
+  // Desktop notifications for each kind of event. They still go to the in-app list when off.
+  notifyPullRequests: z.boolean(),
+  notifyAgents: z.boolean(),
+  notifyAchievements: z.boolean(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -33,4 +37,7 @@ export const defaultSettings: Settings = {
   githubPromptDismissed: false,
   wslDistro: 'Ubuntu',
   groupSupportFiles: true,
+  notifyPullRequests: true,
+  notifyAgents: true,
+  notifyAchievements: true,
 };
