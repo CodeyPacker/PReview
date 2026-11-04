@@ -1594,7 +1594,8 @@ test('shows one commit on its own without file decisions', async () => {
     await expect(files.getByRole('button', { name: /a.ts/ })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeEnabled();
 
-    // Generated files wait for the reviewer.
+    // Generated files wait for the reviewer, in a group that starts collapsed.
+    await files.getByRole('button', { name: /Tests, stories & generated/ }).click();
     await files.getByRole('button', { name: /pnpm-lock.yaml/ }).click();
     await expect(
       page.getByText('This file looks generated, so its diff is collapsed.'),
