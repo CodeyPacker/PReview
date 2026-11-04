@@ -16,3 +16,19 @@ export function useProgression() {
   });
   return { progression, setActiveCharacter };
 }
+
+// Dashboard numbers. Read with ['progression'], so XP awards refresh them.
+export function useProgressStats() {
+  return useQuery({
+    queryKey: ['progression', 'stats'],
+    queryFn: () => window.preview.progression.getStats(),
+  });
+}
+
+// The XP one pull request earned.
+export function usePullRequestXp(pullRequestId: number) {
+  return useQuery({
+    queryKey: ['progression', 'xp', pullRequestId],
+    queryFn: () => window.preview.progression.listXp(pullRequestId),
+  });
+}

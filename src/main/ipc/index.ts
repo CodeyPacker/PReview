@@ -29,10 +29,12 @@ import { syncReviewRounds } from '../services/pull-requests/rounds.ts';
 import {
   addReviewTime,
   getProgression,
+  listXpTransactions,
   setActiveCharacter,
   startReviewProgress,
 } from '../services/progression/xp.ts';
 import { listAchievements } from '../services/progression/achievements.ts';
+import { getProgressStats } from '../services/progression/stats.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
@@ -247,6 +249,8 @@ export function registerIpcHandlers(
     setActiveCharacter(db, characterId),
   );
   handle('achievements.list', () => listAchievements(db));
+  handle('progression.getStats', () => getProgressStats(db));
+  handle('progression.listXp', ({ pullRequestId }) => listXpTransactions(db, pullRequestId));
   handle('progression.addReviewTime', ({ pullRequestId, ms }) => {
     addReviewTime(db, pullRequestId, ms);
     return null;

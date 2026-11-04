@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import {
   ArrowRight,
   Bug,
-  ChevronRight,
   Crown,
   ExternalLink,
   FileText,
@@ -10,10 +9,10 @@ import {
   House,
   Lightbulb,
   MessageSquare,
-  Sword,
   X,
-  Zap,
 } from 'lucide-react';
+import type { XpTransaction } from '../../shared/contracts/progression.ts';
+import { achievementLooks } from '../app/achievementLooks.tsx';
 import { AchievementCard } from '../components/AchievementCard/index.ts';
 import { Avatar } from '../components/Avatar/index.ts';
 import { Button } from '../components/Button/index.ts';
@@ -26,32 +25,51 @@ import { StatCard, type StatCardProps } from '../components/StatCard/index.ts';
 import { StatusPill } from '../components/StatusPill/index.ts';
 import { Tag } from '../components/Tag/index.ts';
 import { XPChip } from '../components/XPChip/index.ts';
+import { useAchievements } from '../hooks/useAchievements.ts';
 import { useMergedPullRequest } from '../hooks/useMergedPullRequest.ts';
+import { useProgression, usePullRequestXp } from '../hooks/useProgression.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
 import styles from './post-merge.module.css';
 
 export const Route = createFileRoute('/post-merge/$pullRequestId')({ component: PostMergePage });
-
-// Placeholder numbers until XP, characters and achievements exist (SCOPE 5.9).
-const placeholderMergedAt = 'Oct 28, 2026, 2:14 PM';
 
 const mergedAtFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
 
-const xp = [
-  { label: 'Bugs caught', value: 250, color: 'chart-2', display: '+250 XP' },
-  { label: 'Suggestions', value: 200, color: 'chart-3', display: '+200 XP' },
-  { label: 'Comments', value: 120, color: 'chart-4', display: '+120 XP' },
-  { label: 'Review completion', value: 80, color: 'chart-1', display: '+80 XP' },
+const xpGroups: { label: string; color: string; has: (award: XpTransaction) => boolean }[] = [
+  {
+    label: 'Bugs caught',
+    color: 'chart-2',
+    has: (award) =>
+      award.reason === 'finding-resolved' &&
+      ['bug', 'ui-bug', 'security'].includes(award.category ?? ''),
+  },
+  {
+    label: 'Suggestions',
+    color: 'chart-3',
+    has: (award) =>
+      award.reason === 'finding-resolved' && ['improvement', 'test'].includes(award.category ?? ''),
+  },
+  { label: 'Comments', color: 'chart-4', has: (award) => award.reason === 'comment-resolved' },
+  {
+    label: 'Review completion',
+    color: 'chart-1',
+    has: (award) => award.reason === 'review-completed',
+  },
 ];
+
+const xpLabel = (xp: number) => `${xp.toLocaleString('en-US')} XP`;
 
 function PostMergePage() {
   const pullRequestId = Number(Route.useParams().pullRequestId);
   const navigate = useNavigate();
   const { data: merged, isPending } = useMergedPullRequest(pullRequestId);
   const { data: pullRequestState } = usePullRequests();
+  const { data: awards = [] } = usePullRequestXp(pullRequestId);
+  const { data: progression } = useProgression().progression;
+  const { data: achievements = [] } = useAchievements();
   const nextPullRequest = pullRequestState?.pullRequests.find(
     (pull) => pull.id !== pullRequestId && pull.reviewState === 'needs-review',
   );
@@ -70,6 +88,26 @@ function PostMergePage() {
   }
 
   const mergedAt = mergedAtFormat.format(new Date(merged.mergedAt));
+  const earned = awards.reduce((total, award) => total + award.amount, 0);
+  const segments = xpGroups
+    .map((group) => ({
+      label: group.label,
+      color: group.color,
+      value: awards.filter(group.has).reduce((total, award) => total + award.amount, 0),
+    }))
+    .filter((segment) => segment.value > 0)
+    .map((segment) => ({ ...segment, display: `+${xpLabel(segment.value)}` }));
+  // Achievements earned from this pull request's first award up to now.
+  const firstAward = awards[0]?.createdAt;
+  const unlocked = firstAward
+    ? achievements.filter((item) => item.earnedAt !== null && item.earnedAt >= firstAward)
+    : [];
+  const account = progression?.account;
+  const characterId = awards[0]?.characterId ?? progression?.activeCharacter;
+  const character = progression?.characters.find((item) => item.id === characterId);
+  const characterXp = awards
+    .filter((award) => award.characterId === characterId)
+    .reduce((total, award) => total + award.amount, 0);
   const stats: (StatCardProps & { label: string })[] = [
     { label: 'Bugs caught', value: merged.bugsCaught, tone: 'danger', icon: <Bug /> },
     { label: 'Suggestions', value: merged.suggestions, tone: 'warning', icon: <Lightbulb /> },
@@ -108,35 +146,47 @@ function PostMergePage() {
       <div className={styles.columns}>
         <div className={styles.column}>
           <Panel title="XP Earned">
-            <Donut size={140} thickness={16} centerValue="+650" centerLabel="XP" segments={xp} />
+            {earned === 0 ? (
+              <p className={styles.empty}>This pull request earned no XP.</p>
+            ) : (
+              <Donut
+                size={140}
+                thickness={16}
+                centerValue={`+${earned.toLocaleString('en-US')}`}
+                centerLabel="XP"
+                segments={segments}
+              />
+            )}
           </Panel>
           <Panel
             className={styles.optional}
             title="Achievements Unlocked"
             action={
-              <Button variant="plain" size="sm" iconEnd={<ArrowRight />}>
+              <Button
+                variant="plain"
+                size="sm"
+                iconEnd={<ArrowRight />}
+                onClick={() => void navigate({ to: '/achievements' })}
+              >
                 View All
               </Button>
             }
           >
-            <div className={styles.achievements}>
-              <AchievementCard
-                layout="row"
-                title="Bug Hunter"
-                icon={<Bug />}
-                tone="warning"
-                earnedAt={placeholderMergedAt}
-                xp={250}
-              />
-              <AchievementCard
-                layout="row"
-                title="Review Streak"
-                icon={<Zap />}
-                tone="info"
-                earnedAt={placeholderMergedAt}
-                xp={200}
-              />
-            </div>
+            {unlocked.length === 0 ? (
+              <p className={styles.empty}>No new achievements this time.</p>
+            ) : (
+              <div className={styles.achievements}>
+                {unlocked.map((achievement) => (
+                  <AchievementCard
+                    key={achievement.id}
+                    layout="row"
+                    title={achievement.name}
+                    {...achievementLooks[achievement.metric]}
+                    earnedAt={achievement.earnedAt ?? ''}
+                  />
+                ))}
+              </div>
+            )}
           </Panel>
         </div>
 
@@ -146,45 +196,39 @@ function PostMergePage() {
               <IconTile icon={<Crown />} size="xl" />
               <div className={styles.progressBody}>
                 <div className={styles.progressHead}>
-                  <span className={styles.level}>Level 18</span>
-                  <XPChip amount={650} />
+                  <span className={styles.level}>Level {account?.level ?? 1}</span>
+                  <XPChip amount={earned} />
                 </div>
                 <ProgressBar
-                  value={48750}
-                  max={75000}
+                  value={account?.levelXp ?? 0}
+                  max={account?.nextLevelXp ?? 1}
                   aria-label="Account level progress"
-                  valueLabel="48,750 / 75,000 XP"
+                  valueLabel={`${(account?.levelXp ?? 0).toLocaleString('en-US')} / ${xpLabel(
+                    account?.nextLevelXp ?? 0,
+                  )}`}
                 />
               </div>
             </div>
           </Panel>
           <Panel title="Character Progress">
             <div className={styles.progress}>
-              <Avatar name="Shadow" size="xl" tone="accent" />
+              <Avatar name={character?.name ?? 'Shadow'} size="xl" tone="accent" />
               <div className={styles.progressBody}>
                 <div className={styles.progressHead}>
-                  <span className={styles.level}>Shadow</span>
-                  <XPChip amount={650} />
+                  <span className={styles.level}>{character?.name ?? 'Shadow'}</span>
+                  <XPChip amount={characterXp} />
                 </div>
                 <ProgressBar
-                  value={19070}
-                  max={25000}
+                  value={character?.levelXp ?? 0}
+                  max={character?.nextLevelXp ?? 1}
                   aria-label="Character level progress"
-                  label="Level 12"
-                  valueLabel="19,070 / 25,000 XP"
+                  label={`Level ${character?.level ?? 1}`}
+                  valueLabel={`${(character?.levelXp ?? 0).toLocaleString('en-US')} / ${xpLabel(
+                    character?.nextLevelXp ?? 0,
+                  )}`}
                 />
               </div>
             </div>
-            <Panel variant="sunken" padding="sm" className={styles.optional}>
-              <div className={styles.cosmetic}>
-                <IconTile icon={<Sword />} size="md" />
-                <div className={styles.cosmeticBody}>
-                  <span className={styles.cosmeticLabel}>New Cosmetic Unlocked</span>
-                  <span>Purple Blade Effect</span>
-                </div>
-                <ChevronRight aria-hidden />
-              </div>
-            </Panel>
           </Panel>
         </div>
       </div>

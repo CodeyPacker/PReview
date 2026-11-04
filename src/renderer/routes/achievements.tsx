@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Bug, FileText, Lightbulb, Zap } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
-import type { Achievement, AchievementMetric } from '../../shared/contracts/achievements.ts';
+import { useState } from 'react';
+import type { Achievement } from '../../shared/contracts/achievements.ts';
+import { achievementLooks } from '../app/achievementLooks.tsx';
 import { PageHeader } from '../app/PageHeader.tsx';
 import { AchievementCard } from '../components/AchievementCard/AchievementCard.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
@@ -9,17 +9,9 @@ import { ProgressBar } from '../components/ProgressBar/ProgressBar.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { useAchievements } from '../hooks/useAchievements.ts';
 import { useProgression } from '../hooks/useProgression.ts';
-import type { Tone } from '../styles/tones.ts';
 import styles from './achievements.module.css';
 
 export const Route = createFileRoute('/achievements')({ component: AchievementsPage });
-
-const metricLooks: Record<AchievementMetric, { icon: ReactNode; tone: Tone }> = {
-  reviews: { icon: <FileText />, tone: 'accent' },
-  bugs: { icon: <Bug />, tone: 'danger' },
-  improvements: { icon: <Lightbulb />, tone: 'warning' },
-  streak: { icon: <Zap />, tone: 'info' },
-};
 
 type Filter = 'all' | 'earned' | 'progress' | 'locked';
 
@@ -102,7 +94,7 @@ function AchievementsPage() {
                   key={achievement.id}
                   title={achievement.name}
                   description={achievement.description}
-                  {...metricLooks[achievement.metric]}
+                  {...achievementLooks[achievement.metric]}
                   locked={state === 'locked'}
                   {...(achievement.earnedAt && { earnedAt: earnedDate(achievement.earnedAt) })}
                   {...(state === 'progress' && {

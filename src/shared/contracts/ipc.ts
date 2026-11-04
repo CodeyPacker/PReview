@@ -52,7 +52,12 @@ import { repositorySearchInputSchema, repositorySearchResultSchema } from './rep
 import { reviewRoundSchema } from './review-rounds.ts';
 import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
-import { characterIdSchema, progressionSchema } from './progression.ts';
+import {
+  characterIdSchema,
+  progressionSchema,
+  progressStatsSchema,
+  xpTransactionSchema,
+} from './progression.ts';
 import { achievementSchema } from './achievements.ts';
 
 export const appInfoSchema = z.object({
@@ -269,6 +274,13 @@ export const ipcContract = {
   'progression.setActiveCharacter': {
     input: z.object({ characterId: characterIdSchema }),
     output: progressionSchema,
+  },
+  // Review numbers for the Dashboard.
+  'progression.getStats': { input: z.undefined(), output: progressStatsSchema },
+  // The XP one pull request earned, oldest first. Kept after it closes.
+  'progression.listXp': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.array(xpTransactionSchema),
   },
   // Every achievement with its progress, in definition order.
   'achievements.list': { input: z.undefined(), output: z.array(achievementSchema) },

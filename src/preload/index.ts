@@ -99,6 +99,8 @@ const api: PreviewApi = {
     setActiveCharacter: (characterId) => invoke('progression.setActiveCharacter', { characterId }),
     addReviewTime: (pullRequestId, ms) =>
       invoke('progression.addReviewTime', { pullRequestId, ms }),
+    getStats: () => invoke('progression.getStats', undefined),
+    listXp: (pullRequestId) => invoke('progression.listXp', { pullRequestId }),
   },
   achievements: {
     list: () => invoke('achievements.list', undefined),
