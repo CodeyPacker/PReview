@@ -3,7 +3,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { openDatabase } from './database/connection.ts';
+import { checkIntegrity, openDatabase } from './database/connection.ts';
 import { ClaudeAgent } from './agents/claude/agent.ts';
 import { AgentPublisher } from './services/agents/publisher.ts';
 import { AgentRunner } from './services/agents/runner.ts';
@@ -28,7 +28,7 @@ import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { getSettings } from './services/settings.ts';
-import { DatabaseBackups } from './services/backups.ts';
+import { DatabaseBackups, newestValidBackup, restoreBackup } from './services/backups.ts';
 import { validateReport } from './services/progression/xp.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
 import { createGit, runGit } from './services/repositories/git-info.ts';
@@ -81,6 +81,32 @@ function createWindow(): void {
 
   // The app never navigates its own window away from the bundled page.
   win.webContents.on('will-navigate', (event) => event.preventDefault());
+
+  // A page that crashes or is killed reloads by itself. A second crash within a minute asks
+  // first, so a page that crashes as it loads can't loop.
+  let lastCrash = 0;
+  win.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit') return;
+    log.error('The window crashed', details);
+    const now = Date.now();
+    const again = now - lastCrash < 60_000;
+    lastCrash = now;
+    if (again) {
+      const response = dialog.showMessageBoxSync(win, {
+        type: 'error',
+        message: 'PReview keeps crashing',
+        detail: 'The window crashed twice in a minute. Your saved review work is kept.',
+        buttons: ['Reload', 'Quit'],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (response !== 0) {
+        app.quit();
+        return;
+      }
+    }
+    win.webContents.reload();
+  });
 
   const devUrl = devServerUrl(app.isPackaged);
   if (devUrl) {
@@ -138,12 +164,60 @@ async function pickFolder(): Promise<string | undefined> {
   return result.canceled || !picked ? undefined : realpath(picked);
 }
 
-function openAppDatabase(): DatabaseSync {
-  const path = join(app.getPath('userData'), 'preview.db');
+const backupDirectory = () => join(app.getPath('userData'), 'backups');
+
+function openAppDatabase(path: string): DatabaseSync {
   const db = openDatabase(path);
-  const version = migrate(db);
-  log.info(`Database ready at schema version ${version}`, path);
-  return db;
+  try {
+    checkIntegrity(db);
+    const version = migrate(db);
+    log.info(`Database ready at schema version ${version}`, path);
+    return db;
+  } catch (error) {
+    db.close();
+    throw error;
+  }
+}
+
+// Opens the database. When it can't be opened, offers to put back the newest valid snapshot.
+// Returns undefined when the user quits or nothing could be opened.
+function openOrRestoreDatabase(): DatabaseSync | undefined {
+  const path = join(app.getPath('userData'), 'preview.db');
+  let failure: unknown;
+  try {
+    return openAppDatabase(path);
+  } catch (error) {
+    log.error('Could not open the database', error);
+    failure = error;
+  }
+  const message = failure instanceof Error ? failure.message : String(failure);
+  const backup = newestValidBackup(backupDirectory());
+  if (backup) {
+    const response = dialog.showMessageBoxSync({
+      type: 'error',
+      title: 'PReview could not open its database',
+      message: 'PReview could not open its database',
+      detail: `${message}\n\nRestore the backup from ${backup.createdAt.toLocaleString()}? Changes made since then are lost. The current database is kept next to it.`,
+      buttons: ['Restore Backup', 'Quit'],
+      defaultId: 0,
+      cancelId: 1,
+    });
+    if (response !== 0) return undefined;
+    try {
+      const aside = restoreBackup(backup, path);
+      log.warn('Restored the database from a backup', { backup: backup.path, damaged: aside });
+      return openAppDatabase(path);
+    } catch (error) {
+      log.error('Could not restore the database', error);
+      dialog.showErrorBox(
+        'PReview could not restore its database',
+        error instanceof Error ? error.message : String(error),
+      );
+      return undefined;
+    }
+  }
+  dialog.showErrorBox('PReview could not open its database', message);
+  return undefined;
 }
 
 void app.whenReady().then(async () => {
@@ -151,24 +225,13 @@ void app.whenReady().then(async () => {
   // Dock, which is Electron's until the app is packaged.
   if (hiddenForTests) app.dock?.hide();
   else app.dock?.setIcon(icon);
-  let db: DatabaseSync;
-  try {
-    db = openAppDatabase();
-  } catch (error) {
-    log.error('Could not open the database', error);
-    dialog.showErrorBox(
-      'PReview could not open its database',
-      error instanceof Error ? error.message : String(error),
-    );
+  const db = openOrRestoreDatabase();
+  if (!db) {
     app.exit(1);
     return;
   }
 
-  const backups = new DatabaseBackups({
-    db,
-    directory: join(app.getPath('userData'), 'backups'),
-    log,
-  });
+  const backups = new DatabaseBackups({ db, directory: backupDirectory(), log });
   backups.start();
 
   const discovery = new RepositoryDiscovery({ db, git: runGit, log });

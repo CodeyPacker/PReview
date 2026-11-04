@@ -1,9 +1,9 @@
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { openDatabase } from '../database/connection.ts';
+import { checkIntegrity, openDatabase } from '../database/connection.ts';
 import { migrate } from '../database/migrate.ts';
 import {
   BACKUP_INTERVAL_MS,
@@ -11,6 +11,8 @@ import {
   isValidBackup,
   KEPT_BACKUPS,
   listBackups,
+  newestValidBackup,
+  restoreBackup,
 } from './backups.ts';
 
 const log = { info: () => {}, warn: () => {} };
@@ -80,5 +82,30 @@ describe('database backups', () => {
       join(folder, 'preview-20261104T153000Z.db'),
     ]);
     expect(isValidBackup(broken)).toBe(false);
+  });
+});
+
+describe('restoring a backup', () => {
+  it('replaces a damaged database and keeps the damaged file', () => {
+    const databasePath = join(directory, 'preview.db');
+    db.prepare("INSERT INTO watched_folders (path, scan_depth) VALUES ('/code', 2)").run();
+    backups().backUp();
+    db.close();
+    writeFileSync(databasePath, 'damaged');
+
+    const folder = join(directory, 'backups');
+    writeFileSync(join(folder, 'preview-20261106T000000Z.db'), 'not a database');
+    const backup = newestValidBackup(folder);
+    expect(backup?.createdAt).toEqual(now);
+    const aside = restoreBackup(backup!, databasePath, now);
+
+    expect(existsSync(aside)).toBe(true);
+    db = openDatabase(databasePath);
+    checkIntegrity(db);
+    expect(db.prepare('SELECT path FROM watched_folders').all()).toEqual([{ path: '/code' }]);
+  });
+
+  it('finds nothing when no snapshot is valid', () => {
+    expect(newestValidBackup(join(directory, 'backups'))).toBeUndefined();
   });
 });
