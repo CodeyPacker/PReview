@@ -1,6 +1,5 @@
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { claudeEnvironment } from './environment.ts';
-import { claudeExecutable } from './executable.ts';
 import { InputQueue } from './input-queue.ts';
 
 export type Sdk = typeof import('@anthropic-ai/claude-agent-sdk');
@@ -10,11 +9,11 @@ export const loadSdk = (): Promise<Sdk> => import('@anthropic-ai/claude-agent-sd
 
 // Options every session shares. Project settings stay off, since they can run hooks from the
 // pull request's branch. PReview reads CLAUDE.md itself.
-export function baseOptions(isPackaged: boolean, cwd: string): Options {
+export function baseOptions(cwd: string, executable: string): Options {
   return {
     cwd,
     env: claudeEnvironment(),
-    pathToClaudeCodeExecutable: claudeExecutable(isPackaged),
+    pathToClaudeCodeExecutable: executable,
     settingSources: [],
   };
 }

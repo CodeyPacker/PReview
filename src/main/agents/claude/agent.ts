@@ -1,4 +1,4 @@
-import type { SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
+import type { Options, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import {
   agentReportSchema,
@@ -8,7 +8,6 @@ import {
   type AgentRunResult,
 } from '../provider.ts';
 import { createActivityMapper, readQuestions } from './activity.ts';
-import { claudeEnvironment } from './environment.ts';
 import { ALLOWED_TOOLS, BLOCKED_TOOLS, createToolGate, PREVIEW_TOOL_SERVER } from './gate.ts';
 import { InputQueue } from './input-queue.ts';
 import { claudeRuntime } from './runtime.ts';
@@ -16,11 +15,10 @@ import { checkSignIn, loadSdk, type Sdk } from './sdk.ts';
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-// Runs one task with Claude Code in the worktree: sandboxed shell, gated tools, PReview's
+// Runs one task with the user's Claude Code in the worktree: sandboxed shell, gated tools, PReview's
 // get_file_diff tool and a structured closing report.
 export class ClaudeAgent implements AgentProvider {
   constructor(
-    private readonly isPackaged: boolean,
     // The WSL distribution Claude Code runs in on Windows.
     private readonly wslDistro: () => string,
     private readonly load: () => Promise<Sdk> = loadSdk,
@@ -28,27 +26,27 @@ export class ClaudeAgent implements AgentProvider {
 
   async start(input: AgentRunInput): Promise<AgentRun> {
     const sdk = await this.load();
-    const runtime = claudeRuntime(this.isPackaged, this.wslDistro());
-    const signIn = await runtime
-      .check()
-      .then((setupError) =>
-        setupError
-          ? { signedIn: false, detail: setupError }
-          : checkSignIn(sdk, runtime.options(input.worktree), runtime.signInHint),
-      )
-      .catch((error: unknown) => ({
-        signedIn: false,
-        detail: `Claude Code could not start: ${messageOf(error)}`,
-      }));
-    if (!signIn.signedIn) {
-      return {
-        result: Promise.resolve({ status: 'failed', error: signIn.detail, retryable: false }),
-        stop: () => Promise.resolve(),
-        forceStop: () => {},
-      };
+    const runtime = claudeRuntime(this.wslDistro());
+    const failed = (error: string): AgentRun => ({
+      result: Promise.resolve({ status: 'failed', error, retryable: false }),
+      stop: () => Promise.resolve(),
+      forceStop: () => {},
+    });
+    const couldNotStart = (error: unknown) => `Claude Code could not start: ${messageOf(error)}`;
+    let options: Options;
+    try {
+      const setup = await runtime.setup();
+      if ('problem' in setup) return failed(setup.problem);
+      options = runtime.options(input.worktree, setup.executable);
+    } catch (error) {
+      return failed(couldNotStart(error));
     }
+    const signIn = await checkSignIn(sdk, options, runtime.signInHint).catch((error: unknown) => ({
+      signedIn: false,
+      detail: couldNotStart(error),
+    }));
+    if (!signIn.signedIn) return failed(signIn.detail);
 
-    const options = runtime.options(input.worktree);
     const isolation = await runtime.isolate(input.worktree);
     const abort = new AbortController();
     const messages = new InputQueue();
@@ -71,7 +69,7 @@ export class ClaudeAgent implements AgentProvider {
       prompt: messages,
       options: {
         ...options,
-        env: { ...claudeEnvironment(), ...isolation.env },
+        env: { ...options.env, ...isolation.env },
         permissionMode: 'default',
         settings: { permissions: { blockReadsOutsideWorkingDirectories: true } },
         tools: ALLOWED_TOOLS,

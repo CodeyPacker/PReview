@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkWsl, fromWslPath, toWslPath, wslArgs, type Exec } from './wsl.ts';
+import { checkWsl, findWslClaude, fromWslPath, toWslPath, wslArgs, type Exec } from './wsl.ts';
 
 const failure = (fields: Record<string, unknown>) =>
   Object.assign(new Error('Command failed'), fields);
@@ -21,9 +21,9 @@ describe('WSL paths', () => {
 });
 
 describe('wslArgs', () => {
-  it('runs the Linux binary in the distro with only the variables Linux needs', () => {
+  it('runs Claude Code in the distro with only the variables Linux needs', () => {
     const args = wslArgs('Ubuntu', {
-      command: 'C:\\app\\claude',
+      command: '/home/me/.local/bin/claude',
       args: ['--print'],
       cwd: 'C:\\work\\tree',
       env: { Path: 'C:\\Windows', TEMP: 'C:\\Temp', TMPDIR: '/tmp/pv-1', LANG: 'en_US.UTF-8' },
@@ -38,7 +38,7 @@ describe('wslArgs', () => {
       '/usr/bin/env',
       'TMPDIR=/tmp/pv-1',
       'LANG=en_US.UTF-8',
-      '/mnt/c/app/claude',
+      '/home/me/.local/bin/claude',
       '--print',
     ]);
   });
@@ -74,5 +74,49 @@ describe('checkWsl', () => {
   it('says to install bubblewrap and socat when one is missing', async () => {
     const run = vi.fn<Exec>().mockRejectedValue(failure({ code: 1, stdout: '/usr/bin/bwrap\n' }));
     await expect(checkWsl('Ubuntu', run)).resolves.toMatch(/sudo apt install -y bubblewrap socat/);
+  });
+});
+
+describe('findWslClaude', () => {
+  // Answers by the command after --exec.
+  const runner = (answers: Record<string, string | undefined>) =>
+    vi.fn<Exec>((_file, args) => {
+      const stdout = answers[args[3]!];
+      return stdout === undefined
+        ? Promise.reject(failure({ code: 1 }))
+        : Promise.resolve({ stdout });
+    });
+
+  it('uses the one on the login PATH', async () => {
+    const run = runner({
+      bash: 'welcome\n/home/me/.nvm/bin/claude\n',
+      '/home/me/.nvm/bin/claude': '2.1.300 (Claude Code)\n',
+    });
+    await expect(findWslClaude('Ubuntu', run)).resolves.toEqual({
+      executable: '/home/me/.nvm/bin/claude',
+    });
+  });
+
+  it('skips the Windows install and looks where the installers put it', async () => {
+    const run = runner({
+      bash: '/mnt/c/Users/me/AppData/Roaming/npm/claude\n',
+      sh: '/home/me/.local/bin/claude\n',
+      '/home/me/.local/bin/claude': '2.1.300 (Claude Code)\n',
+    });
+    await expect(findWslClaude('Ubuntu', run)).resolves.toEqual({
+      executable: '/home/me/.local/bin/claude',
+    });
+  });
+
+  it('says when it is missing or too old', async () => {
+    const missing = await findWslClaude('Ubuntu', runner({}));
+    expect(missing).toEqual({ problem: expect.stringContaining('not installed') as string });
+    expect(missing).toEqual({ problem: expect.stringContaining('in Ubuntu') as string });
+
+    const old = await findWslClaude(
+      'Ubuntu',
+      runner({ bash: '/usr/bin/claude\n', '/usr/bin/claude': '1.0.0 (Claude Code)\n' }),
+    );
+    expect(old).toEqual({ problem: expect.stringContaining('found 1.0.0') as string });
   });
 });

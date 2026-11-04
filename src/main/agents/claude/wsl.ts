@@ -1,10 +1,11 @@
-// On Windows, Claude Code runs as its Linux build inside WSL, where Linux's sandbox
-// (bubblewrap and socat) confines its shell commands.
+// On Windows, the user's Claude Code runs inside WSL, where Linux's sandbox (bubblewrap and
+// socat) confines its shell commands.
 import type { SpawnedProcess, SpawnOptions } from '@anthropic-ai/claude-agent-sdk';
 import { execFile, spawn } from 'node:child_process';
 import { realpath } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { promisify } from 'node:util';
+import { NOT_INSTALLED, pathFromShell, versionProblem, type ClaudeSetup } from './executable.ts';
 import type { Isolation } from './isolation.ts';
 import { sandboxFor } from './isolation.ts';
 
@@ -12,7 +13,8 @@ import { sandboxFor } from './isolation.ts';
 export type Exec = (file: string, args: string[]) => Promise<{ stdout: string }>;
 
 const execFileAsync = promisify(execFile);
-const exec: Exec = (file, args) => execFileAsync(file, args, { windowsHide: true });
+const exec: Exec = (file, args) =>
+  execFileAsync(file, args, { windowsHide: true, timeout: 30_000 });
 
 // C:\Users\me\x → /mnt/c/Users/me/x. WSL mounts each drive there by default.
 export function toWslPath(path: string): string {
@@ -54,7 +56,7 @@ const WINDOWS_ONLY = new Set([
   'TERM',
 ]);
 
-// The arguments that start the SDK's command in WSL. Windows paths become /mnt paths, and
+// The arguments that start the SDK's command in WSL. The command is already a Linux path, and
 // only the variables Claude Code needs cross over. WSL itself sets HOME, USER, SHELL and PATH.
 export function wslArgs(distro: string, options: SpawnOptions): string[] {
   const env = Object.entries(options.env)
@@ -67,7 +69,7 @@ export function wslArgs(distro: string, options: SpawnOptions): string[] {
     '--exec',
     '/usr/bin/env',
     ...env,
-    toWslPath(options.command),
+    options.command,
     ...options.args,
   ];
 }
@@ -116,6 +118,28 @@ export async function checkWsl(distro: string, run: Exec = exec): Promise<string
     }
     return `WSL could not start ${distro}: ${output || (error instanceof Error ? error.message : String(error))}`;
   }
+}
+
+// Where the installers put Claude Code, for a shell whose startup files don't add it to PATH.
+const FIND_INSTALLED = `for path in "$HOME/.local/bin/claude" "$HOME/.claude/local/claude" /usr/local/bin/claude; do
+  if [ -x "$path" ]; then echo "$path"; exit 0; fi
+done
+exit 1`;
+
+// Finds the Claude Code installed in `distro`. WSL's PATH also holds Windows folders, so one
+// under /mnt is the Windows install, which can't run the Linux sandbox.
+export async function findWslClaude(distro: string, run: Exec = exec): Promise<ClaudeSetup> {
+  const onPath = await wslRun(distro, ['bash', '-ilc', 'command -v claude'], run).then(
+    pathFromShell,
+    () => undefined,
+  );
+  const executable =
+    onPath && !onPath.startsWith('/mnt/')
+      ? onPath
+      : await wslRun(distro, ['sh', '-c', FIND_INSTALLED], run).catch(() => undefined);
+  if (!executable) return { problem: NOT_INSTALLED.replace('a terminal', distro) };
+  const problem = versionProblem(await wslRun(distro, [executable, '--version'], run));
+  return problem ? { problem } : { executable };
 }
 
 // The same rules as on macOS, in WSL's paths. Both home folders stay unreadable: WSL's own and
