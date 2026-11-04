@@ -1178,6 +1178,11 @@ test('configures review shortcuts and scrolls without focusing the code', async 
     await page.getByRole('button', { name: 'Exit Zen mode' }).click();
     await expect(nav).toBeVisible();
     await expect(files).toBeVisible();
+    await page.getByRole('button', { name: 'Enter Zen mode' }).click();
+    await expect(nav).toBeHidden();
+    await page.keyboard.press('Escape');
+    await expect(nav).toBeVisible();
+    await expect(files).toBeVisible();
 
     // Reconfigure through Settings, then verify persistence and the new bindings.
     await nav.getByRole('link', { name: 'Settings', exact: true }).click();

@@ -32,11 +32,19 @@ export function useReviewShortcuts(
     stop: () => void;
     cancel: () => void;
   },
+  // What Escape does, if anything. Fields and open dialogs keep their own use of the key.
+  onEscape?: () => void,
 ) {
   const performAction = useEffectEvent((action: ReviewAction) => actions[action]());
   const startScroll = useEffectEvent((direction: -1 | 1) => scroll.start(direction));
   const stopScroll = useEffectEvent(() => scroll.stop());
   const cancelScroll = useEffectEvent(() => scroll.cancel());
+  const pressEscape = useEffectEvent((event: KeyboardEvent) => {
+    if (!onEscape) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.repeat) onEscape();
+  });
 
   useEffect(() => {
     let scrollingKey: string | undefined;
@@ -47,6 +55,11 @@ export function useReviewShortcuts(
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || isTypingOrInOverlay(event.target)) {
         cancel();
+        return;
+      }
+      if (event.key === 'Escape') {
+        cancel();
+        pressEscape(event);
         return;
       }
       const key = event.key.toLowerCase();
