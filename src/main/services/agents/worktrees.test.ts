@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -256,6 +257,19 @@ describe('AgentWorktrees', () => {
       },
       { path: 'docs/notes.md', status: 'added', patch: '@@ -0,0 +1,2 @@\n+a\n+b' },
       { path: 'logo.bin', status: 'added', patch: null },
+    ]);
+  });
+
+  it("doesn't read a new symlink's target, which could be outside the worktree", async () => {
+    const service = worktrees();
+    await service.open(pullRequestId, head, addTask());
+    const path = join(root, `${repositoryId}-7`);
+    const outside = join(root, 'secret.txt');
+    writeFileSync(outside, 'secret\n');
+    symlinkSync(outside, join(path, 'leak.txt'));
+
+    await expect(service.changes(pullRequestId)).resolves.toEqual([
+      { path: 'leak.txt', status: 'added', patch: null },
     ]);
   });
 

@@ -19,6 +19,9 @@ describe('githubRepoFromRemote', () => {
     'https://github.com/octo/hello/extra',
     '/Users/me/projects/hello',
     'C:\\projects\\hello',
+    'git@github.com:../hello.git',
+    'git@github.com:octo/...git',
+    'git@github.com:octo/hel?lo.git',
   ])('does not read %s as a GitHub repository', (remote) => {
     expect(githubRepoFromRemote(remote)).toBeUndefined();
   });

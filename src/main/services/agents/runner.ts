@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { readFile, realpath } from 'node:fs/promises';
-import { join } from 'node:path';
+import { realpath } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import {
   agentCheckSchema,
@@ -15,6 +14,7 @@ import type {
 } from '../../agents/provider.ts';
 import type { log as appLog } from '../../logging/log.ts';
 import type { GitProvider } from '../../providers/types.ts';
+import { readFileInside } from '../../security/read-inside.ts';
 import { cancelQuestions, createQuestion, recordActivity, saveAnswers } from './activity.ts';
 import {
   AGENT_INSTRUCTIONS,
@@ -263,8 +263,9 @@ export class AgentRunner {
 
   private async runAgent(task: TaskRow, worktree: string): Promise<AgentRunResult> {
     const context = await loadTaskContext(this.deps.db, this.deps.provider, task.id);
+    // The pull request decides what CLAUDE.md is, so a symlink out of the worktree is ignored.
     const repositoryInstructions = (
-      await readFile(join(worktree, 'CLAUDE.md'), 'utf8').catch(() => '')
+      (await readFileInside(worktree, 'CLAUDE.md'))?.toString('utf8') ?? ''
     ).slice(0, MAX_INSTRUCTIONS);
     const resume = task.session_id !== null;
     let prompt = taskPrompt(context);

@@ -102,6 +102,14 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
+  // The app uses no browser permissions, such as the camera or location, except writing to the
+  // clipboard when code is copied.
+  const allowed = (permission: string) => permission === 'clipboard-sanitized-write';
+  win.webContents.session.setPermissionRequestHandler((_contents, permission, callback) =>
+    callback(allowed(permission)),
+  );
+  win.webContents.session.setPermissionCheckHandler((_contents, permission) => allowed(permission));
+
   // The app never navigates its own window away from the bundled page.
   win.webContents.on('will-navigate', (event) => event.preventDefault());
 

@@ -267,8 +267,14 @@ const reviewEvents: Record<ReviewVerdict, string> = {
   comment: 'COMMENT',
 };
 
+// A file path inside the repository. URLs resolve . and .. segments, so a path with them
+// could reach another API endpoint with the user's token.
 function encodeContentPath(path: string): string {
-  return path.split('/').map(encodeURIComponent).join('/');
+  const segments = path.split('/');
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
+    throw new Error(`Not a file path in the repository: ${path}`);
+  }
+  return segments.map(encodeURIComponent).join('/');
 }
 
 export class GitHubProvider implements GitProvider {
@@ -400,7 +406,7 @@ export class GitHubProvider implements GitProvider {
     return comparisonSchema.parse(comparison).merge_base_commit.sha;
   }
 
-  getFileContent(
+  async getFileContent(
     repositoryFullName: string,
     path: string,
     ref: string,
@@ -410,7 +416,7 @@ export class GitHubProvider implements GitProvider {
     });
   }
 
-  getFileBytes(
+  async getFileBytes(
     repositoryFullName: string,
     path: string,
     ref: string,
