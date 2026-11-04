@@ -34,11 +34,6 @@
   background: var(--surface-selected);
 }
 
-.filter > [role='radio'] {
-  padding-inline: var(--space-6);
-  font-size: var(--text-sm);
-}
-
 /* Keep review colors intact while the shared indicator outlines the selected row. */
 .list[data-selected-review-state] .indicator {
   background: transparent;
@@ -47,6 +42,8 @@
 
 .search {
   display: grid;
+  /* The column keeps the panel's width. Without this it grows to fit the input. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-4);
 }
 

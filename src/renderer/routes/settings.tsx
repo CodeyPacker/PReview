@@ -133,6 +133,22 @@ function SettingsPage() {
           </p>
         )}
       </Panel>
+      <Panel title="Changed files">
+        <Switch
+          label={
+            <span className={styles.setting}>
+              <span className="headline">Group tests and generated files</span>
+              <span className={styles.description}>
+                Tests, stories and generated files go in a collapsed group at the bottom of every
+                changed files list.
+              </span>
+            </span>
+          }
+          checked={settings.data?.groupSupportFiles ?? defaultSettings.groupSupportFiles}
+          disabled={!settings.data}
+          onCheckedChange={(groupSupportFiles) => update.mutate({ groupSupportFiles })}
+        />
+      </Panel>
       <Panel title="Notifications">
         <p className={styles.description}>
           Choose which events show desktop notifications. Every event still appears in the
