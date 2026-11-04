@@ -90,7 +90,9 @@ export function Select<V extends string = string>({
                     </BaseSelect.ItemIndicator>
                   </span>
                   {item.icon}
-                  <BaseSelect.ItemText>{item.label}</BaseSelect.ItemText>
+                  <BaseSelect.ItemText className={styles.itemText}>
+                    {item.label}
+                  </BaseSelect.ItemText>
                 </BaseSelect.Item>
               ))}
             </BaseSelect.List>

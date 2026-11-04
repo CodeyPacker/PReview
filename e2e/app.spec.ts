@@ -2287,7 +2287,13 @@ test('shows one commit on its own without file decisions', async () => {
         mergeBase: 'abcdef0',
         files: [changedFile('a.ts'), changedFile('b.ts'), changedFile('pnpm-lock.yaml')],
       },
-      'pullRequestFiles.listCommits': [{ sha: commit, subject: 'Touch b', authorLogin: 'octo' }],
+      'pullRequestFiles.listCommits': [
+        {
+          sha: commit,
+          subject: 'Touch b, with a subject too long to fit in the commit picker on one line',
+          authorLogin: 'octo',
+        },
+      ],
       'pullRequestFiles.listCommit': {
         headSha: commit,
         mergeBase: 'd'.repeat(40),
@@ -2304,6 +2310,10 @@ test('shows one commit on its own without file decisions', async () => {
     await page.getByRole('option', { name: /Touch b/ }).click();
     await expect(files.getByRole('button', { name: /a.ts/ })).toBeHidden();
     await expect(files.getByRole('button', { name: /b.ts/ })).toBeVisible();
+    // A long subject stays inside the picker.
+    const picker = files.getByRole('combobox', { name: 'Commit' });
+    expect(await picker.evaluate((box) => box.scrollWidth <= box.clientWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath('long-commit.png') });
     await expect(page.getByRole('button', { name: 'Approve file', exact: true })).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Flag file', exact: true })).toBeDisabled();
 

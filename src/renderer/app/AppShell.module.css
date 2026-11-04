@@ -34,7 +34,7 @@
 .sidebarToggle {
   position: absolute;
   z-index: 1;
-  top: var(--space-32);
+  bottom: var(--space-32);
   /* Open, the tab sits inside the sidebar at its right edge. */
   left: calc(var(--space-16) + 232px - 23px);
   width: 22px;
@@ -223,10 +223,6 @@
 
 .mac.review .main {
   padding-top: 0;
-}
-
-.mac .sidebarToggle {
-  top: calc(var(--titlebar) + var(--space-16));
 }
 
 /* With the sidebar closed the window buttons sit on the page, so the header starts after them. */

@@ -104,7 +104,7 @@
 .treeToggle {
   position: absolute;
   z-index: 1;
-  top: var(--space-16);
+  bottom: var(--space-16);
   right: 1px;
   width: 22px;
   height: 28px;

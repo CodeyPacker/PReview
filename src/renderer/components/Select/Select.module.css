@@ -54,7 +54,12 @@
 
 .value {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  /* The trigger's line height of 1 would clip descenders here. */
+  line-height: 22px;
   text-align: start;
+  text-overflow: ellipsis;
 }
 
 /* ink-secondary, not ink-tertiary: unlike an input placeholder, this is text that must meet 4.5:1. */
@@ -63,6 +68,7 @@
 }
 
 .chevron {
+  flex: none;
   display: flex;
   color: var(--ink-secondary);
 }
@@ -79,6 +85,7 @@
 
 .popup {
   min-width: var(--anchor-width);
+  max-width: var(--available-width);
   padding: var(--space-4);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -136,6 +143,13 @@
 
 .item[data-disabled] {
   opacity: 0.45;
+}
+
+.itemText {
+  min-width: 0;
+  overflow: hidden;
+  line-height: 22px;
+  text-overflow: ellipsis;
 }
 
 /* Holds the selected item's check mark, so every label lines up. */
