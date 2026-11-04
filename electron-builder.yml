@@ -6,6 +6,12 @@ artifactName: ${productName}-${version}-${os}-${arch}.${ext}
 directories:
   output: release
   buildResources: build
+# Where the app looks for updates. CI uploads the installers to the release for each version
+# tag, so the builds themselves never publish.
+publish:
+  provider: github
+  owner: CodeyPacker
+  repo: PReview
 # A platform's own list replaces this one, and a list of only exclusions would ship the whole
 # project, so each repeats these.
 files:

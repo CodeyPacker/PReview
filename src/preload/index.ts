@@ -30,6 +30,11 @@ const api: PreviewApi = {
     markAllRead: () => invoke('notifications.markAllRead', undefined),
     setQuiet: (quiet) => invoke('notifications.setQuiet', { quiet }),
   },
+  updates: {
+    get: () => invoke('updates.get', undefined),
+    check: () => invoke('updates.check', undefined),
+    install: () => invoke('updates.install', undefined),
+  },
   folders: {
     list: () => invoke('folders.list', undefined),
     add: () => invoke('folders.add', undefined),

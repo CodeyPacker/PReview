@@ -7,6 +7,7 @@ import type {
 import type { ExportBackupResult, RestoreBackupResult } from './backups.ts';
 import type { GitHubAuthState } from './github.ts';
 import type { NotificationsState } from './notifications.ts';
+import type { InstallUpdateResult, UpdateState } from './updates.ts';
 import type { AppInfo } from './ipc.ts';
 import type {
   CharacterId,
@@ -76,6 +77,12 @@ export interface PreviewApi {
     list(): Promise<NotificationsState>;
     markAllRead(): Promise<NotificationsState>;
     setQuiet(quiet: boolean): Promise<null>;
+  };
+  updates: {
+    get(): Promise<UpdateState>;
+    check(): Promise<UpdateState>;
+    // Restarts PReview when it goes ahead.
+    install(): Promise<InstallUpdateResult>;
   };
   github: {
     getAuth(): Promise<GitHubAuthState>;

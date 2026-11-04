@@ -9,6 +9,8 @@ import {
   safeStorage,
   shell,
 } from 'electron';
+// electron-updater is CommonJS, so its named exports come off the default one.
+import electronUpdater from 'electron-updater';
 import type { DatabaseSync } from 'node:sqlite';
 import { rmSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
@@ -41,6 +43,7 @@ import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { getSettings } from './services/settings.ts';
 import { ConnectivityWatch } from './services/connectivity.ts';
 import { Notifier } from './services/notifications.ts';
+import { Updates } from './services/updates.ts';
 import { onAchievementsUnlocked } from './services/progression/achievements.ts';
 import {
   applyStagedRestore,
@@ -416,9 +419,43 @@ void app.whenReady().then(async () => {
         .catch((error: unknown) => log.warn('Could not push agent changes', error));
     },
   });
+  // Releases are published to GitHub, as electron-builder.yml says.
+  const { autoUpdater } = electronUpdater;
+  autoUpdater.logger = log;
+  const updates = new Updates({
+    source: autoUpdater,
+    enabled: app.isPackaged,
+    // An ad-hoc signed macOS app can't install an update, so the user downloads it.
+    canInstall: process.platform !== 'darwin',
+    releaseUrl: (version) => `https://github.com/CodeyPacker/PReview/releases/tag/v${version}`,
+    busy: () => agentRunner.busy,
+    prompt: async (kind, version) => {
+      const options =
+        kind === 'restart'
+          ? {
+              message: `PReview ${version} is ready`,
+              detail: 'Restart now to install it, or it installs the next time PReview quits.',
+              buttons: ['Restart Now', 'Later'],
+            }
+          : {
+              message: `PReview ${version} is available`,
+              detail: 'Download it from GitHub to replace this copy of PReview.',
+              buttons: ['Download', 'Later'],
+            };
+      const window = BrowserWindow.getAllWindows()[0];
+      const box = { type: 'info' as const, defaultId: 0, cancelId: 1, ...options };
+      const { response } = await (window
+        ? dialog.showMessageBox(window, box)
+        : dialog.showMessageBox(box));
+      return response === 0;
+    },
+    openUrl: (url) => void shell.openExternal(url),
+    log,
+  });
   registerIpcHandlers(db, {
     backupFiles,
     notifier,
+    updates,
     github,
     discovery,
     pullRequests,
@@ -468,10 +505,12 @@ void app.whenReady().then(async () => {
     backups.stop();
     clearInterval(queuedReviewsTimer);
     connectivity.stop();
+    updates.stop();
     db.close();
   });
 
   createWindow();
+  updates.start();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
