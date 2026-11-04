@@ -44,6 +44,7 @@ import { getSettings } from './services/settings.ts';
 import { ConnectivityWatch } from './services/connectivity.ts';
 import { Notifier } from './services/notifications.ts';
 import { Updates } from './services/updates.ts';
+import { shellPath } from './services/shell-path.ts';
 import { onAchievementsUnlocked } from './services/progression/achievements.ts';
 import {
   applyStagedRestore,
@@ -263,6 +264,8 @@ function openOrRestoreDatabase(): DatabaseSync | undefined {
 }
 
 void app.whenReady().then(async () => {
+  // Opened from Finder, the app lacks the terminal's PATH and wouldn't find gh.
+  if (app.isPackaged && process.platform === 'darwin') process.env.PATH = await shellPath();
   // Windows and Linux take the icon from the window. macOS shows the app's own icon in the
   // Dock, which is Electron's until the app is packaged.
   if (hiddenForTests) app.dock?.hide();
