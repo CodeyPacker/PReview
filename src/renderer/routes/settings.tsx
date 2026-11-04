@@ -2,10 +2,11 @@ import { createFileRoute } from '@tanstack/react-router';
 import { PageHeader } from '../app/PageHeader.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { Select } from '../components/Select/Select.tsx';
+import { TextField } from '../components/TextField/TextField.tsx';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
 import { defaultSettings, type ReviewLeader } from '../../shared/contracts/settings.ts';
 import { reviewShortcuts, reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
-import { isMac } from '../lib/platform.ts';
+import { isMac, isWindows } from '../lib/platform.ts';
 import styles from './settings.module.css';
 
 export const Route = createFileRoute('/settings')({ component: SettingsPage });
@@ -72,6 +73,22 @@ function SettingsPage() {
           </p>
         )}
       </Panel>
+      {isWindows && settings.data && (
+        <Panel title="Agents">
+          <TextField
+            // Remounts with the saved value after each save.
+            key={settings.data.wslDistro}
+            label="WSL distribution"
+            hint="Agents run inside this WSL distribution, which needs bubblewrap, socat and its own Claude login."
+            defaultValue={settings.data.wslDistro}
+            disabled={update.isPending}
+            onBlur={(event) => {
+              const wslDistro = event.currentTarget.value.trim();
+              if (wslDistro && wslDistro !== settings.data?.wslDistro) update.mutate({ wslDistro });
+            }}
+          />
+        </Panel>
+      )}
     </div>
   );
 }

@@ -17,12 +17,16 @@ const text = (value: unknown) => (typeof value === 'string' ? value : '');
 
 // Turns Claude Code's messages into activity feed entries. Keeps track of tool calls so their
 // results can be told apart, such as a test run passing or failing. Thinking is never shown.
-export function createActivityMapper(worktree: string) {
+// localPath turns the paths Claude Code names into ones on this machine.
+export function createActivityMapper(
+  worktree: string,
+  localPath: (path: string) => string = (path) => path,
+) {
   const calls = new Map<string, { name: string; input: Record<string, unknown> }>();
   const path = (value: unknown) => {
     const raw = text(value);
     if (!raw || !isAbsolute(raw)) return raw;
-    const inside = relative(worktree, raw);
+    const inside = relative(worktree, localPath(raw));
     return inside.startsWith('..') ? raw : inside;
   };
 

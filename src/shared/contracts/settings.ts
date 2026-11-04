@@ -17,6 +17,8 @@ export const settingsSchema = z.strictObject({
   reviewLeader: reviewLeaderSchema,
   // Set when the user closes the first-launch GitHub prompt without connecting.
   githubPromptDismissed: z.boolean(),
+  // The WSL distribution agents run in on Windows.
+  wslDistro: z.string().trim().min(1).max(100),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -27,4 +29,5 @@ export const defaultSettings: Settings = {
   theme: 'system',
   reviewLeader: 'Control',
   githubPromptDismissed: false,
+  wslDistro: 'Ubuntu',
 };
