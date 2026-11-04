@@ -1,0 +1,56 @@
+/* Achievements page. Read values from tokens.css custom properties only. */
+
+.page {
+  display: grid;
+  align-content: start;
+  gap: var(--space-16);
+  max-width: 1080px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-24);
+  row-gap: var(--space-8);
+  padding: var(--space-16);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--accent-soft), var(--canvas-tint));
+}
+
+.level {
+  display: grid;
+  grid-row: span 2;
+}
+
+.levelLabel {
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.levelNumber {
+  color: var(--ink);
+  font: 700 var(--text-3xl) / 40px var(--font-display);
+}
+
+.levelBar {
+  max-width: 420px;
+}
+
+.streak {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-12);
+}
+
+.empty {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}

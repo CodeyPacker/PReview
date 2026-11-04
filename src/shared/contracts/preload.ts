@@ -7,6 +7,7 @@ import type {
 import type { GitHubAuthState } from './github.ts';
 import type { AppInfo } from './ipc.ts';
 import type { CharacterId, Progression } from './progression.ts';
+import type { Achievement } from './achievements.ts';
 import type {
   PullRequestChanges,
   RepositoryFiles,
@@ -157,6 +158,9 @@ export interface PreviewApi {
     get(): Promise<Progression>;
     setActiveCharacter(characterId: CharacterId): Promise<Progression>;
     addReviewTime(pullRequestId: number, ms: number): Promise<null>;
+  };
+  achievements: {
+    list(): Promise<Achievement[]>;
   };
   agentTasks: {
     list(): Promise<AgentTask[]>;

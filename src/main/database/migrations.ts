@@ -512,4 +512,19 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE xp_transactions ADD COLUMN comment_id INTEGER;
     `,
   },
+  {
+    version: 25,
+    name: 'achievements',
+    // category is the kind of finding or comment an award was for, null for a finished review.
+    // It is kept on the award because findings and comments go when their pull request closes.
+    // earned_achievements has one row per achievement, kept once earned.
+    sql: `
+      ALTER TABLE xp_transactions ADD COLUMN category TEXT;
+
+      CREATE TABLE earned_achievements (
+        achievement_id TEXT PRIMARY KEY,
+        earned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+    `,
+  },
 ];

@@ -16,6 +16,7 @@ import {
   type XpTransaction,
 } from '../../../shared/contracts/progression.ts';
 import type { FindingCategory } from '../../../shared/contracts/review-findings.ts';
+import { unlockAchievements, weeklyStreak } from './achievements.ts';
 
 // The most active time one report can add. The renderer reports every half minute, so a
 // bigger number is a bug or a page that isn't the app's.
@@ -45,6 +46,7 @@ export function getProgression(db: DatabaseSync): Progression {
   );
   return {
     account,
+    streak: weeklyStreak(db),
     activeCharacter: getActiveCharacter(db),
     characters: characters.map((character) => ({
       ...character,
@@ -90,6 +92,7 @@ interface Reward {
   pullRequestId: number;
   findingId?: number;
   commentId?: number;
+  category?: FindingCategory;
 }
 
 // Records one award with the multiplier the review's active time gives now, so later review
@@ -122,8 +125,8 @@ function award(db: DatabaseSync, reward: Reward): boolean {
     .prepare(
       `INSERT OR IGNORE INTO xp_transactions
          (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
-          repository, number, finding_id, comment_id, character_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          repository, number, finding_id, comment_id, category, character_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       reward.key(repository, pullRequest.number),
@@ -137,9 +140,12 @@ function award(db: DatabaseSync, reward: Reward): boolean {
       pullRequest.number,
       reward.findingId ?? null,
       reward.commentId ?? null,
+      reward.category ?? null,
       character.success ? character.data : getActiveCharacter(db),
     );
-  return changes > 0;
+  if (changes === 0) return false;
+  unlockAchievements(db);
+  return true;
 }
 
 // Once per pull request, however many rounds it takes. The key uses the repository and
@@ -169,6 +175,7 @@ export function awardFinding(db: DatabaseSync, findingId: number): boolean {
     baseXp: findingXp[finding.category],
     pullRequestId: finding.pull_request_id,
     findingId,
+    category: finding.category,
   });
 }
 
@@ -189,6 +196,7 @@ export function awardComment(db: DatabaseSync, commentId: number): boolean {
     baseXp: findingXp[comment.category],
     pullRequestId: comment.pull_request_id,
     commentId,
+    category: comment.category,
   });
 }
 

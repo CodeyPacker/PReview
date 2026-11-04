@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { weeklyStreakSchema } from './achievements.ts';
 import type { FindingCategory } from './review-findings.ts';
 
 export const characterIdSchema = z.enum(['shadow', 'ember', 'frost', 'bolt']);
@@ -79,6 +80,7 @@ export type CharacterProgress = z.infer<typeof characterProgressSchema>;
 
 export const progressionSchema = z.object({
   account: levelSchema,
+  streak: weeklyStreakSchema,
   activeCharacter: characterIdSchema,
   characters: z.array(characterProgressSchema),
 });

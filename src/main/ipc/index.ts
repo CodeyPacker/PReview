@@ -32,6 +32,7 @@ import {
   setActiveCharacter,
   startReviewProgress,
 } from '../services/progression/xp.ts';
+import { listAchievements } from '../services/progression/achievements.ts';
 import type { PullRequestFiles } from '../services/pull-requests/files.ts';
 import type { PullRequestReviews } from '../services/pull-requests/reviews.ts';
 import type { PullRequestSync } from '../services/pull-requests/sync.ts';
@@ -245,6 +246,7 @@ export function registerIpcHandlers(
   handle('progression.setActiveCharacter', ({ characterId }) =>
     setActiveCharacter(db, characterId),
   );
+  handle('achievements.list', () => listAchievements(db));
   handle('progression.addReviewTime', ({ pullRequestId, ms }) => {
     addReviewTime(db, pullRequestId, ms);
     return null;
