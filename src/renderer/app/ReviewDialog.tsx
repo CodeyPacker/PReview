@@ -85,14 +85,9 @@ export function ReviewDialog({
   // The findings fill the body when there are some, so no summary is needed then.
   const needsSummary = verdict !== 'approve' && findingIds.length === 0;
   const canSubmit = !submit.isPending && (!needsSummary || body.trim() !== '');
-  // The agent needs comments or findings to work on. An approval asks for nothing.
-  const canSendToAgent =
-    canSubmit && verdict !== 'approve' && draftIds.length + findingIds.length > 0;
-  const sendingToAgent = submit.variables?.sendToAgent === true;
   const result = submit.data;
   const submitted = result?.status === 'submitted';
   const queued = result?.status === 'queued';
-  const sentToAgent = submitted && sendingToAgent;
   const rejection = result?.status === 'rejected' ? result.message : undefined;
   const done = submitted || queued || merged;
   const sentComments = submit.variables?.draftIds.length ?? 0;
@@ -112,7 +107,7 @@ export function ReviewDialog({
     .filter(Boolean)
     .join(' ');
 
-  const send = (sendToAgent: boolean) =>
+  const send = () =>
     submit.mutate({
       pullRequestId,
       headSha,
@@ -121,7 +116,6 @@ export function ReviewDialog({
       findingIds,
       verdict,
       body,
-      sendToAgent,
     });
 
   const close = (next: boolean) => {
@@ -180,13 +174,7 @@ export function ReviewDialog({
                 <CircleCheck className={styles.done} aria-hidden />
               )}
               <Dialog.Title className="title-2">
-                {merged
-                  ? 'Pull request merged'
-                  : queued
-                    ? 'Review queued'
-                    : sentToAgent
-                      ? 'Sent to the agent'
-                      : 'Review submitted'}
+                {merged ? 'Pull request merged' : queued ? 'Review queued' : 'Review submitted'}
               </Dialog.Title>
               <Dialog.Description className={styles.description}>
                 {queued
@@ -195,12 +183,12 @@ export function ReviewDialog({
                     ? branchDeleted
                       ? 'GitHub merged this pull request and deleted its branch.'
                       : 'GitHub merged this pull request.'
-                    : `${sent ? `GitHub has your review and ${sent}.` : 'GitHub has your review.'}${
-                        sentToAgent ? ' The agent task is queued.' : ''
-                      }`}
+                    : sent
+                      ? `GitHub has your review and ${sent}.`
+                      : 'GitHub has your review.'}
               </Dialog.Description>
-              {!merged && !queued && !sentToAgent && mergeMethodPicker}
-              {!merged && !queued && !sentToAgent && mergeWarning}
+              {!merged && !queued && mergeMethodPicker}
+              {!merged && !queued && mergeWarning}
               {mergeError}
               {(deleteRejection || deleteBranch.isError) && (
                 <p className={styles.error} role="alert">
@@ -217,7 +205,7 @@ export function ReviewDialog({
                 >
                   View on GitHub
                 </Button>
-                {!merged && !queued && !sentToAgent && mergeButton}
+                {!merged && !queued && mergeButton}
                 {merged && !branchDeleted && (
                   <Button
                     loading={deleteBranch.isPending}
@@ -236,7 +224,7 @@ export function ReviewDialog({
               className={styles.form}
               onSubmit={(event) => {
                 event.preventDefault();
-                if (canSubmit) send(false);
+                if (canSubmit) send();
               }}
             >
               <Dialog.Title className="title-2">Submit your review</Dialog.Title>
@@ -275,17 +263,9 @@ export function ReviewDialog({
                 </Button>
                 {ownPullRequest && mergeButton}
                 <Button
-                  type="button"
-                  loading={submit.isPending && sendingToAgent}
-                  disabled={!canSendToAgent}
-                  onClick={() => send(true)}
-                >
-                  Send to Agent
-                </Button>
-                <Button
                   variant="primary"
                   type="submit"
-                  loading={submit.isPending && !sendingToAgent}
+                  loading={submit.isPending}
                   disabled={!canSubmit}
                 >
                   Submit review

@@ -160,11 +160,7 @@ const checkTones = {
 
 function Push({ push, ci }: { push: NonNullable<AgentTask['push']>; ci: AgentTask['ci'] }) {
   if (push.status === 'waiting') {
-    return (
-      <p className={styles.note}>
-        A test failed or none were reported, so the changes wait for you to push them.
-      </p>
-    );
+    return <p className={styles.note}>These changes aren’t pushed yet.</p>;
   }
   if (push.status === 'no_changes') {
     return <p className={styles.note}>The agent made no changes to push.</p>;

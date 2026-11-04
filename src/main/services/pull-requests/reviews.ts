@@ -313,12 +313,6 @@ export class PullRequestReviews {
     if (verdict !== 'approve' && body.trim() === '' && findingIds.length === 0) {
       return { status: 'rejected', message: 'Write a summary to comment or request changes.' };
     }
-    if (sendToAgent && draftIds.length === 0 && findingIds.length === 0) {
-      return {
-        status: 'rejected',
-        message: 'Add a line comment or finding for the agent to work on.',
-      };
-    }
     const { repository, number } = this.find(pullRequestId);
     // An earlier review that may have reached GitHub would otherwise be sent again with
     // these drafts.

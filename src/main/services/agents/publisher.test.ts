@@ -98,13 +98,13 @@ describe('AgentPublisher', () => {
   it.each([
     ['a test failed', [true, false]],
     ['no tests were reported', []],
-  ])('waits for the user when %s', async (_case, passed) => {
+  ])('still pushes when %s', async (_case, passed) => {
     const { publisher, publish } = setup();
 
     await publisher.afterRun(taskId, report(passed));
 
-    expect(publish).not.toHaveBeenCalled();
-    expect(latest().push).toEqual({ status: 'waiting', sha: null, error: null });
+    expect(publish).toHaveBeenCalledTimes(1);
+    expect(latest().push?.status).toBe('pushed');
   });
 
   it('records a refused push and why', async () => {

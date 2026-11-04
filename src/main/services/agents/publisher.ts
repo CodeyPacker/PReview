@@ -80,23 +80,17 @@ export class AgentPublisher {
 
   constructor(private readonly deps: AgentPublisherDeps) {}
 
-  // Pushes a completed run's changes when every test it reports passed. Otherwise they wait
-  // for the user's go-ahead.
+  // Pushes a completed run's changes, so the reviewer can see them on the pull request. A
+  // failed test doesn't hold them back, since an agent's sandbox can fail tests that CI passes.
+  // CI still checks the pushed commit, and a failed test shows in the task's activity.
   async afterRun(taskId: number, report: AgentReport): Promise<void> {
-    if (report.tests.length > 0 && report.tests.every((test) => test.passed)) {
-      await this.push(taskId);
-      return;
+    if (report.tests.some((test) => !test.passed)) {
+      recordActivity(this.deps.db, taskId, {
+        kind: 'status',
+        summary: 'A test failed in the agent’s sandbox. Pushing anyway, so CI can check it.',
+      });
     }
-    this.deps.db
-      .prepare(`UPDATE agent_tasks SET push_status = 'waiting', updated_at = ${NOW} WHERE id = ?`)
-      .run(taskId);
-    recordActivity(this.deps.db, taskId, {
-      kind: 'status',
-      summary:
-        report.tests.length > 0
-          ? 'A test failed, so the changes wait for you to push them.'
-          : 'No tests were reported, so the changes wait for you to push them.',
-    });
+    await this.push(taskId);
   }
 
   // The task's changes that aren't pushed yet.

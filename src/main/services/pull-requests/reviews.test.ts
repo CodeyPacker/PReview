@@ -656,16 +656,6 @@ describe('PullRequestReviews durable submissions', () => {
     });
     expect(submitReview).not.toHaveBeenCalled();
   });
-
-  it('refuses to send to the agent with nothing to work on', async () => {
-    const { submitReview, reviews } = setup();
-
-    await expect(reviews.submit(input([], true))).resolves.toEqual({
-      status: 'rejected',
-      message: 'Add a line comment or finding for the agent to work on.',
-    });
-    expect(submitReview).not.toHaveBeenCalled();
-  });
 });
 
 describe('PullRequestReviews merge', () => {

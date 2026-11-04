@@ -791,7 +791,7 @@ Do not delete worktrees with uncommitted or otherwise unpreserved changes.
 
 ## 7.4 Automatic Pushes
 
-Agents may automatically push approved fixes to the existing PR branch when enabled and required checks pass.
+Agents automatically push their fixes to the existing PR branch when they finish, so the reviewer can see them. CI then checks the pushed commit, and a test that failed in the agent's sandbox is shown in its activity.
 
 Restrictions:
 

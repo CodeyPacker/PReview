@@ -43,6 +43,7 @@ import {
 import { findAccount, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { useAgentTasks } from '../hooks/useAgentTasks.ts';
 import { agentStatus } from '../app/agentStatus.ts';
+import { AgentReviewDialog } from '../app/AgentReviewDialog.tsx';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
@@ -87,6 +88,7 @@ function ReviewPage() {
   // Tasks come newest first.
   const agentTask = agentTasks?.find((task) => task.pullRequestId === pullRequestId);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [agentReviewOpen, setAgentReviewOpen] = useState(false);
   const [findingsOpen, setFindingsOpen] = useState(false);
   const repository = repositoryState?.repositories.find(
     (item) => item.id === pullRequest?.repositoryId,
@@ -432,6 +434,9 @@ function ReviewPage() {
           >
             {roundFinished ? 'Review finished' : 'Finish review'}
           </Button>
+          <Button size="sm" disabled={!files.data} onClick={() => setAgentReviewOpen(true)}>
+            Submit to Agent
+          </Button>
           <Button
             variant="primary"
             size="sm"
@@ -457,34 +462,50 @@ function ReviewPage() {
         onDelete={(id) => reviewFindings.remove.mutateAsync(id)}
       />
       {files.data && (
-        <ReviewDialog
-          open={reviewOpen}
-          onOpenChange={setReviewOpen}
-          pullRequestId={pullRequestId}
-          pullRequestUrl={pullRequest.url}
-          headSha={files.data.headSha}
-          mergeBase={files.data.mergeBase}
-          draftIds={sendableDrafts.map((draft) => draft.id)}
-          draftsOutsideDiff={(currentDrafts?.length ?? 0) - sendableDrafts.length}
-          findingIds={findings
-            .filter((finding) => finding.publishedAt === null)
-            .map((finding) => finding.id)}
-          ownPullRequest={
-            reviewer !== undefined &&
-            reviewer.login.toLowerCase() === pullRequest.author?.login.toLowerCase()
-          }
-          agentTask={agentTask}
-          onDone={({ merged }) =>
-            void navigate(
-              merged
-                ? {
-                    to: '/post-merge/$pullRequestId',
-                    params: { pullRequestId: String(pullRequestId) },
-                  }
-                : { to: '/inbox' },
-            )
-          }
-        />
+        <>
+          <AgentReviewDialog
+            open={agentReviewOpen}
+            onOpenChange={setAgentReviewOpen}
+            pullRequestId={pullRequestId}
+            headSha={files.data.headSha}
+            mergeBase={files.data.mergeBase}
+            draftIds={sendableDrafts.map((draft) => draft.id)}
+            draftsOutsideDiff={(currentDrafts?.length ?? 0) - sendableDrafts.length}
+            findingIds={findings
+              .filter((finding) => finding.publishedAt === null)
+              .map((finding) => finding.id)}
+            openThreads={reviewThreads.data?.filter((thread) => !thread.resolved).length ?? 0}
+            onDone={() => void navigate({ to: '/inbox' })}
+          />
+          <ReviewDialog
+            open={reviewOpen}
+            onOpenChange={setReviewOpen}
+            pullRequestId={pullRequestId}
+            pullRequestUrl={pullRequest.url}
+            headSha={files.data.headSha}
+            mergeBase={files.data.mergeBase}
+            draftIds={sendableDrafts.map((draft) => draft.id)}
+            draftsOutsideDiff={(currentDrafts?.length ?? 0) - sendableDrafts.length}
+            findingIds={findings
+              .filter((finding) => finding.publishedAt === null)
+              .map((finding) => finding.id)}
+            ownPullRequest={
+              reviewer !== undefined &&
+              reviewer.login.toLowerCase() === pullRequest.author?.login.toLowerCase()
+            }
+            agentTask={agentTask}
+            onDone={({ merged }) =>
+              void navigate(
+                merged
+                  ? {
+                      to: '/post-merge/$pullRequestId',
+                      params: { pullRequestId: String(pullRequestId) },
+                    }
+                  : { to: '/inbox' },
+              )
+            }
+          />
+        </>
       )}
       <div className={cx(styles.workspace, filesCollapsed && styles.filesCollapsed)}>
         <div
