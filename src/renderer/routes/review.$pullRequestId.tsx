@@ -287,6 +287,7 @@ function ReviewPage() {
       stop: () => diffViewer.current?.stopScroll(),
       cancel: () => diffViewer.current?.cancelScroll(),
     },
+    zen ? toggleZen : undefined,
   );
 
   // The match of a text search of the repository that is open, so the diff shows its line.
