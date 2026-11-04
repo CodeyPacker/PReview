@@ -838,13 +838,15 @@ test('keeps split view at window size and toggles review panels independently', 
     const removeApproval = page.getByRole('button', { name: 'Remove file approval', exact: true });
     const flag = page.getByRole('button', { name: 'Flag file', exact: true });
     const removeFlag = page.getByRole('button', { name: 'Remove file flag', exact: true });
-    const allFiles = files.getByRole('radio', { name: 'All', exact: true });
-    const flaggedFiles = files.getByRole('radio', { name: 'Flagged', exact: true });
-    const notApproved = files.getByRole('radio', { name: 'Unapproved', exact: true });
+    const filterFiles = async (name: string) => {
+      await files.getByRole('button', { name: /^Filter files/ }).click();
+      await page.getByRole('menuitemradio', { name, exact: true }).click();
+    };
+    const noFilter = files.getByRole('button', { name: 'Filter files', exact: true });
     const aRow = files.getByRole('button', { name: /a.ts/ });
     const newRow = files.getByTitle('new.ts', { exact: true });
     await expect(previousFile).toBeDisabled();
-    await expect(allFiles).toBeChecked();
+    await expect(noFilter).toBeVisible();
     await approve.click();
     await expect(title).toHaveText('new.ts');
     await expect(aRow).toHaveAttribute('data-review-state', 'approved');
@@ -881,7 +883,11 @@ test('keeps split view at window size and toggles review panels independently', 
     await expect(aRow).not.toHaveAttribute('data-review-state', 'approved');
     await expect(aRow).toHaveAttribute('data-review-state', 'flagged');
 
-    await flaggedFiles.click();
+    await filterFiles('Flagged');
+    await expect(files.getByRole('button', { name: 'Filter files: Flagged' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     await expect(aRow).toBeVisible();
     await expect(newRow).toBeVisible();
     await aRow.click();
@@ -891,30 +897,30 @@ test('keeps split view at window size and toggles review panels independently', 
     await expect(newRow).toBeVisible();
     await expect(previousFile).toBeDisabled();
     await expect(nextFile).toBeDisabled();
-    await notApproved.click();
+    await filterFiles('Unapproved');
     await expect(aRow).toHaveCount(0);
     await expect(newRow).toBeVisible();
     await approve.click();
     await expect(files.getByText('No files match this filter.')).toBeVisible();
     await expect(approve).toBeDisabled();
     await expect(flag).toBeDisabled();
-    await allFiles.click();
+    await filterFiles('All');
     await expect(aRow).toHaveAttribute('data-review-state', 'approved');
     await expect(newRow).toHaveAttribute('data-review-state', 'approved');
     await previousFile.click();
     await removeApproval.click();
     await expect(title).toHaveText('a.ts');
     await expect(aRow).not.toHaveAttribute('data-review-state', 'approved');
-    await notApproved.click();
+    await filterFiles('Unapproved');
     await expect(aRow).toBeVisible();
     await expect(newRow).toHaveCount(0);
-    await flaggedFiles.click();
+    await filterFiles('Flagged');
     await expect(files.getByText('No files match this filter.')).toBeVisible();
-    await allFiles.click();
+    await filterFiles('All');
     await flag.click();
     await expect(title).toHaveText('new.ts');
     await page.reload();
-    await expect(allFiles).toBeChecked();
+    await expect(noFilter).toBeVisible();
     await expect(title).toHaveText('a.ts');
     await expect(removeFlag).toHaveAttribute('aria-pressed', 'true');
     await expect(aRow).toHaveAttribute('data-review-state', 'flagged');
@@ -1938,6 +1944,43 @@ test('submits to the agent with an optional message', async () => {
         sendToAgent: true,
       },
     ]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('groups tests and generated files until it is turned off in Settings', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Groups'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts'), changedFile('pnpm-lock.yaml')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+    });
+    await openReview(app, page);
+    const files = page.locator('#review-files');
+    const group = files.getByRole('button', { name: /Tests, stories & generated/ });
+    await expect(group).toBeVisible();
+    await expect(files.getByRole('button', { name: /pnpm-lock.yaml/ })).toBeHidden();
+    await page.screenshot({ path: test.info().outputPath('file-filter.png') });
+
+    // The review screen has no control for it. It's one setting for every list.
+    await expect(page.getByRole('button', { name: /Group tests/ })).toHaveCount(0);
+    await page.evaluate(() => {
+      location.hash = '/settings';
+    });
+    await page.getByRole('switch', { name: /^Group tests and generated files/ }).click();
+    await page.evaluate(() => {
+      location.hash = '/review/1';
+    });
+    await expect(files.getByRole('button', { name: /pnpm-lock.yaml/ })).toBeVisible();
+    await expect(group).toBeHidden();
   } finally {
     await app.close();
   }

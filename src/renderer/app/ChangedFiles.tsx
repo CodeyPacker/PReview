@@ -1,7 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronRight, FileDiff, FlaskConical } from 'lucide-react';
+import { ChevronRight, FileDiff } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { splitSupportFiles } from '../lib/supportFiles.ts';
 import { useActiveItemRect } from '../lib/useActiveItemRect.ts';
 import { ActiveItemIndicator } from '../components/ActiveItemIndicator/ActiveItemIndicator.tsx';
@@ -15,7 +14,7 @@ import { Select } from '../components/Select/Select.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { SearchField } from '../components/SearchField/SearchField.tsx';
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
-import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
+import { FileFilterButton } from './FileFilterButton.tsx';
 import { FileListSwitch } from './FileListSwitch.tsx';
 import type { FileReviewFilter, FileReviewState } from '../lib/fileReview.ts';
 import styles from './ChangedFiles.module.css';
@@ -61,7 +60,6 @@ export interface ChangedFilesProps {
   onBrowseChange?: (browsing: boolean) => void;
   // Puts tests, stories and generated files in a group at the bottom, collapsed until opened.
   groupSupport?: boolean;
-  onGroupSupportChange?: (grouped: boolean) => void;
   supportOpen?: boolean;
   onSupportOpenChange?: (open: boolean) => void;
 }
@@ -90,7 +88,6 @@ export function ChangedFiles({
   onSelect,
   onBrowseChange,
   groupSupport = false,
-  onGroupSupportChange,
   supportOpen = false,
   onSupportOpenChange,
 }: ChangedFilesProps) {
@@ -175,19 +172,6 @@ export function ChangedFiles({
           ]}
         />
       )}
-      <ToggleGroup
-        className={styles.filter}
-        aria-label="Filter files"
-        size="sm"
-        block
-        value={filter}
-        onValueChange={onFilterChange}
-        options={[
-          { value: 'all', label: 'All' },
-          { value: 'flagged', label: 'Flagged' },
-          { value: 'not-approved', label: 'Unapproved' },
-        ]}
-      />
       <div className={styles.search}>
         <div className={styles.searchRow}>
           <SearchField
@@ -196,16 +180,7 @@ export function ChangedFiles({
             value={searchQuery}
             onValueChange={onSearchChange}
           />
-          {onGroupSupportChange && (
-            <IconButton
-              size="sm"
-              variant="plain"
-              icon={<FlaskConical aria-hidden />}
-              label="Group tests and generated files"
-              selected={groupSupport}
-              onClick={() => onGroupSupportChange(!groupSupport)}
-            />
-          )}
+          <FileFilterButton value={filter} onValueChange={onFilterChange} />
         </div>
         {searching && (
           <p role="status" className={styles.searchStatus}>

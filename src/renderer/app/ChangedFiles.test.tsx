@@ -33,7 +33,6 @@ function render(props: Partial<ChangedFilesProps>) {
       error={false}
       selectedPath={undefined}
       onSelect={vi.fn()}
-      onGroupSupportChange={vi.fn()}
       {...props}
     />,
   );

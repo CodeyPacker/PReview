@@ -59,7 +59,7 @@ import { useReviewSession } from '../hooks/useReviewSession.ts';
 import type { ReviewSession } from '../../shared/contracts/review-sessions.ts';
 import { useReviewThreads } from '../hooks/useReviewThreads.ts';
 import { useThreadActions } from '../hooks/useThreadActions.ts';
-import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
+import { useSettings } from '../hooks/useSettings.ts';
 import { orderForReview } from '../lib/supportFiles.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
@@ -131,7 +131,6 @@ function ReviewPage() {
   );
   const reviewStates = readOnlyView ? noReviewStates : markedStates;
   const { data: settings } = useSettings();
-  const updateSettings = useUpdateSettings();
   const groupSupport = settings?.groupSupportFiles ?? defaultSettings.groupSupportFiles;
   const [supportOpen, setSupportOpen] = useState(false);
   const listedFiles = changedFiles?.filter(
@@ -538,9 +537,6 @@ function ReviewPage() {
               className={styles.files}
               files={listedFiles}
               groupSupport={groupSupport}
-              onGroupSupportChange={(grouped) =>
-                updateSettings.mutate({ groupSupportFiles: grouped })
-              }
               supportOpen={supportOpen}
               onSupportOpenChange={setSupportOpen}
               totalFiles={changedFiles?.length}
