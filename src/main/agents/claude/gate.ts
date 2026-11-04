@@ -58,11 +58,18 @@ export interface GateOptions {
   onQuestion: (input: Record<string, unknown>, signal: AbortSignal) => Promise<PermissionResult>;
   // Called with every decision, for the activity log.
   onDecision?: (tool: string, result: PermissionResult) => void;
+  // Turns a path the agent names into one on this machine, such as a WSL path on Windows.
+  localPath?: (path: string) => string;
 }
 
 // Decides each tool call in code. Shell commands are confined by the OS sandbox, so Bash runs
 // without asking as long as it stays inside the sandbox.
-export function createToolGate({ root, onQuestion, onDecision }: GateOptions): CanUseTool {
+export function createToolGate({
+  root,
+  onQuestion,
+  onDecision,
+  localPath = (path) => path,
+}: GateOptions): CanUseTool {
   const decide = async (
     tool: string,
     input: Record<string, unknown>,
@@ -74,7 +81,7 @@ export function createToolGate({ root, onQuestion, onDecision }: GateOptions): C
     if (!ALLOWED_TOOLS.includes(tool))
       return { behavior: 'deny', message: `${tool} is not available in PReview.` };
     for (const path of pathsIn(input)) {
-      if (!(await isInside(root, path)))
+      if (!(await isInside(root, localPath(path))))
         return { behavior: 'deny', message: `Access outside the worktree is not allowed: ${path}` };
     }
     if (tool === 'Bash' && input.dangerouslyDisableSandbox)

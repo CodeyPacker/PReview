@@ -27,6 +27,7 @@ import { RepositorySearch } from './services/pull-requests/repository-search.ts'
 import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
+import { getSettings } from './services/settings.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
 import { createGit, runGit } from './services/repositories/git-info.ts';
 import icon from '../../build/icon.png?asset';
@@ -197,7 +198,7 @@ void app.whenReady().then(async () => {
   const agentRunner = new AgentRunner({
     db,
     provider,
-    agent: new ClaudeAgent(app.isPackaged),
+    agent: new ClaudeAgent(app.isPackaged, () => getSettings(db).wslDistro),
     worktrees,
     notify,
     log,

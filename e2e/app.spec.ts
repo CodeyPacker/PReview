@@ -70,6 +70,7 @@ test('keeps a saved setting after a restart', async () => {
     theme: 'system',
     githubPromptDismissed: false,
     reviewLeader: 'Control',
+    wslDistro: 'Ubuntu',
   });
   await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
   await app.close();
@@ -80,6 +81,7 @@ test('keeps a saved setting after a restart', async () => {
     theme: 'dark',
     githubPromptDismissed: false,
     reviewLeader: 'Control',
+    wslDistro: 'Ubuntu',
   });
   await app.close();
 });
@@ -97,6 +99,7 @@ test('rejects an invalid setting', async () => {
     theme: 'system',
     githubPromptDismissed: false,
     reviewLeader: 'Control',
+    wslDistro: 'Ubuntu',
   });
 
   await app.close();
@@ -108,7 +111,7 @@ test('opens on the dashboard and navigates from the sidebar', async () => {
   await dismissGitHubPrompt(page);
   const nav = page.getByRole('navigation', { name: 'Main' });
 
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Pending Reviews' })).toBeVisible();
   await expect(nav.getByRole('link', { name: 'Dashboard' })).toHaveAttribute(
     'aria-current',
     'page',
@@ -131,7 +134,7 @@ test('applies the saved theme to the window', async () => {
   let app = await launch();
   let page = await app.firstWindow();
   await dismissGitHubPrompt(page);
-  await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Pending Reviews' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBeUndefined();
   await page.evaluate(() => window.preview.settings.update({ theme: 'dark' }));
   await app.close();
@@ -154,7 +157,7 @@ test('prompts to connect GitHub until the prompt is dismissed', async () => {
 
   app = await launch();
   page = await app.firstWindow();
-  await expect(page.getByRole('heading', { level: 1, name: 'Dashboard' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 2, name: 'Pending Reviews' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 
   const nav = page.getByRole('navigation', { name: 'Main' });
@@ -963,8 +966,8 @@ test('submits a review, and only allows a comment on your own pull request', asy
     });
     await dialog.getByRole('button', { name: 'Done' }).click();
     await expect(dialog).toBeHidden();
-    // A sent review is done with, so the Inbox comes back.
-    await expect(page).toHaveURL(/#\/inbox$/);
+    // A merge opens the post-merge screen for the pull request.
+    await expect(page).toHaveURL(/#\/post-merge\/1$/);
     expect(
       await app.evaluate(() => (globalThis as { submittedReviews?: unknown[] }).submittedReviews),
     ).toEqual([
@@ -1749,6 +1752,8 @@ test("shows an agent's work in the Inbox and answers its question", async () => 
         ipcMain.handle(channel, (_event, input) => handler(input as never));
       }
     });
+    // The Dashboard already loaded the real data, so reload to read the stubs.
+    await page.reload();
     await page
       .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: 'Inbox' })
@@ -1866,6 +1871,8 @@ test('shows CI on pushed agent changes and sends the agent back on request', asy
         ipcMain.handle(channel, (_event, input) => handler(input as never));
       }
     });
+    // The Dashboard already loaded the real data, so reload to read the stubs.
+    await page.reload();
     await page
       .getByRole('navigation', { name: 'Main' })
       .getByRole('link', { name: 'Inbox' })

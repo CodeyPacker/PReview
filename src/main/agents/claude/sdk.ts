@@ -25,7 +25,7 @@ export interface SignIn {
 }
 
 // Asks Claude Code who is signed in, without starting a conversation.
-export async function checkSignIn(sdk: Sdk, options: Options): Promise<SignIn> {
+export async function checkSignIn(sdk: Sdk, options: Options, hint: string): Promise<SignIn> {
   const idle = new InputQueue();
   const query = sdk.query({ prompt: idle, options: { ...options, persistSession: false } });
   try {
@@ -38,7 +38,7 @@ export async function checkSignIn(sdk: Sdk, options: Options): Promise<SignIn> {
     );
     return signedIn
       ? { signedIn, detail: `Signed in to Claude${info.email ? ` as ${info.email}` : ''}.` }
-      : { signedIn, detail: 'Claude is not signed in. Run `claude` in a terminal and use /login.' };
+      : { signedIn, detail: `Claude is not signed in. ${hint}` };
   } finally {
     idle.end();
     query.close();

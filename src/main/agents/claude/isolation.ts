@@ -1,7 +1,7 @@
 import type { Options } from '@anthropic-ai/claude-agent-sdk';
 import { mkdtemp, realpath, rm } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 export type Sandbox = NonNullable<Options['sandbox']>;
 
@@ -24,8 +24,8 @@ export const PACKAGE_REGISTRIES = [
 // Shell commands can write only in the worktree and the temp folder, can't change the
 // worktree's Git link, can't read the home folder outside those two, and reach only the
 // package registries.
-// macOS enforces it with Seatbelt. Windows runs the commands as a separate user with no
-// rights of its own.
+// macOS enforces it with Seatbelt. Windows runs Claude Code inside WSL, where bubblewrap does.
+// Paths are POSIX on both.
 export function sandboxFor(worktree: string, temp: string, home: string): Sandbox {
   return {
     enabled: true,
@@ -36,7 +36,7 @@ export function sandboxFor(worktree: string, temp: string, home: string): Sandbo
       denyRead: [home],
       allowRead: [worktree, temp],
       allowWrite: [worktree, temp],
-      denyWrite: [join(worktree, '.git')],
+      denyWrite: [posix.join(worktree, '.git')],
     },
     network: {
       allowedDomains: PACKAGE_REGISTRIES,
