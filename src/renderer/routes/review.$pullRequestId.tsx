@@ -48,6 +48,7 @@ import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
 import { useReviewFindings } from '../hooks/useReviewFindings.ts';
 import { useReviewCompletion } from '../hooks/useReviewCompletion.ts';
+import { useReviewTime } from '../hooks/useReviewTime.ts';
 import { useReviewChanges } from '../hooks/useReviewChanges.ts';
 import { useDraftComposer } from '../hooks/useDraftComposer.ts';
 import { useDraftPlacement } from '../hooks/useDraftPlacement.ts';
@@ -111,6 +112,7 @@ function ReviewPage() {
   } = useReviewChanges(pullRequestId, pullRequest);
   const changedFiles = shown.data?.files;
   const reviewSession = useReviewSession(pullRequestId);
+  useReviewTime(pullRequestId);
   // Undefined until the saved session is read, then null when there was none.
   const [restored, setRestored] = useState<ReviewSession | null>();
   // The saved scroll position, until the reviewer picks another file.

@@ -6,6 +6,7 @@ import {
   type SetFindingResolutionInput,
   type UpdateReviewFindingInput,
 } from '../../../shared/contracts/review-findings.ts';
+import { awardFinding } from '../progression/xp.ts';
 
 interface ReviewFindingRow {
   id: number;
@@ -77,6 +78,7 @@ export function updateReviewFinding(
   return listReviewFindings(db, pullRequestId);
 }
 
+// Resolving a finding an agent validated awards its XP.
 export function setReviewFindingResolution(
   db: DatabaseSync,
   { pullRequestId, id, resolution }: SetFindingResolutionInput,
@@ -89,6 +91,7 @@ export function setReviewFindingResolution(
     )
     .run(resolution, id, pullRequestId);
   if (changes === 0) throw new Error('Finding not found.');
+  awardFinding(db, id);
   return listReviewFindings(db, pullRequestId);
 }
 

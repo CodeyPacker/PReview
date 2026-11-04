@@ -52,6 +52,7 @@ import { repositorySearchInputSchema, repositorySearchResultSchema } from './rep
 import { reviewRoundSchema } from './review-rounds.ts';
 import { reviewSessionSchema, saveReviewSessionInputSchema } from './review-sessions.ts';
 import { settingsPatchSchema, settingsSchema } from './settings.ts';
+import { characterIdSchema, progressionSchema } from './progression.ts';
 
 export const appInfoSchema = z.object({
   name: z.string(),
@@ -259,6 +260,18 @@ export const ipcContract = {
   'reviewSessions.getActive': { input: z.undefined(), output: z.number().int().nullable() },
   'reviewSessions.setActive': {
     input: z.object({ pullRequestId: z.number().int().nullable() }),
+    output: z.null(),
+  },
+  // Account and character levels, from every XP award.
+  'progression.get': { input: z.undefined(), output: progressionSchema },
+  // Picks the character new reviews earn XP for. It must be unlocked.
+  'progression.setActiveCharacter': {
+    input: z.object({ characterId: characterIdSchema }),
+    output: progressionSchema,
+  },
+  // Adds focused time on a review screen. The main process caps each report.
+  'progression.addReviewTime': {
+    input: z.object({ pullRequestId: z.number().int(), ms: z.number().int().min(0) }),
     output: z.null(),
   },
   // Every agent task, newest first, with the question it waits on.
