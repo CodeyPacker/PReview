@@ -19,8 +19,11 @@ export interface DeviceCode {
 export type Fetch = typeof fetch;
 export type Sleep = (ms: number, signal: AbortSignal) => Promise<void>;
 
-// Thrown when GitHub rejects a stored token. The user has to connect again.
-export class GitHubUnauthorizedError extends Error {}
+// Thrown when GitHub rejects a stored token. The user has to connect again. login names the
+// account, when the call went out with a connected account.
+export class GitHubUnauthorizedError extends Error {
+  login: string | undefined;
+}
 
 // Thrown when the device flow ends without a token. The message is shown to the user.
 export class DeviceFlowError extends Error {}

@@ -148,7 +148,9 @@ function DashboardPage() {
     return groups;
   }, [agentTasks]);
 
-  const name = auth?.status === 'connected' ? (auth.user.name ?? auth.user.login) : undefined;
+  // The greeting uses the first connected account.
+  const [account] = auth?.accounts ?? [];
+  const name = account ? (account.name ?? account.login) : undefined;
   const openReview = (pullRequestId: number) =>
     void navigate({
       to: '/review/$pullRequestId',

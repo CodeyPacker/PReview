@@ -1,5 +1,5 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import { isAbsolute, relative } from 'node:path';
+import { isAbsolute, relative, sep } from 'node:path';
 import type { AgentQuestionItem } from '../../../shared/contracts/agent-tasks.ts';
 import type { AgentActivity } from '../provider.ts';
 
@@ -27,7 +27,10 @@ export function createActivityMapper(
     const raw = text(value);
     if (!raw || !isAbsolute(raw)) return raw;
     const inside = relative(worktree, localPath(raw));
-    return inside.startsWith('..') ? raw : inside;
+    // Outside the worktree, or on another drive on Windows, the path stays as Claude Code gave
+    // it. Inside, it reads with / on every platform.
+    if (inside.startsWith('..') || isAbsolute(inside)) return raw;
+    return inside.split(sep).join('/');
   };
 
   const describe = (name: string, input: Record<string, unknown>): AgentActivity | null => {

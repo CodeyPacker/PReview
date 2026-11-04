@@ -19,7 +19,7 @@ const api: PreviewApi = {
     connect: () => invoke('github.connect', undefined),
     connectWithCli: () => invoke('github.connectWithCli', undefined),
     cancel: () => invoke('github.cancel', undefined),
-    disconnect: () => invoke('github.disconnect', undefined),
+    disconnect: (login) => invoke('github.disconnect', { login }),
   },
   folders: {
     list: () => invoke('folders.list', undefined),
@@ -31,6 +31,7 @@ const api: PreviewApi = {
     list: () => invoke('repositories.list', undefined),
     scan: () => invoke('repositories.scan', undefined),
     updateSettings: (id, patch) => invoke('repositories.updateSettings', { id, patch }),
+    setAccount: (id, login) => invoke('repositories.setAccount', { id, login }),
   },
   pullRequests: {
     list: () => invoke('pullRequests.list', undefined),

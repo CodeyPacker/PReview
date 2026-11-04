@@ -76,7 +76,7 @@ function InboxPage() {
   const errors = pullRequestState?.errors ?? [];
 
   let emptyMessage = 'No pull requests match.';
-  if (auth?.status === 'disconnected') {
+  if (auth?.accounts.length === 0) {
     emptyMessage = 'Connect GitHub on the Integrations page to see pull requests.';
   } else if (monitored.length === 0) {
     emptyMessage = 'No monitored repositories. Turn on monitoring on the Integrations page.';

@@ -11,6 +11,9 @@ export default defineConfig({
         test: {
           name: 'unit',
           environment: 'node',
+          // Tests that run real git can take seconds on Windows while other files run alongside.
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
           include: [
             'src/main/**/*.test.ts',
             'src/shared/**/*.test.ts',

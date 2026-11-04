@@ -83,13 +83,16 @@ export const reviewThreadSchema = z.object({
 });
 export type ReviewThread = z.infer<typeof reviewThreadSchema>;
 
+// pullRequestId picks the account the change goes out with.
 export const replyToThreadInputSchema = z.object({
+  pullRequestId: z.number().int(),
   threadId: z.string(),
   body: z.string().trim().min(1).max(65_536),
 });
 export type ReplyToThreadInput = z.infer<typeof replyToThreadInputSchema>;
 
 export const setThreadResolvedInputSchema = z.object({
+  pullRequestId: z.number().int(),
   threadId: z.string(),
   resolved: z.boolean(),
 });

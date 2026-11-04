@@ -71,7 +71,7 @@ export const ipcContract = {
   'github.connect': { input: z.undefined(), output: githubAuthStateSchema },
   'github.connectWithCli': { input: z.undefined(), output: githubAuthStateSchema },
   'github.cancel': { input: z.undefined(), output: githubAuthStateSchema },
-  'github.disconnect': { input: z.undefined(), output: githubAuthStateSchema },
+  'github.disconnect': { input: z.object({ login: z.string() }), output: githubAuthStateSchema },
   'folders.list': { input: z.undefined(), output: z.array(watchedFolderSchema) },
   // Opens the native folder picker. A canceled picker changes nothing.
   'folders.add': { input: z.undefined(), output: z.array(watchedFolderSchema) },
@@ -88,6 +88,11 @@ export const ipcContract = {
   'repositories.scan': { input: z.undefined(), output: repositoriesStateSchema },
   'repositories.updateSettings': {
     input: z.object({ id: z.number().int(), patch: repositorySettingsPatchSchema }),
+    output: repositoriesStateSchema,
+  },
+  // Picks the GitHub account for a repository. null goes back to automatic assignment.
+  'repositories.setAccount': {
+    input: z.object({ id: z.number().int(), login: z.string().nullable() }),
     output: repositoriesStateSchema,
   },
   'pullRequests.list': { input: z.undefined(), output: pullRequestsStateSchema },

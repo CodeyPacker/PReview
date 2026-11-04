@@ -30,7 +30,8 @@ describe('readGitInfo with git', () => {
     dir = mkdtempSync(join(tmpdir(), 'preview-git-'));
   });
 
-  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+  // Windows can still hold a file a git process just closed, so removal retries briefly.
+  afterEach(() => rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }));
 
   const git = (...args: string[]) =>
     execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], {

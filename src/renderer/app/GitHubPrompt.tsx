@@ -13,7 +13,8 @@ export function GitHubPrompt() {
   if (
     phase === 'waiting' &&
     settings?.githubPromptDismissed === false &&
-    auth?.status === 'disconnected'
+    auth?.accounts.length === 0 &&
+    !auth.pending
   ) {
     setPhase('open');
   }

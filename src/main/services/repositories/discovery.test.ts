@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
@@ -21,7 +21,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 // Answers from the folder name, so each repository gets its own remote and root commit.
 const git: Git = (cwd, args) => {
-  const name = cwd.split('/').at(-1);
+  const name = basename(cwd);
   return Promise.resolve(args[0] === 'config' ? `git@github.com:octo/${name}.git` : `root-${name}`);
 };
 

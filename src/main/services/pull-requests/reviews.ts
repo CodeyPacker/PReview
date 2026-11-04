@@ -57,20 +57,23 @@ export class PullRequestReviews {
   }
 
   // Posts a reply to a thread straight away, as GitHub's single comments do.
-  async reply({ threadId, body }: ReplyToThreadInput): Promise<ThreadActionResult> {
+  async reply({ pullRequestId, threadId, body }: ReplyToThreadInput): Promise<ThreadActionResult> {
+    const { repository } = this.find(pullRequestId);
     return this.changeThread(
-      () => this.deps.provider.replyToThread(threadId, body.trim()),
+      () => this.deps.provider.replyToThread(repository, threadId, body.trim()),
       'GitHub did not accept this reply.',
     );
   }
 
   // Resolves a thread, or reopens it.
   async setThreadResolved({
+    pullRequestId,
     threadId,
     resolved,
   }: SetThreadResolvedInput): Promise<ThreadActionResult> {
+    const { repository } = this.find(pullRequestId);
     return this.changeThread(
-      () => this.deps.provider.setThreadResolved(threadId, resolved),
+      () => this.deps.provider.setThreadResolved(repository, threadId, resolved),
       resolved ? 'GitHub did not resolve this thread.' : 'GitHub did not reopen this thread.',
     );
   }

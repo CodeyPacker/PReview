@@ -58,12 +58,13 @@ export interface PreviewApi {
   };
   github: {
     getAuth(): Promise<GitHubAuthState>;
-    // Opens GitHub's device page and copies the code. Resolves once the code is ready.
+    // Adds an account: opens GitHub's device page and copies the code. Resolves once the code
+    // is ready.
     connect(): Promise<GitHubAuthState>;
-    // Signs in with the GitHub CLI's active account. Resolves once connected or failed.
+    // Adds the GitHub CLI's active account. Resolves once connected or failed.
     connectWithCli(): Promise<GitHubAuthState>;
     cancel(): Promise<GitHubAuthState>;
-    disconnect(): Promise<GitHubAuthState>;
+    disconnect(login: string): Promise<GitHubAuthState>;
   };
   folders: {
     list(): Promise<WatchedFolder[]>;
@@ -77,6 +78,8 @@ export interface PreviewApi {
     // Starts a scan of the watched folders. Resolves without waiting for it to finish.
     scan(): Promise<RepositoriesState>;
     updateSettings(id: number, patch: RepositorySettingsPatch): Promise<RepositoriesState>;
+    // Picks the GitHub account for a repository. null goes back to automatic assignment.
+    setAccount(id: number, login: string | null): Promise<RepositoriesState>;
   };
   pullRequests: {
     list(): Promise<PullRequestsState>;

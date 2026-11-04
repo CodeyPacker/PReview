@@ -3,6 +3,7 @@ import { mkdir, readFile } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
 import { join } from 'node:path';
 import type { AgentChange } from '../../../shared/contracts/agent-tasks.ts';
+import { isGitHubLogin } from '../github/credential-store.ts';
 import type { Git } from '../repositories/git-info.ts';
 
 export type OpenWorktreeResult =
@@ -95,11 +96,24 @@ export class AgentWorktrees {
         return { status: 'blocked', reason: `Git could not commit: ${messageOf(error)}` };
       }
       const sha = await git(row.path, ['rev-parse', 'HEAD']);
+      // The push goes out as the repository's account: Git's credential helper picks the saved
+      // sign-in for this user name. Set for this command only, so no Git config changes.
+      const login = pull.account;
+      const asAccount = login ? ['-c', `credential.https://github.com.username=${login}`] : [];
       try {
-        await git(row.path, ['push', '--quiet', 'origin', `HEAD:refs/heads/${pull.headBranch}`]);
+        await git(row.path, [
+          ...asAccount,
+          'push',
+          '--quiet',
+          'origin',
+          `HEAD:refs/heads/${pull.headBranch}`,
+        ]);
       } catch (error) {
         await git(row.path, ['reset', '--soft', '--quiet', row.head_sha]);
-        return { status: 'blocked', reason: `The push was refused: ${messageOf(error)}` };
+        const hint = login
+          ? ` If Git has no saved sign-in for @${login}, push once from a terminal as that account.`
+          : '';
+        return { status: 'blocked', reason: `The push was refused: ${messageOf(error)}${hint}` };
       }
       this.deps.db
         .prepare(`UPDATE agent_worktrees SET head_sha = ?, updated_at = ${NOW} WHERE id = ?`)
@@ -319,8 +333,11 @@ export class AgentWorktrees {
   private findPullRequest(pullRequestId: number): PullRequestRow {
     const row = this.deps.db
       .prepare(
-        `SELECT p.number, p.head_branch, p.base_branch, p.repository_id, r.path, r.status
+        `SELECT p.number, p.head_branch, p.base_branch, p.repository_id, r.path, r.status,
+                a.login AS account
          FROM pull_requests p JOIN repositories r ON r.id = p.repository_id
+         LEFT JOIN github_repository_accounts a
+           ON a.full_name = r.github_owner || '/' || r.github_name
          WHERE p.id = ?`,
       )
       .get(pullRequestId) as
@@ -331,6 +348,7 @@ export class AgentWorktrees {
           repository_id: number;
           path: string;
           status: string;
+          account: string | null;
         }
       | undefined;
     if (!row) throw new Error('Pull request not found.');
@@ -341,6 +359,8 @@ export class AgentWorktrees {
       repositoryId: row.repository_id,
       path: row.path,
       repositoryStatus: row.status,
+      // Only a real GitHub login goes into the Git command.
+      account: row.account && isGitHubLogin(row.account) ? row.account : null,
     };
   }
 
@@ -358,6 +378,8 @@ interface PullRequestRow {
   repositoryId: number;
   path: string;
   repositoryStatus: string;
+  // The GitHub account assigned to the repository, which pushes go out as.
+  account: string | null;
 }
 
 // Git's own message, without the command line execFile adds. A remote's explanation, such as

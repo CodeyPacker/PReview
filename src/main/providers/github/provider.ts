@@ -274,24 +274,23 @@ function encodeContentPath(path: string): string {
 export class GitHubProvider implements GitProvider {
   constructor(private readonly client: GitHubClient) {}
 
-  async getRepositories(): Promise<ProviderRepository[]> {
-    const items = await this.client.getAll('/user/repos', {
-      affiliation: 'owner,collaborator,organization_member',
-    });
-    return items.map((item) => {
-      const repository = repositorySchema.parse(item);
-      return {
-        provider: 'github',
-        providerId: String(repository.id),
-        fullName: repository.full_name,
-        owner: repository.owner.login,
-        name: repository.name,
-        defaultBranch: repository.default_branch,
-        private: repository.private,
-        archived: repository.archived,
-        canPush: repository.permissions?.push ?? false,
-      };
-    });
+  // The repository as the token's account sees it. Rejects with a 404 when the account
+  // can't read it.
+  async getRepository(repositoryFullName: string): Promise<ProviderRepository> {
+    const repository = repositorySchema.parse(
+      await this.client.getJson(`/repos/${repositoryFullName}`),
+    );
+    return {
+      provider: 'github',
+      providerId: String(repository.id),
+      fullName: repository.full_name,
+      owner: repository.owner.login,
+      name: repository.name,
+      defaultBranch: repository.default_branch,
+      private: repository.private,
+      archived: repository.archived,
+      canPush: repository.permissions?.push ?? false,
+    };
   }
 
   async getPullRequests(repositoryFullName: string): Promise<ProviderPullRequest[]> {
@@ -476,11 +475,16 @@ export class GitHubProvider implements GitProvider {
     );
   }
 
-  async replyToThread(threadId: string, body: string): Promise<void> {
+  // The thread id alone names the thread. The repository picks the account.
+  async replyToThread(_repositoryFullName: string, threadId: string, body: string): Promise<void> {
     await this.client.graphql(REPLY_MUTATION, { threadId, body });
   }
 
-  async setThreadResolved(threadId: string, resolved: boolean): Promise<void> {
+  async setThreadResolved(
+    _repositoryFullName: string,
+    threadId: string,
+    resolved: boolean,
+  ): Promise<void> {
     await this.client.graphql(resolved ? RESOLVE_MUTATION : UNRESOLVE_MUTATION, { threadId });
   }
 

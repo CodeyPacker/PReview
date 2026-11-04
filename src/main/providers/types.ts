@@ -116,9 +116,9 @@ export interface ProviderCommitChanges {
 
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
 
+// Every method takes the repository first, so a provider with several accounts can send each
+// call with the account that owns the repository.
 export interface GitProvider {
-  // Repositories the signed-in user can read.
-  getRepositories(): Promise<ProviderRepository[]>;
   // Open pull requests whose branch is in the same repository. Fork-origin pull requests are
   // left out, because the MVP does not review them.
   getPullRequests(repositoryFullName: string): Promise<ProviderPullRequest[]>;
@@ -159,9 +159,9 @@ export interface GitProvider {
   // The pull request's published review threads, with their comments.
   getReviewThreads(repositoryFullName: string, number: number): Promise<ReviewThread[]>;
   // Posts a reply to a review thread.
-  replyToThread(threadId: string, body: string): Promise<void>;
+  replyToThread(repositoryFullName: string, threadId: string, body: string): Promise<void>;
   // Resolves a review thread, or reopens it.
-  setThreadResolved(threadId: string, resolved: boolean): Promise<void>;
+  setThreadResolved(repositoryFullName: string, threadId: string, resolved: boolean): Promise<void>;
   // Publishes a review of the pull request and resolves with its id. Rejects with the
   // provider's explanation when the provider refuses it, for example when the author tries to
   // approve their own pull request.
