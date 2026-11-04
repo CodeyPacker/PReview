@@ -28,7 +28,7 @@ import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
 import { getSettings } from './services/settings.ts';
-import { validateFindings } from './services/progression/xp.ts';
+import { validateReport } from './services/progression/xp.ts';
 import { runGitGrep } from './services/repositories/git-grep.ts';
 import { createGit, runGit } from './services/repositories/git-info.ts';
 import icon from '../../build/icon.png?asset';
@@ -205,7 +205,7 @@ void app.whenReady().then(async () => {
     log,
     onCompleted: (taskId, report) => {
       try {
-        validateFindings(db, taskId, report);
+        validateReport(db, taskId, report);
       } catch (error) {
         log.warn('Could not validate findings', error);
       }

@@ -16,6 +16,7 @@ interface ReviewDraftRow {
   line: number;
   outdated: number;
   body: string;
+  category: ReviewDraft['category'];
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +33,7 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
     line: row.line,
     outdated: row.outdated === 1,
     body: row.body,
+    category: row.category,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -42,7 +44,7 @@ export function listReviewDrafts(db: DatabaseSync, pullRequestId: number): Revie
   const rows = db
     .prepare(
       `SELECT id, pull_request_id, head_sha, merge_base, path, side, start_line, line, outdated,
-              body, created_at, updated_at
+              body, category, created_at, updated_at
        FROM review_drafts
        WHERE pull_request_id = ?
        ORDER BY created_at, id`,
@@ -54,8 +56,8 @@ export function listReviewDrafts(db: DatabaseSync, pullRequestId: number): Revie
 export function createReviewDraft(db: DatabaseSync, draft: CreateReviewDraftInput): ReviewDraft[] {
   db.prepare(
     `INSERT INTO review_drafts
-       (pull_request_id, head_sha, merge_base, path, side, start_line, line, body)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (pull_request_id, head_sha, merge_base, path, side, start_line, line, body, category)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     draft.pullRequestId,
     draft.headSha,
@@ -65,21 +67,22 @@ export function createReviewDraft(db: DatabaseSync, draft: CreateReviewDraftInpu
     draft.startLine,
     draft.line,
     draft.body,
+    draft.category ?? null,
   );
   return listReviewDrafts(db, draft.pullRequestId);
 }
 
 export function updateReviewDraft(
   db: DatabaseSync,
-  { pullRequestId, id, body }: UpdateReviewDraftInput,
+  { pullRequestId, id, body, category }: UpdateReviewDraftInput,
 ): ReviewDraft[] {
   const { changes } = db
     .prepare(
       `UPDATE review_drafts
-       SET body = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+       SET body = ?, category = CASE WHEN ? THEN ? ELSE category END, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        WHERE id = ? AND pull_request_id = ?`,
     )
-    .run(body, id, pullRequestId);
+    .run(body, category === undefined ? 0 : 1, category ?? null, id, pullRequestId);
   if (changes === 0) throw new Error('Draft not found.');
   return listReviewDrafts(db, pullRequestId);
 }

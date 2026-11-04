@@ -480,4 +480,36 @@ export const migrations: readonly Migration[] = [
       INSERT INTO account_progress (id, active_character) VALUES (1, 'shadow');
     `,
   },
+  {
+    version: 24,
+    name: 'review_comment_categories',
+    // A draft's category is the kind of problem it points out, null when none was given.
+    // review_comments keeps each sent comment, since its draft is deleted once GitHub has it.
+    // position is its number in the submission, as the agent knows it (C1, C2, …). Like
+    // findings, a comment earns XP once the agent fixed it and the reviewer resolved its thread.
+    sql: `
+      ALTER TABLE review_drafts ADD COLUMN category TEXT
+        CHECK (category IS NULL OR category IN ('bug', 'ui-bug', 'security', 'improvement', 'test'));
+
+      CREATE TABLE review_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        pull_request_id INTEGER NOT NULL REFERENCES pull_requests (id) ON DELETE CASCADE,
+        submission_id TEXT NOT NULL REFERENCES review_submissions (id) ON DELETE CASCADE,
+        position INTEGER NOT NULL CHECK (position >= 1),
+        path TEXT NOT NULL,
+        line INTEGER NOT NULL,
+        body TEXT NOT NULL,
+        category TEXT
+          CHECK (category IS NULL OR category IN ('bug', 'ui-bug', 'security', 'improvement', 'test')),
+        validation TEXT NOT NULL DEFAULT 'pending'
+          CHECK (validation IN ('pending', 'validated', 'rejected')),
+        resolution TEXT NOT NULL DEFAULT 'open' CHECK (resolution IN ('open', 'resolved')),
+        UNIQUE (submission_id, position)
+      ) STRICT;
+
+      CREATE INDEX review_comments_pull_request ON review_comments (pull_request_id);
+
+      ALTER TABLE xp_transactions ADD COLUMN comment_id INTEGER;
+    `,
+  },
 ];

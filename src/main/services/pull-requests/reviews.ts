@@ -25,6 +25,7 @@ import type {
 } from '../../../shared/contracts/review-drafts.ts';
 import { listReviewDrafts } from './drafts.ts';
 import { findingsMarkdown, listReviewFindings } from './findings.ts';
+import { recordSentComments, syncCommentResolutions } from './comments.ts';
 import { saveMergedPullRequest } from './merged.ts';
 import { moveLines } from './reattach.ts';
 import { endReviewRound } from './rounds.ts';
@@ -50,10 +51,13 @@ export class PullRequestReviews {
 
   constructor(private readonly deps: PullRequestReviewsDeps) {}
 
-  // The pull request's published review threads.
-  listThreads(pullRequestId: number): Promise<ReviewThread[]> {
+  // The pull request's published review threads. Reading them also brings the sent
+  // comments' resolutions up to date, which may award XP.
+  async listThreads(pullRequestId: number): Promise<ReviewThread[]> {
     const { repository, number } = this.find(pullRequestId);
-    return this.deps.provider.getReviewThreads(repository, number);
+    const threads = await this.deps.provider.getReviewThreads(repository, number);
+    syncCommentResolutions(this.deps.db, pullRequestId, threads);
+    return threads;
   }
 
   // Posts a reply to a thread straight away, as GitHub's single comments do.
@@ -319,7 +323,7 @@ export class PullRequestReviews {
     return confirmed;
   }
 
-  // Records that GitHub has the review: deletes its drafts, marks its findings published,
+  // Records that GitHub has the review: keeps its comments, deletes its drafts, marks its findings published,
   // queues its agent task and ends the round.
   private confirm(submissionId: string, providerReviewId: string): void {
     const row = this.deps.db
@@ -339,6 +343,7 @@ export class PullRequestReviews {
       `UPDATE review_findings SET published_at = ${NOW} WHERE id = ? AND published_at IS NULL`,
     );
     transaction(this.deps.db, () => {
+      recordSentComments(this.deps.db, submissionId);
       (JSON.parse(row.draft_ids) as number[]).forEach((id) => remove.run(id));
       (JSON.parse(row.finding_ids) as number[]).forEach((id) => publish.run(id));
       this.deps.db
