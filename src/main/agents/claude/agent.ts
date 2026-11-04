@@ -11,8 +11,8 @@ import { createActivityMapper, readQuestions } from './activity.ts';
 import { claudeEnvironment } from './environment.ts';
 import { ALLOWED_TOOLS, BLOCKED_TOOLS, createToolGate, PREVIEW_TOOL_SERVER } from './gate.ts';
 import { InputQueue } from './input-queue.ts';
-import { prepareIsolation } from './isolation.ts';
-import { baseOptions, checkSignIn, loadSdk, type Sdk } from './sdk.ts';
+import { claudeRuntime } from './runtime.ts';
+import { checkSignIn, loadSdk, type Sdk } from './sdk.ts';
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
@@ -21,16 +21,25 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 export class ClaudeAgent implements AgentProvider {
   constructor(
     private readonly isPackaged: boolean,
+    // The WSL distribution Claude Code runs in on Windows.
+    private readonly wslDistro: () => string,
     private readonly load: () => Promise<Sdk> = loadSdk,
   ) {}
 
   async start(input: AgentRunInput): Promise<AgentRun> {
     const sdk = await this.load();
-    const options = baseOptions(this.isPackaged, input.worktree);
-    const signIn = await checkSignIn(sdk, options).catch((error: unknown) => ({
-      signedIn: false,
-      detail: `Claude Code could not start: ${messageOf(error)}`,
-    }));
+    const runtime = claudeRuntime(this.isPackaged, this.wslDistro());
+    const signIn = await runtime
+      .check()
+      .then((setupError) =>
+        setupError
+          ? { signedIn: false, detail: setupError }
+          : checkSignIn(sdk, runtime.options(input.worktree), runtime.signInHint),
+      )
+      .catch((error: unknown) => ({
+        signedIn: false,
+        detail: `Claude Code could not start: ${messageOf(error)}`,
+      }));
     if (!signIn.signedIn) {
       return {
         result: Promise.resolve({ status: 'failed', error: signIn.detail, retryable: false }),
@@ -39,10 +48,11 @@ export class ClaudeAgent implements AgentProvider {
       };
     }
 
-    const isolation = await prepareIsolation(input.worktree);
+    const options = runtime.options(input.worktree);
+    const isolation = await runtime.isolate(input.worktree);
     const abort = new AbortController();
     const messages = new InputQueue();
-    const activities = createActivityMapper(input.worktree);
+    const activities = createActivityMapper(input.worktree, runtime.localPath);
     let stopping = false;
     let rateLimit: string | undefined;
     const tools = sdk.createSdkMcpServer({
@@ -68,6 +78,7 @@ export class ClaudeAgent implements AgentProvider {
         disallowedTools: BLOCKED_TOOLS,
         canUseTool: createToolGate({
           root: input.worktree,
+          localPath: runtime.localPath,
           onQuestion: async (questionInput, signal) => {
             const questions = readQuestions(questionInput);
             const answers = questions.length > 0 ? await input.ask(questions, signal) : null;
