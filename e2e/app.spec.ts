@@ -1112,9 +1112,19 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
       modified.locator('.view-line').filter({ hasText: new RegExp(`line${line}\\s=`) });
     // The point just left of a line number, where the plus shows.
     const gutterPoint = async (line: number) => {
-      // Monaco redraws line numbers after a layout change, so the measure is retried.
+      // Monaco redraws line numbers after a layout change, and a composer that just closed can
+      // still move them. The measure is retried until two reads agree.
       let box: { x: number; y: number; height: number } | null = null;
-      await expect.poll(async () => (box = await lineNumber(line).boundingBox())).not.toBeNull();
+      let previous: string | undefined;
+      await expect
+        .poll(async () => {
+          box = await lineNumber(line).boundingBox();
+          const read = JSON.stringify(box);
+          const settled = box !== null && read === previous;
+          previous = read;
+          return settled;
+        })
+        .toBe(true);
       return { x: box!.x - 8, y: box!.y + box!.height / 2 };
     };
 
