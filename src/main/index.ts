@@ -3,11 +3,14 @@ import {
   BrowserWindow,
   clipboard,
   dialog,
+  Menu,
+  nativeImage,
   net,
   Notification,
   powerMonitor,
   safeStorage,
   shell,
+  Tray,
 } from 'electron';
 // electron-updater is CommonJS, so its named exports come off the default one.
 import electronUpdater from 'electron-updater';
@@ -45,6 +48,7 @@ import { ConnectivityWatch } from './services/connectivity.ts';
 import { Notifier } from './services/notifications.ts';
 import { Updates } from './services/updates.ts';
 import { shellPath } from './services/shell-path.ts';
+import { WindowLifetime } from './services/window-lifetime.ts';
 import { onAchievementsUnlocked } from './services/progression/achievements.ts';
 import {
   applyStagedRestore,
@@ -64,6 +68,10 @@ import { devServerUrl, preloadPath, rendererIndexPath } from './paths.ts';
 
 initLogging();
 
+// The window hides to the tray on close, so opening PReview again must reach the running copy.
+// Two copies would also share one database.
+if (!app.requestSingleInstanceLock()) app.exit(0);
+
 function isSafeExternalUrl(url: string): boolean {
   try {
     return new URL(url).protocol === 'https:';
@@ -75,7 +83,7 @@ function isSafeExternalUrl(url: string): boolean {
 // The end-to-end tests set this so their windows stay hidden. Playwright still drives them.
 const hiddenForTests = process.env.PREVIEW_HIDE_WINDOW === '1';
 
-function createWindow(): void {
+function createWindow(lifetime: WindowLifetime): void {
   const win = new BrowserWindow({
     width: 1440,
     height: 960,
@@ -99,6 +107,15 @@ function createWindow(): void {
   });
 
   if (!hiddenForTests) win.once('ready-to-show', () => win.show());
+
+  // Closing hides the window, so running agents continue. Quitting is what ends the app.
+  win.on('close', (event) => {
+    if (!lifetime.hideOnClose) return;
+    event.preventDefault();
+    win.hide();
+  });
+  // Windows is shutting down or signing out, and a hidden window must not hold that up.
+  win.on('session-end', () => lifetime.forceQuit());
 
   // Links that try to open a window go to the system browser, https only.
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -127,14 +144,18 @@ function createWindow(): void {
     const again = now - lastCrash < 60_000;
     lastCrash = now;
     if (again) {
-      const response = dialog.showMessageBoxSync(win, {
-        type: 'error',
+      const box = {
+        type: 'error' as const,
         message: 'PReview keeps crashing',
         detail: 'The window crashed twice in a minute. Your saved review work is kept.',
         buttons: ['Reload', 'Quit'],
         defaultId: 0,
         cancelId: 1,
-      });
+      };
+      // A box attached to a hidden window would never be seen.
+      const response = win.isVisible()
+        ? dialog.showMessageBoxSync(win, box)
+        : dialog.showMessageBoxSync(box);
       if (response !== 0) {
         app.quit();
         return;
@@ -197,6 +218,39 @@ async function pickFolder(): Promise<string | undefined> {
     : dialog.showOpenDialog(options));
   const [picked] = result.filePaths;
   return result.canceled || !picked ? undefined : realpath(picked);
+}
+
+// Brings PReview forward without changing the screen.
+function showWindow(lifetime: WindowLifetime): void {
+  const [window] = BrowserWindow.getAllWindows();
+  if (!window) return createWindow(lifetime);
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
+// Kept here so the tray icon isn't garbage collected.
+let tray: Tray | undefined;
+
+function createTray(lifetime: WindowLifetime): void {
+  const source = nativeImage.createFromPath(icon);
+  const image = source.resize({ width: 16, height: 16, quality: 'best' });
+  image.addRepresentation({
+    scaleFactor: 2,
+    buffer: source.resize({ width: 32, height: 32, quality: 'best' }).toPNG(),
+  });
+  tray = new Tray(image);
+  tray.setToolTip('PReview');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Open PReview', click: () => showWindow(lifetime) },
+      { type: 'separator' },
+      { label: 'Quit PReview', click: () => app.quit() },
+    ]),
+  );
+  // On Windows a click opens the window, and a right click the menu. On macOS a click opens the
+  // menu, and this doesn't fire.
+  tray.on('click', () => showWindow(lifetime));
 }
 
 const backupDirectory = () => join(app.getPath('userData'), 'backups');
@@ -335,6 +389,7 @@ void app.whenReady().then(async () => {
         return { status: 'canceled' };
       }
       log.warn('Restarting to restore a backup', picked);
+      lifetime.forceQuit();
       app.relaunch();
       app.quit();
       return new Promise(() => {});
@@ -355,17 +410,25 @@ void app.whenReady().then(async () => {
         }),
       ),
   });
+  const lifetime = new WindowLifetime({
+    busy: () => agentRunner.busy,
+    confirmQuit: () =>
+      dialog.showMessageBoxSync({
+        type: 'warning',
+        message: 'An agent is still running',
+        detail: 'Quitting stops it. To let it finish, keep PReview running and close the window.',
+        buttons: ['Keep Running', 'Quit Anyway'],
+        defaultId: 0,
+        cancelId: 0,
+      }) === 1,
+  });
   // A click on a desktop notification brings PReview forward without changing the screen.
   const notifier = new Notifier({
     db,
     show: (title, body) => {
       const notification = new Notification({ title, body });
       notification.on('click', () => {
-        const [window] = BrowserWindow.getAllWindows();
-        if (!window) return createWindow();
-        if (window.isMinimized()) window.restore();
-        window.show();
-        window.focus();
+        showWindow(lifetime);
       });
       notification.show();
     },
@@ -445,7 +508,8 @@ void app.whenReady().then(async () => {
               detail: 'Download it from GitHub to replace this copy of PReview.',
               buttons: ['Download', 'Later'],
             };
-      const window = BrowserWindow.getAllWindows()[0];
+      // A box attached to a window hidden in the tray would never be seen.
+      const window = BrowserWindow.getAllWindows().find((item) => item.isVisible());
       const box = { type: 'info' as const, defaultId: 0, cancelId: 1, ...options };
       const { response } = await (window
         ? dialog.showMessageBox(window, box)
@@ -512,12 +576,15 @@ void app.whenReady().then(async () => {
     db.close();
   });
 
-  createWindow();
-  updates.start();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  app.on('before-quit', (event) => {
+    if (!lifetime.requestQuit()) event.preventDefault();
   });
+  app.on('second-instance', () => showWindow(lifetime));
+  app.on('activate', () => showWindow(lifetime));
+
+  createWindow(lifetime);
+  createTray(lifetime);
+  updates.start();
 });
 
 app.on('window-all-closed', () => {

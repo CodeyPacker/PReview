@@ -269,8 +269,9 @@ test('reloads the window after a crash, and asks before reloading a second time'
     await app.evaluate(({ dialog }) => {
       const asked: string[] = [];
       Object.assign(globalThis, { crashPrompts: asked });
-      dialog.showMessageBoxSync = ((_window: unknown, options: { message: string }) => {
-        asked.push(options.message);
+      // The box takes a window only when one is visible, so its options come last.
+      dialog.showMessageBoxSync = ((...args: unknown[]) => {
+        asked.push((args.at(-1) as { message: string }).message);
         return 0;
       }) as typeof dialog.showMessageBoxSync;
     });
@@ -2864,4 +2865,22 @@ test("shows the agent's unpushed changes and warns before merging without them",
   } finally {
     await app.close();
   }
+});
+
+test('closing the window hides it, and PReview stays open until it quits', async () => {
+  const app = await launch();
+  await app.firstWindow();
+  const windowState = () =>
+    app.evaluate(({ BrowserWindow }) => {
+      const windows = BrowserWindow.getAllWindows();
+      return { count: windows.length, visible: windows[0]?.isVisible() };
+    });
+
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close());
+  await expect.poll(windowState).toEqual({ count: 1, visible: false });
+
+  await app.evaluate(({ app: electronApp }) => electronApp.emit('activate'));
+  await expect.poll(windowState).toEqual({ count: 1, visible: true });
+
+  await app.close();
 });
