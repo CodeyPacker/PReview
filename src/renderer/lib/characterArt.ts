@@ -4,34 +4,34 @@ import emberIdleFront from '../assets/characters/ember/idle-front.png';
 import blackPinkIdleBack from '../assets/characters/ember/outfits/black-pink/idle-back.png';
 import blackPinkIdleFront from '../assets/characters/ember/outfits/black-pink/idle-front.png';
 import blackPinkPortrait from '../assets/characters/ember/outfits/black-pink/portrait.png';
-import blackPinkScepterIdle from '../assets/characters/ember/outfits/black-pink/scepter-idle.png';
-import blackPinkScepterVictory from '../assets/characters/ember/outfits/black-pink/scepter-victory.png';
 import blackPinkVictoryBack from '../assets/characters/ember/outfits/black-pink/victory-back.png';
 import blackPinkVictoryFront from '../assets/characters/ember/outfits/black-pink/victory-front.png';
 import blueIdleBack from '../assets/characters/ember/outfits/blue/idle-back.png';
 import blueIdleFront from '../assets/characters/ember/outfits/blue/idle-front.png';
 import bluePortrait from '../assets/characters/ember/outfits/blue/portrait.png';
-import blueScepterIdle from '../assets/characters/ember/outfits/blue/scepter-idle.png';
-import blueScepterVictory from '../assets/characters/ember/outfits/blue/scepter-victory.png';
 import blueVictoryBack from '../assets/characters/ember/outfits/blue/victory-back.png';
 import blueVictoryFront from '../assets/characters/ember/outfits/blue/victory-front.png';
 import greenIdleBack from '../assets/characters/ember/outfits/green/idle-back.png';
 import greenIdleFront from '../assets/characters/ember/outfits/green/idle-front.png';
 import greenPortrait from '../assets/characters/ember/outfits/green/portrait.png';
-import greenScepterIdle from '../assets/characters/ember/outfits/green/scepter-idle.png';
-import greenScepterVictory from '../assets/characters/ember/outfits/green/scepter-victory.png';
 import greenVictoryBack from '../assets/characters/ember/outfits/green/victory-back.png';
 import greenVictoryFront from '../assets/characters/ember/outfits/green/victory-front.png';
 import whiteVioletIdleBack from '../assets/characters/ember/outfits/white-violet/idle-back.png';
 import whiteVioletIdleFront from '../assets/characters/ember/outfits/white-violet/idle-front.png';
 import whiteVioletPortrait from '../assets/characters/ember/outfits/white-violet/portrait.png';
-import whiteVioletScepterIdle from '../assets/characters/ember/outfits/white-violet/scepter-idle.png';
-import whiteVioletScepterVictory from '../assets/characters/ember/outfits/white-violet/scepter-victory.png';
 import whiteVioletVictoryBack from '../assets/characters/ember/outfits/white-violet/victory-back.png';
 import whiteVioletVictoryFront from '../assets/characters/ember/outfits/white-violet/victory-front.png';
 import emberPortrait from '../assets/characters/ember/portrait.png';
-import crystalScepterIdle from '../assets/characters/ember/scepter/idle.png';
-import crystalScepterVictory from '../assets/characters/ember/scepter/victory.png';
+import crystalScepterIdle from '../assets/characters/ember/scepters/crystal-scepter/idle.png';
+import crystalScepterVictory from '../assets/characters/ember/scepters/crystal-scepter/victory.png';
+import icyScepterIdle from '../assets/characters/ember/scepters/icy-scepter/idle.png';
+import icyScepterVictory from '../assets/characters/ember/scepters/icy-scepter/victory.png';
+import magentaScepterIdle from '../assets/characters/ember/scepters/magenta-scepter/idle.png';
+import magentaScepterVictory from '../assets/characters/ember/scepters/magenta-scepter/victory.png';
+import verdantScepterIdle from '../assets/characters/ember/scepters/verdant-scepter/idle.png';
+import verdantScepterVictory from '../assets/characters/ember/scepters/verdant-scepter/victory.png';
+import violetScepterIdle from '../assets/characters/ember/scepters/violet-scepter/idle.png';
+import violetScepterVictory from '../assets/characters/ember/scepters/violet-scepter/victory.png';
 import emberVictoryBack from '../assets/characters/ember/victory-back.png';
 import emberVictoryFront from '../assets/characters/ember/victory-front.png';
 import crimsonIdleBack from '../assets/characters/shadow/crimson/idle-back.png';
@@ -185,13 +185,12 @@ const emberPortraits: Partial<Record<OutfitId, string>> = {
   'white-violet': whiteVioletPortrait,
 };
 
-// The Crystal Scepter takes the color of the outfit.
-const emberScepters: Partial<Record<OutfitId, { idle: string; victory: string }>> = {
-  default: { idle: crystalScepterIdle, victory: crystalScepterVictory },
-  blue: { idle: blueScepterIdle, victory: blueScepterVictory },
-  green: { idle: greenScepterIdle, victory: greenScepterVictory },
-  'black-pink': { idle: blackPinkScepterIdle, victory: blackPinkScepterVictory },
-  'white-violet': { idle: whiteVioletScepterIdle, victory: whiteVioletScepterVictory },
+const emberScepters: Partial<Record<WeaponId, { idle: string; victory: string }>> = {
+  'crystal-scepter': { idle: crystalScepterIdle, victory: crystalScepterVictory },
+  'icy-scepter': { idle: icyScepterIdle, victory: icyScepterVictory },
+  'verdant-scepter': { idle: verdantScepterIdle, victory: verdantScepterVictory },
+  'magenta-scepter': { idle: magentaScepterIdle, victory: magentaScepterVictory },
+  'violet-scepter': { idle: violetScepterIdle, victory: violetScepterVictory },
 };
 
 // Characters without art yet show their initial instead. Outfits without sheets show the default.
@@ -208,10 +207,10 @@ export const characterArt: Partial<Record<CharacterId, CharacterArt>> = {
   ember: {
     ...animations,
     portrait: (outfit) => emberPortraits[outfit] ?? emberPortrait,
-    layers: (outfit) =>
+    layers: (outfit, weapon) =>
       holding(
         emberBodies[outfit] ?? emberBodies.default!,
-        emberScepters[outfit] ?? emberScepters.default!,
+        emberScepters[weapon] ?? emberScepters['crystal-scepter']!,
       ),
   },
 };
