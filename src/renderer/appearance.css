@@ -1,0 +1,71 @@
+/* Overrides tokens.css for the Appearance settings. AppearanceSync sets these attributes on <html>.
+   The default choices set none, so tokens.css applies unchanged. */
+
+html:root[data-accent='blue'] {
+  --accent: var(--accent-option-2);
+}
+
+html:root[data-accent='teal'] {
+  --accent: var(--accent-option-3);
+}
+
+html:root[data-accent='amber'] {
+  --accent: var(--accent-option-4);
+}
+
+html:root[data-accent='coral'] {
+  --accent: var(--accent-option-5);
+}
+
+html:root[data-accent='pink'] {
+  --accent: var(--accent-option-6);
+}
+
+/* These colors are too light for white text, and the rest follow from the chosen color. */
+html:root[data-accent] {
+  --accent-hover: color-mix(in srgb, var(--accent) 90%, black);
+  --accent-pressed: color-mix(in srgb, var(--accent) 80%, black);
+  --accent-soft: color-mix(in srgb, var(--accent) 14%, var(--surface-solid));
+  --accent-soft-hover: color-mix(in srgb, var(--accent) 22%, var(--surface-solid));
+  --accent-text: color-mix(in srgb, var(--accent) 60%, light-dark(black, white));
+  --accent-border: color-mix(in srgb, var(--accent) 50%, var(--surface-solid));
+  --on-accent: #16141f;
+  --shadow-accent:
+    0 1px 2px #00000033, 0 6px 16px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+html:root[data-density='compact'] {
+  --space-8: 6px;
+  --space-12: 10px;
+  --space-16: 12px;
+  --space-20: 16px;
+  --space-24: 18px;
+  --space-32: 24px;
+}
+
+html:root[data-density='comfortable'] {
+  --space-8: 10px;
+  --space-12: 14px;
+  --space-16: 20px;
+  --space-20: 24px;
+  --space-24: 30px;
+  --space-32: 40px;
+}
+
+html:root[data-font-size='small'] {
+  --text-xs: 10px;
+  --text-sm: 11px;
+  --text-md: 12px;
+  --text-base: 13px;
+  --text-lg: 16px;
+  --text-xl: 21px;
+}
+
+html:root[data-font-size='large'] {
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 14px;
+  --text-base: 15px;
+  --text-lg: 18px;
+  --text-xl: 23px;
+}

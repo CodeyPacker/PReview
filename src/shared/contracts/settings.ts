@@ -2,6 +2,15 @@ import { z } from 'zod';
 
 export const themeSchema = z.enum(['system', 'light', 'dark']);
 
+export const accentSchema = z.enum(['purple', 'blue', 'teal', 'amber', 'coral', 'pink']);
+export type Accent = z.infer<typeof accentSchema>;
+
+export const densitySchema = z.enum(['compact', 'default', 'comfortable']);
+export type Density = z.infer<typeof densitySchema>;
+
+export const fontSizeSchema = z.enum(['small', 'default', 'large']);
+export type FontSize = z.infer<typeof fontSizeSchema>;
+
 export const reviewLeaderSchema = z.enum([
   'Control',
   'Alt',
@@ -14,6 +23,9 @@ export type ReviewLeader = z.infer<typeof reviewLeaderSchema>;
 
 export const settingsSchema = z.strictObject({
   theme: themeSchema,
+  accent: accentSchema,
+  density: densitySchema,
+  fontSize: fontSizeSchema,
   reviewLeader: reviewLeaderSchema,
   // Set when the user closes the first-launch GitHub prompt without connecting.
   githubPromptDismissed: z.boolean(),
@@ -33,6 +45,9 @@ export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 
 export const defaultSettings: Settings = {
   theme: 'system',
+  accent: 'purple',
+  density: 'default',
+  fontSize: 'default',
   reviewLeader: 'Control',
   githubPromptDismissed: false,
   wslDistro: 'Ubuntu',
