@@ -14,25 +14,13 @@ export function useWatchedFolders() {
   });
 }
 
-// The discovered repositories. Polls once a second during a scan, since the main process
-// scans in the background. Polls more slowly while a monitored repository waits for the sync
-// to assign it a GitHub account.
+// The discovered repositories. The main process scans in the background whenever a watched
+// folder changes, so this keeps polling, and polls once a second during a scan.
 export function useRepositories() {
   return useQuery({
     queryKey: repositoriesKey,
     queryFn: () => window.preview.repositories.list(),
-    refetchInterval: (query) => {
-      const state = query.state.data;
-      if (state?.scanning) return 1000;
-      const unassigned = state?.repositories.some(
-        (repository) =>
-          repository.github &&
-          !repository.account &&
-          repository.status === 'available' &&
-          repository.settings.monitored,
-      );
-      return unassigned ? 5000 : false;
-    },
+    refetchInterval: (query) => (query.state.data?.scanning ? 1000 : 5000),
   });
 }
 

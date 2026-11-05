@@ -10,6 +10,7 @@ export interface RepositoryDiscoveryDeps {
   db: DatabaseSync;
   git: Git;
   log: { info(...args: unknown[]): void; warn(...args: unknown[]): void };
+  afterScan?: () => void;
 }
 
 // Scans the watched folders for Git repositories and keeps the stored list current.
@@ -41,6 +42,7 @@ export class RepositoryDiscovery {
       this.again = false;
       try {
         await this.scanOnce();
+        this.deps.afterScan?.();
       } catch (error) {
         this.deps.log.warn('Repository scan failed', error);
       }

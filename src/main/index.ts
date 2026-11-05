@@ -43,6 +43,7 @@ import { RepositorySearch } from './services/pull-requests/repository-search.ts'
 import { PullRequestReviews } from './services/pull-requests/reviews.ts';
 import { PullRequestSync } from './services/pull-requests/sync.ts';
 import { RepositoryDiscovery } from './services/repositories/discovery.ts';
+import { FolderWatcher } from './services/repositories/folder-watcher.ts';
 import { getSettings } from './services/settings.ts';
 import { ConnectivityWatch } from './services/connectivity.ts';
 import { Notifier } from './services/notifications.ts';
@@ -396,7 +397,13 @@ void app.whenReady().then(async () => {
     },
   };
 
-  const discovery = new RepositoryDiscovery({ db, git: runGit, log });
+  const folderWatcher = new FolderWatcher({ db, scan: () => void discovery.scan(), log });
+  const discovery = new RepositoryDiscovery({
+    db,
+    git: runGit,
+    log,
+    afterScan: () => folderWatcher.sync(),
+  });
   const github = await createGitHubAccounts();
   // Each call goes out with the account assigned to its repository.
   const provider = new RoutingProvider({
@@ -566,6 +573,7 @@ void app.whenReady().then(async () => {
     .catch((error: unknown) => log.warn('Could not clean up agent worktrees', error));
 
   app.on('will-quit', () => {
+    folderWatcher.stop();
     agentRunner.shutdown();
     agentPublisher.stop();
     pullRequests.stop();
