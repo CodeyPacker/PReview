@@ -23,9 +23,13 @@ const components: Components = {
       {alt || 'Image'}
     </a>
   ),
+  // Task list checkboxes have no label of their own.
+  input: ({ checked }) => (
+    <input type="checkbox" checked={checked} disabled aria-label={checked ? 'Done' : 'Not done'} />
+  ),
 };
 
-// The text is untrusted. Raw HTML is left out, and react-markdown removes unsafe link URLs.
+// The text is untrusted. Raw HTML tags are left out, and react-markdown removes unsafe link URLs.
 export function Markdown({ children }: MarkdownProps) {
   return (
     <div className={styles.markdown}>
