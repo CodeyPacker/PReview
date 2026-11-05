@@ -558,6 +558,12 @@ export class GitHubProvider implements GitProvider {
     });
   }
 
+  async closePullRequest(repositoryFullName: string, number: number): Promise<void> {
+    await this.client.patchJson(`/repos/${repositoryFullName}/pulls/${number}`, {
+      state: 'closed',
+    });
+  }
+
   async deleteBranch(repositoryFullName: string, branch: string): Promise<void> {
     // The branch name keeps its slashes, because the ref is a path.
     const ref = branch.split('/').map(encodeURIComponent).join('/');

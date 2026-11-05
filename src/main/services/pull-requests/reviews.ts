@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import type {
+  ClosePullRequestInput,
+  ClosePullRequestResult,
   DeleteBranchInput,
   DeleteBranchResult,
   MergePullRequestInput,
@@ -526,6 +528,30 @@ export class PullRequestReviews {
       throw error;
     }
     return { status: 'deleted' };
+  }
+
+  // Closes the pull request without merging. The sync drops pull requests that are no longer
+  // open, so it goes from the list now rather than at the next sync.
+  async close({ pullRequestId }: ClosePullRequestInput): Promise<ClosePullRequestResult> {
+    const { repository, number } = this.find(pullRequestId);
+    try {
+      await this.deps.provider.closePullRequest(repository, number);
+    } catch (error) {
+      // These are GitHub refusing, such as no permission. 404 is GitHub hiding the repository
+      // from an account that can't push to it.
+      if (error instanceof GitHubApiError && [403, 404, 422].includes(error.status)) {
+        return {
+          status: 'rejected',
+          message:
+            error.status === 404
+              ? 'Your GitHub account can’t close pull requests in this repository. Check that it has write access.'
+              : (error.detail ?? 'GitHub did not close this pull request.'),
+        };
+      }
+      throw error;
+    }
+    this.deps.db.prepare('DELETE FROM pull_requests WHERE id = ?').run(pullRequestId);
+    return { status: 'closed' };
   }
 
   // The files that changed between two commits, or null when GitHub no longer has one of them,

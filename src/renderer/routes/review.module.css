@@ -27,6 +27,7 @@
 }
 
 .headerActions {
+  flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-8);
@@ -34,10 +35,22 @@
 
 .summary {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-4) var(--space-16);
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.details {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pullRequest {
@@ -49,12 +62,6 @@
 
 .branches {
   font-family: var(--font-mono);
-}
-
-.author {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-6);
 }
 
 .workspace {
@@ -209,8 +216,7 @@
   fill: var(--warning-fill);
 }
 
-.zen .author,
-.zen .branches {
+.zen .details {
   display: none;
 }
 

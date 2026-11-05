@@ -47,6 +47,7 @@ function setup() {
     .fn<GitProvider['getPullRequestRefs']>()
     .mockResolvedValue({ headSha: HEAD, baseBranch: 'main' });
   const mergePullRequest = vi.fn<GitProvider['mergePullRequest']>().mockResolvedValue(undefined);
+  const closePullRequest = vi.fn<GitProvider['closePullRequest']>().mockResolvedValue(undefined);
   const deleteBranch = vi.fn<GitProvider['deleteBranch']>().mockResolvedValue(undefined);
   const getReviewThreads = vi.fn<GitProvider['getReviewThreads']>().mockResolvedValue([]);
   const replyToThread = vi.fn<GitProvider['replyToThread']>().mockResolvedValue(undefined);
@@ -72,6 +73,7 @@ function setup() {
     getPullRequestDetails: vi.fn(),
     getChecks: vi.fn(),
     mergePullRequest,
+    closePullRequest,
     deleteBranch,
   } satisfies GitProvider;
   return {
@@ -83,6 +85,7 @@ function setup() {
     setThreadResolved,
     submitReview,
     mergePullRequest,
+    closePullRequest,
     deleteBranch,
     notify,
     reviews: new PullRequestReviews({ db, provider, notify, log: { warn: () => {} } }),
@@ -716,6 +719,37 @@ describe('PullRequestReviews merge', () => {
     await expect(
       reviews.merge({ pullRequestId, headSha: HEAD, method: 'merge' }),
     ).rejects.toThrow();
+  });
+});
+
+describe('PullRequestReviews close', () => {
+  const stored = () => db.prepare('SELECT 1 FROM pull_requests WHERE id = ?').get(pullRequestId);
+
+  it('closes the pull request and drops it from the list', async () => {
+    const { closePullRequest, reviews } = setup();
+
+    await expect(reviews.close({ pullRequestId })).resolves.toEqual({ status: 'closed' });
+    expect(closePullRequest).toHaveBeenCalledWith('octo/app', 7);
+    expect(stored()).toBeUndefined();
+  });
+
+  it('keeps it when GitHub refuses, and says why', async () => {
+    const { closePullRequest, reviews } = setup();
+    closePullRequest.mockRejectedValue(new GitHubApiError(403, '/pulls/7', 'Not allowed.'));
+
+    await expect(reviews.close({ pullRequestId })).resolves.toEqual({
+      status: 'rejected',
+      message: 'Not allowed.',
+    });
+    expect(stored()).toBeDefined();
+  });
+
+  it('passes on a failure to reach GitHub', async () => {
+    const { closePullRequest, reviews } = setup();
+    closePullRequest.mockRejectedValue(new GitHubApiError(502, '/pulls/7'));
+
+    await expect(reviews.close({ pullRequestId })).rejects.toThrow();
+    expect(stored()).toBeDefined();
   });
 });
 

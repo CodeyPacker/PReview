@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
-  CheckCheck,
   ChevronLeft,
   ChevronRight,
   Flag,
@@ -17,6 +16,9 @@ import { useSidebar } from '../app/SidebarContext.ts';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { cx } from '../lib/cx.ts';
 import { ChangedFiles } from '../app/ChangedFiles.tsx';
+import { ClosePullRequestDialog } from '../app/ClosePullRequestDialog.tsx';
+import { FinishReviewMenu } from '../app/FinishReviewMenu.tsx';
+import type { ReviewVerdict } from '../../shared/contracts/pull-request-reviews.ts';
 import type { PullRequestFile } from '../../shared/contracts/pull-request-files.ts';
 import type { RepositorySearchMatch } from '../../shared/contracts/repository-search.ts';
 import { RepositoryFiles } from '../app/RepositoryFiles.tsx';
@@ -24,7 +26,6 @@ import { ImageDiff } from '../app/ImageDiff.tsx';
 import { DiffViewer, type DiffMode, type DiffViewerHandle } from '../app/DiffViewer.tsx';
 import { relativeTime } from '../app/relativeTime.ts';
 import { repositoryName } from '../app/repositoryName.ts';
-import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
@@ -42,7 +43,7 @@ import {
 } from '../lib/fileReview.ts';
 import { findAccount, useGitHubAuth } from '../hooks/useGitHubAuth.ts';
 import { useAgentTasks } from '../hooks/useAgentTasks.ts';
-import { agentStatus } from '../app/agentStatus.ts';
+import { agentIsBusy, agentMergeWarning, agentStatus } from '../app/agentStatus.ts';
 import { AgentReviewDialog } from '../app/AgentReviewDialog.tsx';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
@@ -54,7 +55,6 @@ import { useReviewTime } from '../hooks/useReviewTime.ts';
 import { useReviewChanges } from '../hooks/useReviewChanges.ts';
 import { useDraftComposer } from '../hooks/useDraftComposer.ts';
 import { useDraftPlacement } from '../hooks/useDraftPlacement.ts';
-import { Tag } from '../components/Tag/Tag.tsx';
 import { useReviewSession } from '../hooks/useReviewSession.ts';
 import type { ReviewSession } from '../../shared/contracts/review-sessions.ts';
 import { useReviewThreads } from '../hooks/useReviewThreads.ts';
@@ -90,6 +90,12 @@ function ReviewPage() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [agentReviewOpen, setAgentReviewOpen] = useState(false);
   const [findingsOpen, setFindingsOpen] = useState(false);
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [chosenVerdict, setChosenVerdict] = useState<ReviewVerdict>('approve');
+  const openReviewDialog = (verdict: ReviewVerdict) => {
+    setChosenVerdict(verdict);
+    setReviewOpen(true);
+  };
   const repository = repositoryState?.repositories.find(
     (item) => item.id === pullRequest?.repositoryId,
   );
@@ -147,7 +153,9 @@ function ReviewPage() {
   const roundFinished = round?.finishedAt != null;
   const findings = reviewFindings.findings.data ?? [];
   const openFindings = findings.filter((finding) => finding.resolution === 'open').length;
+  const unpublishedFindings = findings.filter((finding) => finding.publishedAt === null);
   const reviewThreads = useReviewThreads(pullRequestId, files.data?.headSha);
+  const openThreads = reviewThreads.data?.filter((thread) => !thread.resolved).length ?? 0;
   const threadActions = useThreadActions(pullRequestId);
   // A failure to reach GitHub reads like a refusal, so the thread shows it in place.
   const unreachable = {
@@ -383,23 +391,28 @@ function ReviewPage() {
     />
   );
 
+  const agentBusy = agentIsBusy(agentTask);
+  const ownPullRequest =
+    reviewer !== undefined &&
+    reviewer.login.toLowerCase() === pullRequest.author?.login.toLowerCase();
+
   return (
     <div className={cx(styles.page, zen && styles.zen)}>
       <header className={styles.header}>
         <div className={styles.summary}>
-          <h1 className={styles.pullRequest} title={pullRequest.title}>
-            {repository ? repositoryName(repository) : 'Repository'} #{pullRequest.number}
-          </h1>
-          <StatusPill status={pullRequest.draft ? 'draft' : 'open'} />
-          <StatusPill status={pullRequest.reviewState} />
-          {round && <Tag size="sm">Round {round.number}</Tag>}
-          <span className={styles.branches}>
-            {pullRequest.headBranch} → {pullRequest.baseBranch}
-          </span>
-          <span className={styles.author}>
-            <Avatar name={author?.login ?? 'Unknown author'} src={author?.avatarUrl} size="xs" />
-            Opened {relativeTime(pullRequest.createdAt)} by {author?.login ?? 'an unknown author'}
-          </span>
+          <div className={styles.titleRow}>
+            <h1 className={styles.pullRequest} title={pullRequest.title}>
+              {repository ? repositoryName(repository) : 'Repository'} #{pullRequest.number}
+            </h1>
+            <StatusPill status={pullRequest.draft ? 'draft' : 'open'} />
+          </div>
+          <p className={styles.details}>
+            <span className={styles.branches}>
+              {pullRequest.headBranch} → {pullRequest.baseBranch}
+            </span>
+            {round && ` · Round ${round.number}`} · Opened {relativeTime(pullRequest.createdAt)} by{' '}
+            {author?.login ?? 'an unknown author'}
+          </p>
         </div>
         <div className={styles.headerActions}>
           {agentTask && <StatusPill status={agentStatus[agentTask.status]} />}
@@ -425,26 +438,27 @@ function ReviewPage() {
           >
             Findings
           </Button>
-          <Button
-            size="sm"
-            iconStart={<CheckCheck aria-hidden />}
-            disabled={rounds.isPending || roundFinished}
-            loading={finishReview.isPending}
-            onClick={() => finishReview.mutate()}
-          >
-            {roundFinished ? 'Review finished' : 'Finish review'}
-          </Button>
-          <Button size="sm" disabled={!files.data} onClick={() => setAgentReviewOpen(true)}>
-            Submit to Agent
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!files.data}
-            onClick={() => setReviewOpen(true)}
-          >
-            Submit review
-          </Button>
+          <FinishReviewMenu
+            roundNumber={round?.number}
+            filesApproved={
+              files.data?.files.filter((file) => markedStates[file.path] === 'approved').length ?? 0
+            }
+            filesTotal={files.data?.files.length ?? 0}
+            draftCount={sendableDrafts.length}
+            findingCount={unpublishedFindings.length}
+            openThreads={openThreads}
+            ownPullRequest={ownPullRequest}
+            canSubmit={files.data !== undefined}
+            agentBusy={agentBusy}
+            mergeWarning={agentMergeWarning(agentTask)}
+            roundFinished={roundFinished}
+            canFinish={!rounds.isPending && !roundFinished && !finishReview.isPending}
+            onVerdict={openReviewDialog}
+            onMerge={() => openReviewDialog('comment')}
+            onSendToAgent={() => setAgentReviewOpen(true)}
+            onFinish={() => finishReview.mutate()}
+            onClose={() => setCloseOpen(true)}
+          />
         </div>
       </header>
       <FindingsDialog
@@ -461,6 +475,14 @@ function ReviewPage() {
         }
         onDelete={(id) => reviewFindings.remove.mutateAsync(id)}
       />
+      <ClosePullRequestDialog
+        open={closeOpen}
+        onOpenChange={setCloseOpen}
+        pullRequestId={pullRequestId}
+        number={pullRequest.number}
+        agentBusy={agentBusy}
+        onClosed={() => void navigate({ to: '/inbox' })}
+      />
       {files.data && (
         <>
           <AgentReviewDialog
@@ -471,10 +493,8 @@ function ReviewPage() {
             mergeBase={files.data.mergeBase}
             draftIds={sendableDrafts.map((draft) => draft.id)}
             draftsOutsideDiff={(currentDrafts?.length ?? 0) - sendableDrafts.length}
-            findingIds={findings
-              .filter((finding) => finding.publishedAt === null)
-              .map((finding) => finding.id)}
-            openThreads={reviewThreads.data?.filter((thread) => !thread.resolved).length ?? 0}
+            findingIds={unpublishedFindings.map((finding) => finding.id)}
+            openThreads={openThreads}
             onDone={() => void navigate({ to: '/inbox' })}
           />
           <ReviewDialog
@@ -486,13 +506,10 @@ function ReviewPage() {
             mergeBase={files.data.mergeBase}
             draftIds={sendableDrafts.map((draft) => draft.id)}
             draftsOutsideDiff={(currentDrafts?.length ?? 0) - sendableDrafts.length}
-            findingIds={findings
-              .filter((finding) => finding.publishedAt === null)
-              .map((finding) => finding.id)}
-            ownPullRequest={
-              reviewer !== undefined &&
-              reviewer.login.toLowerCase() === pullRequest.author?.login.toLowerCase()
-            }
+            findingIds={unpublishedFindings.map((finding) => finding.id)}
+            chosenVerdict={chosenVerdict}
+            onVerdictChange={setChosenVerdict}
+            ownPullRequest={ownPullRequest}
             agentTask={agentTask}
             onDone={({ merged }) =>
               void navigate(

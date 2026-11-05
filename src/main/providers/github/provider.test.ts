@@ -419,6 +419,18 @@ describe('GitHubProvider mergePullRequest', () => {
   });
 });
 
+describe('GitHubProvider closePullRequest', () => {
+  it('sets the pull request to closed', async () => {
+    const { fetch, provider } = setup([json({ state: 'closed' })]);
+
+    await provider.closePullRequest('octo/app', 7);
+
+    expect(urlOf(fetch, 0).pathname).toBe('/repos/octo/app/pulls/7');
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('PATCH');
+    expect(sentBody(fetch)).toEqual({ state: 'closed' });
+  });
+});
+
 describe('GitHubProvider deleteBranch', () => {
   it('deletes the branch ref and keeps the slashes in its name', async () => {
     const { fetch, provider } = setup([new Response(null, { status: 204 })]);

@@ -51,6 +51,12 @@ async function dismissGitHubPrompt(page: Page): Promise<void> {
   await expect(page.getByRole('dialog')).toBeHidden();
 }
 
+// Opens the Finish Review menu in the review header and picks an action.
+async function finishReviewWith(page: Page, action: RegExp): Promise<void> {
+  await page.getByRole('button', { name: 'Finish Review' }).click();
+  await page.getByRole('menuitem', { name: action }).click();
+}
+
 test('launches the app window', async () => {
   const app = await launch();
   const page = await app.firstWindow();
@@ -1352,7 +1358,7 @@ test('submits a review, and only allows a comment on your own pull request', asy
     await page.evaluate(() => {
       location.hash = '/review/1';
     });
-    await page.getByRole('button', { name: 'Submit review' }).click();
+    await finishReviewWith(page, /^Comment/);
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('radio', { name: 'Approve' })).toBeDisabled();
     await expect(dialog.getByRole('radio', { name: 'Request changes' })).toBeDisabled();
@@ -1400,7 +1406,7 @@ test('submits a review, and only allows a comment on your own pull request', asy
     await page.evaluate(() => {
       location.hash = '/review/2';
     });
-    await page.getByRole('button', { name: 'Submit review' }).click();
+    await finishReviewWith(page, /^Approve/);
     await expect(dialog.getByRole('radio', { name: 'Approve' })).toBeEnabled();
     await expect(dialog.getByRole('radio', { name: 'Approve' })).toBeChecked();
     await dialog.getByRole('radio', { name: 'Request changes' }).click();
@@ -1638,7 +1644,7 @@ test('drafts, edits, deletes and publishes line comments in the diff', async () 
     ).toMatchObject([{ line: 3 }, { startLine: 14, line: 16, body: 'Pull these into a helper.' }]);
 
     // Both drafts are published with the review.
-    await page.getByRole('button', { name: 'Submit review' }).click();
+    await finishReviewWith(page, /^Approve/);
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('Publishes 2 line comments with this review.');
     await dialog.getByRole('radio', { name: 'Comment' }).click();
@@ -1906,7 +1912,7 @@ test('submits to the agent with an optional message', async () => {
     });
     await openReview(app, page);
     const dialog = page.getByRole('dialog');
-    const open = () => page.getByRole('button', { name: 'Submit to Agent' }).click();
+    const open = () => finishReviewWith(page, /^Send to Agent/);
     const submit = dialog.getByRole('button', { name: 'Submit', exact: true });
 
     // With nothing to work on, it needs a message.
@@ -2041,12 +2047,50 @@ test('finishes a review once and keeps it finished', async () => {
     });
     await openReview(app, page);
 
-    await page.getByRole('button', { name: 'Finish review' }).click();
-    const finished = page.getByRole('button', { name: 'Review finished' });
-    await expect(finished).toBeDisabled();
+    await finishReviewWith(page, /^Finish Without Submitting/);
+    await page.getByRole('button', { name: 'Finish Review' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Review Finished' })).toBeDisabled();
 
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Review finished' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Finish Review' }).click();
+    await expect(page.getByRole('menuitem', { name: 'Review Finished' })).toBeDisabled();
+  } finally {
+    await app.close();
+  }
+});
+
+test('closes a pull request from the Finish Review menu, after asking', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Finish this'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+    });
+    await openReview(app, page);
+
+    // The menu picks the verdict the dialog opens with.
+    await finishReviewWith(page, /^Request Changes/);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('radio', { name: 'Request changes' })).toBeChecked();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+    await mockIpc(app, {
+      'pullRequestReviews.close': { status: 'rejected', message: 'Not allowed.' },
+    });
+    await finishReviewWith(page, /^Close Pull Request/);
+    await dialog.getByRole('button', { name: 'Close Pull Request' }).click();
+    await expect(dialog.getByRole('alert')).toHaveText('Not allowed.');
+
+    await mockIpc(app, { 'pullRequestReviews.close': { status: 'closed' } });
+    await dialog.getByRole('button', { name: 'Close Pull Request' }).click();
+    await expect(page).toHaveURL(/#\/inbox$/);
   } finally {
     await app.close();
   }
@@ -2329,7 +2373,7 @@ test('moves drafts from older commits and flags the ones it cannot place', async
       [{ pullRequestId: 1, headSha: 'abcdef1', mergeBase: 'abcdef0' }],
     );
 
-    await page.getByRole('button', { name: 'Submit review' }).click();
+    await finishReviewWith(page, /^Comment/);
     await expect(page.getByText('Publishes 1 line comment with this review.')).toBeVisible();
     await expect(page.getByText('Drafts outside the diff stay here: 1.')).toBeVisible();
   } finally {
@@ -2873,7 +2917,7 @@ test("shows the agent's unpushed changes and warns before merging without them",
     await page.evaluate(() => {
       location.hash = '/review/1';
     });
-    await page.getByRole('button', { name: 'Submit review' }).click();
+    await finishReviewWith(page, /^Merge Pull Request/);
     await expect(agent).toBeHidden();
     await expect(page.getByText('Agent Finished')).toBeVisible();
     const dialog = page.getByRole('dialog');

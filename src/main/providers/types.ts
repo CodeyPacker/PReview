@@ -188,6 +188,8 @@ export interface GitProvider {
     headSha: string,
     method: MergeMethod,
   ): Promise<void>;
+  // Closes the pull request without merging it.
+  closePullRequest(repositoryFullName: string, number: number): Promise<void>;
   // Deletes a branch of the repository.
   deleteBranch(repositoryFullName: string, branch: string): Promise<void>;
 }

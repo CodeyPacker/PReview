@@ -11,10 +11,15 @@ export const agentStatus: Record<AgentTaskStatus, Status> = {
   completed: 'agent-completed',
 };
 
+// Whether the task is still working on its pull request.
+export function agentIsBusy(task: AgentTask | undefined): boolean {
+  return task?.status === 'queued' || task?.status === 'running' || task?.status === 'waiting';
+}
+
 // Why merging now would leave the agent's work out, or null when nothing is pending.
 export function agentMergeWarning(task: AgentTask | undefined): string | null {
   if (!task) return null;
-  if (task.status === 'queued' || task.status === 'running' || task.status === 'waiting') {
+  if (agentIsBusy(task)) {
     return 'The agent is still working on this pull request. Merging now leaves its changes out.';
   }
   if (

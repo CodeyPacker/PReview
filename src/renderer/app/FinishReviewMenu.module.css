@@ -1,0 +1,149 @@
+/* Finish Review menu of the review header. Read values from tokens.css custom properties only. */
+
+.positioner {
+  z-index: 10;
+  outline: none;
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  width: 384px;
+  padding: var(--space-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lg);
+  transform-origin: var(--transform-origin);
+  outline: none;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    scale var(--duration-fast) var(--ease-standard);
+}
+
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  scale: 0.98;
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-8) var(--space-12);
+}
+
+.progressHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.round {
+  color: var(--ink);
+  font: 600 var(--text-md) / 18px var(--font-sans);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border);
+}
+
+.group:last-child {
+  padding-bottom: 0;
+}
+
+.label {
+  padding: var(--space-4) var(--space-8);
+  color: var(--ink-secondary);
+  font: 500 var(--text-sm) / 16px var(--font-sans);
+}
+
+.action,
+.plain {
+  display: flex;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border-radius: var(--radius-sm);
+  color: var(--ink);
+  cursor: default;
+  outline: none;
+  user-select: none;
+}
+
+.action[data-highlighted],
+.plain[data-highlighted] {
+  background: var(--surface-hover);
+}
+
+.action[data-disabled],
+.plain[data-disabled] {
+  opacity: 0.45;
+}
+
+.icon {
+  flex: none;
+  display: flex;
+}
+
+.icon svg,
+.plain svg {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font: 600 var(--text-md) / 18px var(--font-sans);
+}
+
+.description {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-sm) / 16px var(--font-sans);
+}
+
+.note {
+  padding: var(--space-4) var(--space-8) var(--space-8);
+}
+
+.description.warning {
+  color: var(--warning);
+}
+
+.plain {
+  align-items: center;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.plain.danger {
+  color: var(--danger);
+}
+
+.success {
+  color: var(--success);
+}
+
+.warningIcon {
+  color: var(--warning);
+}
+
+.info {
+  color: var(--info);
+}
+
+.accent {
+  color: var(--accent-text);
+}

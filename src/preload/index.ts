@@ -59,6 +59,7 @@ const api: PreviewApi = {
     getQueued: (pullRequestId) => invoke('pullRequestReviews.getQueued', { pullRequestId }),
     merge: (merge) => invoke('pullRequestReviews.merge', merge),
     deleteBranch: (branch) => invoke('pullRequestReviews.deleteBranch', branch),
+    close: (close) => invoke('pullRequestReviews.close', close),
   },
   pullRequestFiles: {
     list: (pullRequestId) => invoke('pullRequestFiles.list', { pullRequestId }),
