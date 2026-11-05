@@ -26,6 +26,9 @@ export interface ReviewDialogProps {
   draftsOutsideDiff: number;
   // Unpublished findings to add to the review's body.
   findingIds: number[];
+  // The verdict picked, here or in the menu that opened this.
+  chosenVerdict: ReviewVerdict;
+  onVerdictChange: (verdict: ReviewVerdict) => void;
   // GitHub refuses approvals and change requests from a pull request's own author.
   ownPullRequest: boolean;
   // The pull request's latest agent task. Merging warns while its work is pending.
@@ -64,14 +67,15 @@ export function ReviewDialog({
   draftIds,
   draftsOutsideDiff,
   findingIds,
+  chosenVerdict,
+  onVerdictChange,
   ownPullRequest,
   agentTask,
   onDone,
 }: ReviewDialogProps) {
   const submit = useSubmitReview();
-  const [chosen, setChosen] = useState<ReviewVerdict>('approve');
   // The sign-in can finish after this opens, so the choice is checked against it every time.
-  const verdict = ownPullRequest && chosen !== 'comment' ? 'comment' : chosen;
+  const verdict = ownPullRequest && chosenVerdict !== 'comment' ? 'comment' : chosenVerdict;
   const [body, setBody] = useState('');
   const merge = useMergePullRequest();
   const [mergeMethod, setMergeMethod] = useState<MergeMethod>('merge');
@@ -232,7 +236,7 @@ export function ReviewDialog({
                 aria-label="Verdict"
                 options={verdictOptions(ownPullRequest)}
                 value={verdict}
-                onValueChange={setChosen}
+                onValueChange={onVerdictChange}
               />
               {draftNote && <p className={styles.description}>{draftNote}</p>}
               {ownPullRequest && (

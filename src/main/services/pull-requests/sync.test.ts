@@ -105,6 +105,7 @@ function setup(getPullRequests: Mock<GitProvider['getPullRequests']>, routing: R
     setThreadResolved: vi.fn(),
     submitReview: vi.fn(),
     mergePullRequest: vi.fn(),
+    closePullRequest: vi.fn(),
     deleteBranch: vi.fn(),
     getReviews: vi.fn(),
     getPullRequestDetails: vi.fn(),

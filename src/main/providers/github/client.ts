@@ -137,6 +137,16 @@ export class GitHubClient {
     return response.json();
   }
 
+  // Sends a JSON body with PATCH and returns the JSON response.
+  async patchJson(path: string, body: unknown): Promise<unknown> {
+    const response = await this.request(this.url(path, {}), path, JSON_ACCEPT, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return response.json();
+  }
+
   // Sends a DELETE. GitHub answers these with no body.
   async delete(path: string): Promise<void> {
     await this.request(this.url(path, {}), path, JSON_ACCEPT, { method: 'DELETE' });

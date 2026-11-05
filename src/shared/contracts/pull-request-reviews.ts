@@ -58,6 +58,16 @@ export const deleteBranchResultSchema = z.discriminatedUnion('status', [
 ]);
 export type DeleteBranchResult = z.infer<typeof deleteBranchResultSchema>;
 
+export const closePullRequestInputSchema = z.object({ pullRequestId: z.number().int() });
+export type ClosePullRequestInput = z.infer<typeof closePullRequestInputSchema>;
+
+// rejected: the provider refused to close it. The message says why and is safe to show.
+export const closePullRequestResultSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('closed') }),
+  z.object({ status: z.literal('rejected'), message: z.string() }),
+]);
+export type ClosePullRequestResult = z.infer<typeof closePullRequestResultSchema>;
+
 export const reviewThreadCommentSchema = z.object({
   id: z.string(),
   // null when the account was deleted.

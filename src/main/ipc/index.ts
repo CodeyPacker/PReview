@@ -239,6 +239,7 @@ export function registerIpcHandlers(
   handle('agentTasks.answer', ({ questionId, answers }) => agentRunner.answer(questionId, answers));
   handle('pullRequestReviews.merge', (merge) => pullRequestReviews.merge(merge));
   handle('pullRequestReviews.deleteBranch', (branch) => pullRequestReviews.deleteBranch(branch));
+  handle('pullRequestReviews.close', (close) => pullRequestReviews.close(close));
 
   handle('reviewDrafts.list', ({ pullRequestId }) => listReviewDrafts(db, pullRequestId));
   handle('reviewDrafts.create', (draft) => createReviewDraft(db, draft));

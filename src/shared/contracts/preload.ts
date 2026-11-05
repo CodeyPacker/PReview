@@ -25,6 +25,8 @@ import type {
   PullRequestFileDiff,
 } from './pull-request-files.ts';
 import type {
+  ClosePullRequestInput,
+  ClosePullRequestResult,
   DeleteBranchInput,
   DeleteBranchResult,
   QueuedReview,
@@ -141,6 +143,7 @@ export interface PreviewApi {
     getQueued(pullRequestId: number): Promise<QueuedReview | null>;
     merge(merge: MergePullRequestInput): Promise<MergePullRequestResult>;
     deleteBranch(branch: DeleteBranchInput): Promise<DeleteBranchResult>;
+    close(close: ClosePullRequestInput): Promise<ClosePullRequestResult>;
   };
   // Each call resolves with every draft of the pull request.
   reviewDrafts: {

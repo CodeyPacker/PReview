@@ -125,6 +125,9 @@ export class RoutingProvider implements GitProvider {
   ) {
     return this.route(r, (p) => p.mergePullRequest(r, number, headSha, method));
   }
+  closePullRequest(r: string, number: number) {
+    return this.route(r, (p) => p.closePullRequest(r, number));
+  }
   deleteBranch(r: string, branch: string) {
     return this.route(r, (p) => p.deleteBranch(r, branch));
   }

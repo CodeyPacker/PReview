@@ -24,6 +24,8 @@ import {
   pullRequestFileDiffSchema,
 } from './pull-request-files.ts';
 import {
+  closePullRequestInputSchema,
+  closePullRequestResultSchema,
   deleteBranchInputSchema,
   deleteBranchResultSchema,
   mergePullRequestInputSchema,
@@ -202,6 +204,11 @@ export const ipcContract = {
   'pullRequestReviews.deleteBranch': {
     input: deleteBranchInputSchema,
     output: deleteBranchResultSchema,
+  },
+  // Closes a pull request on the provider without merging it.
+  'pullRequestReviews.close': {
+    input: closePullRequestInputSchema,
+    output: closePullRequestResultSchema,
   },
   // Unsent line comments, kept on this machine. Each call returns the pull request's drafts.
   'reviewDrafts.list': {

@@ -439,6 +439,7 @@ export function DiffViewer({
     const after = diffEditor.getModifiedEditor();
     const originalHits = before.createDecorationsCollection();
     const modifiedHits = after.createDecorationsCollection();
+    let folds: monaco.IDisposable | undefined;
     if (searchQuery) {
       const find = (code: monaco.editor.IStandaloneCodeEditor) =>
         code.getModel()?.findMatches(searchQuery, false, false, false, null, false, 500) ?? [];
@@ -457,15 +458,25 @@ export function DiffViewer({
             : undefined);
       if (match) {
         scroller.current?.cancel();
-        (match.side === 'original' ? before : after).revealLineInCenter(
-          match.line,
-          matchMedia('(prefers-reduced-motion: reduce)').matches
-            ? monaco.editor.ScrollType.Immediate
-            : monaco.editor.ScrollType.Smooth,
-        );
+        const code = match.side === 'original' ? before : after;
+        const reveal = () =>
+          code.revealLineInCenter(
+            match.line,
+            matchMedia('(prefers-reduced-motion: reduce)').matches
+              ? monaco.editor.ScrollType.Immediate
+              : monaco.editor.ScrollType.Smooth,
+          );
+        reveal();
+        // A new editor is still computing its diff and opening its folds, which moves the line.
+        // It goes again then. Only the first update counts, so later scrolling stays the reviewer's.
+        folds = diffEditor.onDidUpdateDiff(() => {
+          folds?.dispose();
+          reveal();
+        });
       }
     }
     return () => {
+      folds?.dispose();
       originalHits.clear();
       modifiedHits.clear();
     };
