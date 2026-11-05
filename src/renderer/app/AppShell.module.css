@@ -174,7 +174,8 @@
 .content {
   min-height: 0;
   overflow: auto;
-  padding: 0 var(--space-16) var(--space-16);
+  /* The shell pads the bottom, so panels end level with the sidebar. */
+  padding: 0 var(--space-16);
 }
 
 @media (prefers-reduced-motion: reduce) {
