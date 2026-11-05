@@ -26,7 +26,12 @@ export interface TaskContext {
   files: ProviderFilePatch[];
   summary: string;
   comments: ProviderReviewComment[];
-  findings: { category: FindingCategory; description: string; steps: string }[];
+  findings: {
+    category: FindingCategory;
+    description: string;
+    steps: string;
+    screenshotIds: number[];
+  }[];
   // Unresolved discussions other than this review's own comments.
   threads: ReviewThread[];
   // The summaries of earlier agent runs on the pull request, oldest first.
@@ -88,10 +93,18 @@ export async function loadTaskContext(
   ]);
   const findings = db
     .prepare(
-      `SELECT category, description, steps FROM review_findings
-       WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id`,
+      `SELECT f.category, f.description, f.steps,
+              (SELECT json_group_array(s.id) FROM finding_screenshots s WHERE s.finding_id = f.id)
+                AS screenshot_ids
+       FROM review_findings f
+       WHERE f.id IN (SELECT value FROM json_each(?)) ORDER BY f.id`,
     )
-    .all(row.finding_ids) as TaskContext['findings'];
+    .all(row.finding_ids) as {
+    category: FindingCategory;
+    description: string;
+    steps: string;
+    screenshot_ids: string;
+  }[];
   const earlierRuns = (
     db
       .prepare(
@@ -121,7 +134,10 @@ export async function loadTaskContext(
     files: details.files,
     summary: row.body,
     comments,
-    findings,
+    findings: findings.map(({ screenshot_ids, ...finding }) => ({
+      ...finding,
+      screenshotIds: JSON.parse(screenshot_ids) as number[],
+    })),
     threads: threads.filter(
       (thread) => !thread.resolved && !thread.outdated && !ownComment(thread),
     ),
@@ -178,7 +194,11 @@ export function taskPrompt(context: TaskContext): string {
       `### Findings\n\n${context.findings
         .map((finding, index) => {
           const steps = finding.steps ? `\nSteps to reproduce:\n${finding.steps}` : '';
-          return `F${index + 1}. ${findingCategoryLabels[finding.category]}: ${finding.description}${steps}`;
+          const screenshots =
+            finding.screenshotIds.length > 0
+              ? `\nScreenshots, for the get_finding_screenshot tool: ${finding.screenshotIds.join(', ')}`
+              : '';
+          return `F${index + 1}. ${findingCategoryLabels[finding.category]}: ${finding.description}${steps}${screenshots}`;
         })
         .join('\n\n')}`,
     );

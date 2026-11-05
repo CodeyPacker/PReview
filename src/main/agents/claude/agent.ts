@@ -63,6 +63,21 @@ export class ClaudeAgent implements AgentProvider {
           ({ path }) =>
             Promise.resolve({ content: [{ type: 'text', text: input.getFileDiff(path) }] }),
         ),
+        sdk.tool(
+          'get_finding_screenshot',
+          'A screenshot the reviewer attached to a finding.',
+          { id: z.number().int().describe('The screenshot id listed with the finding.') },
+          ({ id }) => {
+            const data = input.getFindingScreenshot(id);
+            return Promise.resolve({
+              content: [
+                data === null
+                  ? { type: 'text' as const, text: `There is no screenshot ${id} on this task.` }
+                  : { type: 'image' as const, data, mimeType: 'image/webp' },
+              ],
+            });
+          },
+        ),
       ],
     });
     const query = sdk.query({

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   findingCategoryLabels,
   findingCategorySchema,
+  MAX_FINDING_SCREENSHOTS,
   type FindingCategory,
   type FindingResolution,
   type ReviewFinding,
@@ -13,18 +14,25 @@ import { FindingItem } from '../components/FindingItem/FindingItem.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
+import { screenshotDataUrl } from '../lib/screenshot.ts';
+import { FindingScreenshots } from './FindingScreenshots.tsx';
 import styles from './FindingsDialog.module.css';
 
 export interface FindingDraft {
   category: FindingCategory;
   description: string;
   steps: string;
+  // The saved screenshots to keep.
+  screenshotIds: number[];
+  // Screenshots added since the last save, as data URLs.
+  newScreenshots: string[];
 }
 
 export interface FindingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   findings: readonly ReviewFinding[];
+  loadScreenshot: (id: number) => Promise<string | null>;
   // id is set when it edits a saved finding. Each call rejects when the change failed.
   onSave: (finding: FindingDraft & { id?: number }) => Promise<unknown>;
   onSetResolution: (id: number, resolution: FindingResolution) => Promise<unknown>;
@@ -36,7 +44,13 @@ const categoryOptions = findingCategorySchema.options.map((value) => ({
   label: findingCategoryLabels[value],
 }));
 
-const emptyDraft: FindingDraft = { category: 'bug', description: '', steps: '' };
+const emptyDraft: FindingDraft = {
+  category: 'bug',
+  description: '',
+  steps: '',
+  screenshotIds: [],
+  newScreenshots: [],
+};
 
 // The finding's first line names it in the list.
 function title(finding: ReviewFinding) {
@@ -50,6 +64,7 @@ export function FindingsDialog({
   open,
   onOpenChange,
   findings,
+  loadScreenshot,
   onSave,
   onSetResolution,
   onDelete,
@@ -59,13 +74,43 @@ export function FindingsDialog({
   const [draft, setDraft] = useState(emptyDraft);
   const [busy, setBusy] = useState<'save' | 'resolve' | 'delete'>();
   const [failed, setFailed] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [screenshotError, setScreenshotError] = useState<string>();
   const finding = findings.find((item) => item.id === selected);
   const editing = selected === 'new' || (finding !== undefined && finding.publishedAt === null);
 
   function show(next: 'new' | ReviewFinding | undefined) {
     setSelected(next === 'new' ? 'new' : next?.id);
-    setDraft(next && next !== 'new' ? next : emptyDraft);
+    setDraft(next && next !== 'new' ? { ...next, newScreenshots: [] } : emptyDraft);
     setFailed(false);
+    setScreenshotError(undefined);
+  }
+
+  // Non-image files are skipped, and so is anything over the limit.
+  async function addFiles(files: readonly File[]) {
+    const room = MAX_FINDING_SCREENSHOTS - draft.screenshotIds.length - draft.newScreenshots.length;
+    const images = files.filter((file) => file.type.startsWith('image/'));
+    const chosen = images.slice(0, room);
+    setScreenshotError(
+      images.length === 0
+        ? 'Only images can be attached.'
+        : images.length > room
+          ? `A finding can have ${MAX_FINDING_SCREENSHOTS} screenshots.`
+          : undefined,
+    );
+    if (chosen.length === 0) return;
+    setConverting(true);
+    try {
+      const added = await Promise.all(chosen.map(screenshotDataUrl));
+      setDraft((current) => ({
+        ...current,
+        newScreenshots: [...current.newScreenshots, ...added],
+      }));
+    } catch {
+      setScreenshotError('Could not read that image.');
+    } finally {
+      setConverting(false);
+    }
   }
 
   async function run(kind: NonNullable<typeof busy>, change: () => Promise<unknown>) {
@@ -116,7 +161,7 @@ export function FindingsDialog({
 
   let content;
   if (editing) {
-    const canSave = busy === undefined && draft.description.trim() !== '';
+    const canSave = busy === undefined && !converting && draft.description.trim() !== '';
     content = (
       <form
         className={styles.form}
@@ -148,6 +193,25 @@ export function FindingsDialog({
           label="Steps to reproduce (optional)"
           value={draft.steps}
           onChange={(event) => setDraft({ ...draft, steps: event.target.value })}
+        />
+        <FindingScreenshots
+          savedIds={draft.screenshotIds}
+          added={draft.newScreenshots}
+          loadScreenshot={loadScreenshot}
+          error={screenshotError}
+          onFiles={(files) => void addFiles(files)}
+          onRemoveSaved={(id) =>
+            setDraft({
+              ...draft,
+              screenshotIds: draft.screenshotIds.filter((item) => item !== id),
+            })
+          }
+          onRemoveAdded={(url) =>
+            setDraft({
+              ...draft,
+              newScreenshots: draft.newScreenshots.filter((item) => item !== url),
+            })
+          }
         />
         {error}
         <div className={finding ? styles.splitActions : styles.actions}>
@@ -198,8 +262,15 @@ export function FindingsDialog({
             <p className={styles.text}>{finding.steps}</p>
           </section>
         )}
+        {finding.screenshotIds.length > 0 && (
+          <section className={styles.steps}>
+            <h3 className={styles.heading}>Screenshots</h3>
+            <FindingScreenshots savedIds={finding.screenshotIds} loadScreenshot={loadScreenshot} />
+          </section>
+        )}
         <Dialog.Description className={styles.description}>
-          Published with a review. GitHub has this text, so it can’t be edited.
+          Published with a review. GitHub has this text, so it can’t be edited. Screenshots stay on
+          this computer.
         </Dialog.Description>
         {error}
         <div className={styles.actions}>

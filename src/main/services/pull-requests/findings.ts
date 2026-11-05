@@ -1,6 +1,10 @@
 import type { DatabaseSync } from 'node:sqlite';
+import { transaction } from '../../database/connection.ts';
 import {
   findingCategoryLabels,
+  MAX_FINDING_SCREENSHOTS,
+  MAX_SCREENSHOT_BYTES,
+  SCREENSHOT_DATA_URL_PREFIX,
   type CreateReviewFindingInput,
   type ReviewFinding,
   type SetFindingResolutionInput,
@@ -21,13 +25,14 @@ interface ReviewFindingRow {
   updated_at: string;
 }
 
-function toFinding(row: ReviewFindingRow): ReviewFinding {
+function toFinding(row: ReviewFindingRow, screenshotIds: number[]): ReviewFinding {
   return {
     id: row.id,
     pullRequestId: row.pull_request_id,
     category: row.category,
     description: row.description,
     steps: row.steps,
+    screenshotIds,
     validation: row.validation,
     resolution: row.resolution,
     publishedAt: row.published_at,
@@ -47,34 +52,97 @@ export function listReviewFindings(db: DatabaseSync, pullRequestId: number): Rev
        ORDER BY created_at, id`,
     )
     .all(pullRequestId) as unknown as ReviewFindingRow[];
-  return rows.map(toFinding);
+  const screenshots = db
+    .prepare(
+      `SELECT s.id, s.finding_id FROM finding_screenshots s
+       JOIN review_findings f ON f.id = s.finding_id
+       WHERE f.pull_request_id = ?
+       ORDER BY s.id`,
+    )
+    .all(pullRequestId) as unknown as { id: number; finding_id: number }[];
+  return rows.map((row) =>
+    toFinding(
+      row,
+      screenshots.filter(({ finding_id }) => finding_id === row.id).map(({ id }) => id),
+    ),
+  );
+}
+
+// The image bytes of a data URL. The bytes must really be WebP, because Claude rejects an image
+// whose type is wrong and that would fail the agent's whole run.
+function decodeScreenshot(dataUrl: string): Buffer {
+  const data = Buffer.from(dataUrl.slice(SCREENSHOT_DATA_URL_PREFIX.length), 'base64');
+  const webp =
+    data.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    data.subarray(8, 12).toString('latin1') === 'WEBP';
+  if (!webp) throw new Error('A screenshot is not a WebP image.');
+  if (data.length > MAX_SCREENSHOT_BYTES) throw new Error('A screenshot is too large.');
+  return data;
+}
+
+function addScreenshots(db: DatabaseSync, findingId: number, dataUrls: readonly string[]): void {
+  const { total } = db
+    .prepare('SELECT COUNT(*) AS total FROM finding_screenshots WHERE finding_id = ?')
+    .get(findingId) as { total: number };
+  if (total + dataUrls.length > MAX_FINDING_SCREENSHOTS) {
+    throw new Error(`A finding can have ${MAX_FINDING_SCREENSHOTS} screenshots.`);
+  }
+  const insert = db.prepare('INSERT INTO finding_screenshots (finding_id, data) VALUES (?, ?)');
+  for (const dataUrl of dataUrls) insert.run(findingId, decodeScreenshot(dataUrl));
+}
+
+// One screenshot as a data URL, or null when it is gone.
+export function getFindingScreenshot(db: DatabaseSync, id: number): string | null {
+  const row = db.prepare('SELECT data FROM finding_screenshots WHERE id = ?').get(id) as
+    { data: Uint8Array } | undefined;
+  return row ? SCREENSHOT_DATA_URL_PREFIX + Buffer.from(row.data).toString('base64') : null;
 }
 
 export function createReviewFinding(
   db: DatabaseSync,
-  { pullRequestId, category, description, steps }: CreateReviewFindingInput,
+  { pullRequestId, category, description, steps, newScreenshots }: CreateReviewFindingInput,
 ): ReviewFinding[] {
-  db.prepare(
-    `INSERT INTO review_findings (pull_request_id, category, description, steps)
-     VALUES (?, ?, ?, ?)`,
-  ).run(pullRequestId, category, description.trim(), steps.trim());
+  transaction(db, () => {
+    const { lastInsertRowid } = db
+      .prepare(
+        `INSERT INTO review_findings (pull_request_id, category, description, steps)
+         VALUES (?, ?, ?, ?)`,
+      )
+      .run(pullRequestId, category, description.trim(), steps.trim());
+    addScreenshots(db, Number(lastInsertRowid), newScreenshots);
+  });
   return listReviewFindings(db, pullRequestId);
 }
 
 // GitHub already has a published finding's text, so only unpublished ones change.
 export function updateReviewFinding(
   db: DatabaseSync,
-  { pullRequestId, id, category, description, steps }: UpdateReviewFindingInput,
+  {
+    pullRequestId,
+    id,
+    category,
+    description,
+    steps,
+    screenshotIds,
+    newScreenshots,
+  }: UpdateReviewFindingInput,
 ): ReviewFinding[] {
-  const { changes } = db
-    .prepare(
-      `UPDATE review_findings
-       SET category = ?, description = ?, steps = ?,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-       WHERE id = ? AND pull_request_id = ? AND published_at IS NULL`,
-    )
-    .run(category, description.trim(), steps.trim(), id, pullRequestId);
-  if (changes === 0) throw new Error('Finding not found or already published.');
+  transaction(db, () => {
+    const { changes } = db
+      .prepare(
+        `UPDATE review_findings
+         SET category = ?, description = ?, steps = ?,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND pull_request_id = ? AND published_at IS NULL`,
+      )
+      .run(category, description.trim(), steps.trim(), id, pullRequestId);
+    if (changes === 0) throw new Error('Finding not found or already published.');
+    db.prepare(
+      `DELETE FROM finding_screenshots
+       WHERE finding_id = ? AND id NOT IN (SELECT value FROM json_each(?))`,
+    ).run(id, JSON.stringify(screenshotIds));
+    addScreenshots(db, id, newScreenshots);
+  });
   return listReviewFindings(db, pullRequestId);
 }
 

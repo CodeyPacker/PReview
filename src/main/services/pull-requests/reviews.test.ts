@@ -332,12 +332,14 @@ describe('PullRequestReviews', () => {
     const { submitReview, reviews } = setup();
     createReviewFinding(db, {
       pullRequestId,
+      newScreenshots: [],
       category: 'ui-bug',
       description: 'The save button overlaps the footer.',
       steps: '1. Open settings.\n2. Shrink the window.',
     });
     const [first, second] = createReviewFinding(db, {
       pullRequestId,
+      newScreenshots: [],
       category: 'security',
       description: 'The token is logged.',
       steps: '',
@@ -373,6 +375,7 @@ describe('PullRequestReviews', () => {
     const { submitReview, reviews } = setup();
     const [finding] = createReviewFinding(db, {
       pullRequestId,
+      newScreenshots: [],
       category: 'bug',
       description: 'Crashes on empty input.',
       steps: '',
@@ -398,6 +401,7 @@ describe('PullRequestReviews', () => {
     submitReview.mockRejectedValue(new GitHubApiError(422, '/reviews', 'Body is too long'));
     const [finding] = createReviewFinding(db, {
       pullRequestId,
+      newScreenshots: [],
       category: 'bug',
       description: 'Crashes.',
       steps: '',
@@ -421,6 +425,7 @@ describe('PullRequestReviews', () => {
     const { submitReview, reviews } = setup();
     const [finding] = createReviewFinding(db, {
       pullRequestId,
+      newScreenshots: [],
       category: 'bug',
       description: 'Crashes.',
       steps: '',

@@ -565,4 +565,19 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 29,
+    name: 'finding_screenshots',
+    // Images attached to a finding, as WebP. They stay on this machine and go with their finding.
+    sql: `
+      CREATE TABLE finding_screenshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        finding_id INTEGER NOT NULL REFERENCES review_findings (id) ON DELETE CASCADE,
+        data BLOB NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+      ) STRICT;
+
+      CREATE INDEX finding_screenshots_finding ON finding_screenshots (finding_id);
+    `,
+  },
 ];
