@@ -122,6 +122,9 @@ function PostMergePage() {
     <div className={styles.page}>
       <Panel padding="sm" className={styles.hero}>
         <div className={styles.art}>
+          {art && (
+            <Sprite className={styles.sprite} animation={art.victory} label={character.name} />
+          )}
           <IconButton
             icon={<X />}
             label="Close"
@@ -215,11 +218,12 @@ function PostMergePage() {
           </Panel>
           <Panel title="Character Progress">
             <div className={styles.progress}>
-              {art ? (
-                <Sprite className={styles.sprite} animation={art.victory} label={character.name} />
-              ) : (
-                <Avatar name={character?.name ?? 'Shadow'} size="xl" tone="accent" />
-              )}
+              <Avatar
+                name={character?.name ?? 'Shadow'}
+                src={art?.portrait}
+                size="xl"
+                tone={art ? 'neutral' : 'accent'}
+              />
               <div className={styles.progressBody}>
                 <div className={styles.progressHead}>
                   <span className={styles.level}>{character?.name ?? 'Shadow'}</span>
