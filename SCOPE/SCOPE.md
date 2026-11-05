@@ -1406,7 +1406,7 @@ MVP:
 
 - Complete predefined outfits
 - Outfit selection
-- Weapons chosen separately from the outfit, each unlocked at a character level
+- Weapons chosen separately from the outfit, with a set for each character and each weapon unlocked at a character level
 - Different animations
 - Cosmetic unlocks
 

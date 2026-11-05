@@ -6,10 +6,10 @@ export const characterIdSchema = z.enum(['shadow', 'ember', 'frost', 'bolt']);
 export type CharacterId = z.infer<typeof characterIdSchema>;
 
 // The MVP roster. Shadow is unlocked from the start, and the rest unlock at an account level.
-// Names other than Shadow are placeholders until the art is made.
+// Names other than Shadow are placeholders.
 export const characters = [
   { id: 'shadow', name: 'Shadow', title: 'The ninja', unlockLevel: 1 },
-  { id: 'ember', name: 'Ember', title: 'Placeholder', unlockLevel: 3 },
+  { id: 'ember', name: 'Ember', title: 'The dragon mage', unlockLevel: 3 },
   { id: 'frost', name: 'Frost', title: 'Placeholder', unlockLevel: 6 },
   { id: 'bolt', name: 'Bolt', title: 'Placeholder', unlockLevel: 10 },
 ] as const satisfies readonly {
@@ -40,18 +40,39 @@ export const weaponIdSchema = z.enum([
   'sunfang',
   'stormfork',
   'icy-dagger',
+  'crystal-staff',
+  'emberheart',
+  'phoenix-crown',
+  'solar-sovereign',
 ]);
 export type WeaponId = z.infer<typeof weaponIdSchema>;
 
-// Weapons every character can hold, chosen apart from the outfit (SCOPE 13.3). Each is unlocked
-// at a character level.
-export const weapons = [
-  { id: 'dagger', name: 'Dagger', unlockLevel: 1 },
-  { id: 'void-crescent', name: 'Void Crescent', unlockLevel: 2 },
-  { id: 'sunfang', name: 'Sunfang', unlockLevel: 4 },
-  { id: 'stormfork', name: 'Stormfork', unlockLevel: 6 },
-  { id: 'icy-dagger', name: 'Icy Dagger', unlockLevel: 9 },
-] as const satisfies readonly { id: WeaponId; name: string; unlockLevel: number }[];
+// Frost and Bolt share Shadow's weapons until they have art.
+const blades: CharacterId[] = ['shadow', 'frost', 'bolt'];
+const staffs: CharacterId[] = ['ember'];
+
+// Weapons are chosen apart from the outfit (SCOPE 13.3), and each is unlocked at a character
+// level. A character starts with the first weapon it can hold.
+export const weapons: {
+  id: WeaponId;
+  name: string;
+  unlockLevel: number;
+  characters: CharacterId[];
+}[] = [
+  { id: 'dagger', name: 'Dagger', unlockLevel: 1, characters: blades },
+  { id: 'void-crescent', name: 'Void Crescent', unlockLevel: 2, characters: blades },
+  { id: 'sunfang', name: 'Sunfang', unlockLevel: 4, characters: blades },
+  { id: 'stormfork', name: 'Stormfork', unlockLevel: 6, characters: blades },
+  { id: 'icy-dagger', name: 'Icy Dagger', unlockLevel: 9, characters: blades },
+  { id: 'crystal-staff', name: 'Crystal Staff', unlockLevel: 1, characters: staffs },
+  { id: 'emberheart', name: 'Emberheart', unlockLevel: 2, characters: staffs },
+  { id: 'phoenix-crown', name: 'Phoenix Crown', unlockLevel: 6, characters: staffs },
+  { id: 'solar-sovereign', name: 'Solar Sovereign', unlockLevel: 9, characters: staffs },
+];
+
+export function weaponsFor(characterId: CharacterId) {
+  return weapons.filter((weapon) => weapon.characters.includes(characterId));
+}
 
 // Fixed XP per level for both the account and each character (SCOPE 13.2).
 export const ACCOUNT_XP_PER_LEVEL = 1000;

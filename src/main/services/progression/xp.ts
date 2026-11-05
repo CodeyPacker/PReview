@@ -10,8 +10,7 @@ import {
   levelOf,
   outfitIdSchema,
   outfits,
-  weaponIdSchema,
-  weapons,
+  weaponsFor,
   REVIEW_COMPLETED_XP,
   reviewTimeMultiplier,
   type CharacterId,
@@ -75,7 +74,9 @@ export function getProgression(db: DatabaseSync): Progression {
       ...levelOf(byCharacter.get(character.id) ?? 0, CHARACTER_XP_PER_LEVEL),
       unlocked: account.level >= character.unlockLevel,
       outfit: outfitIdSchema.catch('default').parse(worn.get(character.id)),
-      weapon: weaponIdSchema.catch('dagger').parse(held.get(character.id)),
+      weapon:
+        weaponsFor(character.id).find((weapon) => weapon.id === held.get(character.id))?.id ??
+        weaponsFor(character.id)[0]!.id,
     })),
   };
 }
@@ -115,7 +116,7 @@ export function setWeapon(
   weaponId: WeaponId,
 ): Progression {
   const character = getProgression(db).characters.find((candidate) => candidate.id === characterId);
-  const weapon = weapons.find((candidate) => candidate.id === weaponId);
+  const weapon = weaponsFor(characterId).find((candidate) => candidate.id === weaponId);
   if (!character?.unlocked || !weapon || character.level < weapon.unlockLevel) {
     throw new Error('That weapon is still locked.');
   }

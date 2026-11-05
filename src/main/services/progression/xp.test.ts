@@ -202,6 +202,21 @@ describe('weapons', () => {
     expect(() => setWeapon(db, 'shadow', 'sunfang')).toThrow('locked');
     expect(() => setWeapon(db, 'ember', 'dagger')).toThrow('locked');
   });
+
+  it('gives each character its own weapons', () => {
+    db.prepare(
+      `INSERT INTO xp_transactions
+         (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
+          repository, number, character_id)
+       VALUES ('seed', 'review-completed', 2000, 1, 2000, 0, 1, 'octo/app', 1, 'ember')`,
+    ).run();
+    const ember = () => getProgression(db).characters.find(({ id }) => id === 'ember');
+    expect(ember()?.weapon).toBe('crystal-staff');
+    expect(() => setWeapon(db, 'ember', 'dagger')).toThrow('locked');
+    expect(() => setWeapon(db, 'ember', 'phoenix-crown')).toThrow('locked');
+    setWeapon(db, 'ember', 'emberheart');
+    expect(ember()?.weapon).toBe('emberheart');
+  });
 });
 
 describe('finding XP', () => {

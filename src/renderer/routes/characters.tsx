@@ -4,7 +4,7 @@ import { useState } from 'react';
 import {
   CHARACTER_XP_PER_LEVEL,
   outfits,
-  weapons,
+  weaponsFor,
   type CharacterId,
 } from '../../shared/contracts/progression.ts';
 import { PageHeader } from '../app/PageHeader.tsx';
@@ -18,7 +18,7 @@ import { Sprite } from '../components/Sprite/Sprite.tsx';
 import { Tag } from '../components/Tag/Tag.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { useProgression } from '../hooks/useProgression.ts';
-import { characterArt } from '../lib/characterArt.ts';
+import { characterArt, layersFor } from '../lib/characterArt.ts';
 import styles from './characters.module.css';
 
 export const Route = createFileRoute('/characters')({ component: CharactersPage });
@@ -44,10 +44,11 @@ function CharactersPage() {
   const isCompanion = viewed.id === data.activeCharacter;
   const art = viewed.unlocked ? characterArt[viewed.id] : undefined;
   const levelReached = (unlockLevel: number) => viewed.unlocked && viewed.level >= unlockLevel;
-  // Every reward in level order. The dagger is left out, since every character starts with it.
+  const viewedWeapons = weaponsFor(viewed.id);
+  // Every reward in level order. The starting weapon is left out, since it's never locked.
   const rewards = [
     ...outfits.map((outfit) => ({ ...outfit, kind: 'Outfit', icon: <Shirt aria-hidden /> })),
-    ...weapons
+    ...viewedWeapons
       .filter((weapon) => weapon.unlockLevel > 1)
       .map((weapon) => ({ ...weapon, kind: 'Weapon', icon: <Sword aria-hidden /> })),
   ].sort((a, b) => a.unlockLevel - b.unlockLevel);
@@ -114,7 +115,7 @@ function CharactersPage() {
                   <Sprite
                     className={styles.sprite}
                     animation={art[preview]}
-                    layers={art.layers[preview]}
+                    layers={layersFor(art, viewed.weapon)[preview]}
                     label={viewed.name}
                     onFinished={() => setPreview('idle')}
                   />
@@ -172,7 +173,7 @@ function CharactersPage() {
           </Panel>
           <Panel title="Weapon">
             <div className={styles.outfits} role="group" aria-label="Weapon">
-              {weapons.map((weapon) => {
+              {viewedWeapons.map((weapon) => {
                 const unlocked = levelReached(weapon.unlockLevel);
                 return (
                   <ChoiceTile

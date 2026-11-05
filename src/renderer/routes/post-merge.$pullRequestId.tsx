@@ -30,7 +30,7 @@ import { useAchievements } from '../hooks/useAchievements.ts';
 import { useMergedPullRequest } from '../hooks/useMergedPullRequest.ts';
 import { useProgression, usePullRequestXp } from '../hooks/useProgression.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
-import { characterArt } from '../lib/characterArt.ts';
+import { characterArt, layersFor } from '../lib/characterArt.ts';
 import styles from './post-merge.module.css';
 
 export const Route = createFileRoute('/post-merge/$pullRequestId')({ component: PostMergePage });
@@ -126,7 +126,7 @@ function PostMergePage() {
             <Sprite
               className={styles.sprite}
               animation={art.victory}
-              layers={art.layers.victory}
+              layers={layersFor(art, character.weapon).victory}
               label={character.name}
             />
           )}
