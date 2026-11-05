@@ -459,7 +459,7 @@ test('starts with one character and every badge unearned', async () => {
     // Victory plays once, then Shadow goes back to idle.
     await expect(animation.getByRole('radio', { name: 'Idle' })).toBeChecked();
     const weapon = page.getByRole('group', { name: 'Weapon' });
-    await expect(weapon.getByRole('button', { name: 'Dagger' })).toHaveAttribute(
+    await expect(weapon.getByRole('button', { name: 'Dagger', exact: true })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
