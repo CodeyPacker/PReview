@@ -16,7 +16,7 @@ export const Default: Story = {};
 
 export const Selected: Story = { args: { selected: true } };
 
-export const Locked: Story = { args: { label: 'Midnight', locked: true } };
+export const Locked: Story = { args: { label: 'Teal', locked: true } };
 
 export const Sizes: Story = {
   render: () => (
@@ -27,7 +27,7 @@ export const Sizes: Story = {
       <ChoiceTile label="Default" size="md" selected>
         <User />
       </ChoiceTile>
-      <ChoiceTile label="Midnight" size="lg" locked>
+      <ChoiceTile label="Teal" size="lg" locked>
         <User />
       </ChoiceTile>
     </div>

@@ -171,14 +171,14 @@ describe('characters', () => {
 describe('outfits', () => {
   it('wears the default until a character level unlocks another', () => {
     expect(getProgression(db).characters[0]?.outfit).toBe('default');
-    expect(() => setOutfit(db, 'shadow', 'midnight')).toThrow('locked');
+    expect(() => setOutfit(db, 'shadow', 'teal')).toThrow('locked');
     db.prepare(
       `INSERT INTO xp_transactions
          (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
           repository, number, character_id)
        VALUES ('seed', 'review-completed', 1000, 1, 1000, 0, 1, 'octo/app', 1, 'shadow')`,
     ).run();
-    expect(setOutfit(db, 'shadow', 'midnight').characters[0]?.outfit).toBe('midnight');
+    expect(setOutfit(db, 'shadow', 'teal').characters[0]?.outfit).toBe('teal');
     expect(() => setOutfit(db, 'shadow', 'crimson')).toThrow('locked');
     expect(() => setOutfit(db, 'ember', 'default')).toThrow('locked');
   });
@@ -192,7 +192,7 @@ describe('outfits', () => {
     ).run();
     const ember = () => getProgression(db).characters.find(({ id }) => id === 'ember');
     expect(ember()?.outfit).toBe('default');
-    expect(() => setOutfit(db, 'ember', 'midnight')).toThrow('locked');
+    expect(() => setOutfit(db, 'ember', 'teal')).toThrow('locked');
     expect(() => setOutfit(db, 'ember', 'black-pink')).toThrow('locked');
     setOutfit(db, 'ember', 'green');
     expect(ember()?.outfit).toBe('green');
@@ -209,9 +209,9 @@ describe('weapons', () => {
           repository, number, character_id)
        VALUES ('seed', 'review-completed', 1000, 1, 1000, 0, 1, 'octo/app', 1, 'shadow')`,
     ).run();
-    setOutfit(db, 'shadow', 'midnight');
+    setOutfit(db, 'shadow', 'teal');
     expect(setWeapon(db, 'shadow', 'void-crescent').characters[0]).toMatchObject({
-      outfit: 'midnight',
+      outfit: 'teal',
       weapon: 'void-crescent',
     });
     expect(() => setWeapon(db, 'shadow', 'sunfang')).toThrow('locked');

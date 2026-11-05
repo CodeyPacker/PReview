@@ -8,7 +8,7 @@ const meta = {
   args: {
     steps: [
       { level: 1, label: 'Outfit', sublabel: 'Default', state: 'done' },
-      { level: 3, label: 'Outfit', sublabel: 'Midnight', state: 'current' },
+      { level: 3, label: 'Outfit', sublabel: 'Teal', state: 'current' },
       { level: 5, label: 'Outfit', sublabel: 'Crimson' },
       { level: 8, label: 'Outfit', sublabel: 'Sage' },
     ],
@@ -23,7 +23,7 @@ export const Default: Story = {};
 export const AllLocked: Story = {
   args: {
     steps: [
-      { level: 3, label: 'Outfit', sublabel: 'Midnight' },
+      { level: 3, label: 'Outfit', sublabel: 'Teal' },
       { level: 5, label: 'Outfit', sublabel: 'Crimson' },
     ],
   },

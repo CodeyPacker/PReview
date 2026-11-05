@@ -27,7 +27,7 @@ const emberSet: CharacterId[] = ['ember'];
 
 export const outfitIdSchema = z.enum([
   'default',
-  'midnight',
+  'teal',
   'crimson',
   'sage',
   'white',
@@ -47,7 +47,7 @@ export const outfits: {
   characters: CharacterId[];
 }[] = [
   { id: 'default', name: 'Default', unlockLevel: 1, characters: [...shadowSet, ...emberSet] },
-  { id: 'midnight', name: 'Midnight', unlockLevel: 3, characters: shadowSet },
+  { id: 'teal', name: 'Teal', unlockLevel: 3, characters: shadowSet },
   { id: 'crimson', name: 'Crimson', unlockLevel: 5, characters: shadowSet },
   { id: 'sage', name: 'Sage', unlockLevel: 8, characters: shadowSet },
   { id: 'white', name: 'White', unlockLevel: 10, characters: shadowSet },

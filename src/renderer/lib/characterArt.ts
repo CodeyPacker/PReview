@@ -47,6 +47,10 @@ import sageIdleBack from '../assets/characters/shadow/sage/idle-back.png';
 import sageIdleFront from '../assets/characters/shadow/sage/idle-front.png';
 import sageVictoryBack from '../assets/characters/shadow/sage/victory-back.png';
 import sageVictoryFront from '../assets/characters/shadow/sage/victory-front.png';
+import tealIdleBack from '../assets/characters/shadow/teal/idle-back.png';
+import tealIdleFront from '../assets/characters/shadow/teal/idle-front.png';
+import tealVictoryBack from '../assets/characters/shadow/teal/victory-back.png';
+import tealVictoryFront from '../assets/characters/shadow/teal/victory-front.png';
 import daggerIdle from '../assets/characters/shadow/weapons/dagger/idle.png';
 import daggerVictory from '../assets/characters/shadow/weapons/dagger/victory.png';
 import icyDaggerIdle from '../assets/characters/shadow/weapons/icy-dagger/idle.png';
@@ -124,6 +128,12 @@ const shadowBodies: Partial<Record<OutfitId, Body>> = {
     idleFront: sageIdleFront,
     victoryBack: sageVictoryBack,
     victoryFront: sageVictoryFront,
+  },
+  teal: {
+    idleBack: tealIdleBack,
+    idleFront: tealIdleFront,
+    victoryBack: tealVictoryBack,
+    victoryFront: tealVictoryFront,
   },
 };
 
