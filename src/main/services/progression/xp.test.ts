@@ -14,6 +14,7 @@ import {
   MAX_REVIEW_TIME_REPORT_MS,
   setActiveCharacter,
   setOutfit,
+  setWeapon,
   startReviewProgress,
   validateReport,
 } from './xp.ts';
@@ -180,6 +181,41 @@ describe('outfits', () => {
     expect(setOutfit(db, 'shadow', 'midnight').characters[0]?.outfit).toBe('midnight');
     expect(() => setOutfit(db, 'shadow', 'crimson')).toThrow('locked');
     expect(() => setOutfit(db, 'ember', 'default')).toThrow('locked');
+  });
+});
+
+describe('weapons', () => {
+  it('holds the dagger until a character level unlocks another, whatever the outfit', () => {
+    expect(getProgression(db).characters[0]?.weapon).toBe('dagger');
+    expect(() => setWeapon(db, 'shadow', 'void-crescent')).toThrow('locked');
+    db.prepare(
+      `INSERT INTO xp_transactions
+         (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
+          repository, number, character_id)
+       VALUES ('seed', 'review-completed', 1000, 1, 1000, 0, 1, 'octo/app', 1, 'shadow')`,
+    ).run();
+    setOutfit(db, 'shadow', 'midnight');
+    expect(setWeapon(db, 'shadow', 'void-crescent').characters[0]).toMatchObject({
+      outfit: 'midnight',
+      weapon: 'void-crescent',
+    });
+    expect(() => setWeapon(db, 'shadow', 'sunfang')).toThrow('locked');
+    expect(() => setWeapon(db, 'ember', 'dagger')).toThrow('locked');
+  });
+
+  it('gives each character its own weapons', () => {
+    db.prepare(
+      `INSERT INTO xp_transactions
+         (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
+          repository, number, character_id)
+       VALUES ('seed', 'review-completed', 2000, 1, 2000, 0, 1, 'octo/app', 1, 'ember')`,
+    ).run();
+    const ember = () => getProgression(db).characters.find(({ id }) => id === 'ember');
+    expect(ember()?.weapon).toBe('crystal-staff');
+    expect(() => setWeapon(db, 'ember', 'dagger')).toThrow('locked');
+    expect(() => setWeapon(db, 'ember', 'phoenix-crown')).toThrow('locked');
+    setWeapon(db, 'ember', 'emberheart');
+    expect(ember()?.weapon).toBe('emberheart');
   });
 });
 

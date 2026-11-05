@@ -458,6 +458,14 @@ test('starts with one character and every badge unearned', async () => {
     await animation.getByRole('radio', { name: 'Victory' }).click();
     // Victory plays once, then Shadow goes back to idle.
     await expect(animation.getByRole('radio', { name: 'Idle' })).toBeChecked();
+    const weapon = page.getByRole('group', { name: 'Weapon' });
+    await expect(weapon.getByRole('button', { name: 'Dagger', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(
+      weapon.getByRole('button', { name: 'Void Crescent, unlocks at level 2' }),
+    ).toBeVisible();
     await page.getByRole('button', { name: /Unlocks at Account Level 3/ }).click();
     await expect(page.getByText('Unlocks at Account Level 3.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Set as Companion' })).toBeDisabled();
@@ -495,6 +503,7 @@ test('celebrates a merged pull request and picks a new companion', async () => {
         unlockLevel,
         unlocked: unlockLevel <= 3,
         outfit: 'default',
+        weapon: id === 'ember' ? 'crystal-staff' : 'dagger',
       });
       const progression = {
         account: level(2150, 1000),

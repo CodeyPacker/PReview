@@ -123,7 +123,12 @@ function PostMergePage() {
       <Panel padding="sm" className={styles.hero}>
         <div className={styles.art}>
           {art && (
-            <Sprite className={styles.sprite} animation={art.victory} label={character.name} />
+            <Sprite
+              className={styles.sprite}
+              animation={art.victory}
+              layers={art.layers(character.outfit, character.weapon).victory}
+              label={character.name}
+            />
           )}
           <IconButton
             icon={<X />}

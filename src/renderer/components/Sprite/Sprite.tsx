@@ -6,7 +6,6 @@ import styles from './Sprite.module.css';
 // SCOPE 13.4. A sheet is one row of frames, and frames lists the order to play them in.
 export interface SpriteAnimation {
   name: string;
-  src: string;
   frameWidth: number;
   frameHeight: number;
   columns: number;
@@ -18,6 +17,8 @@ export interface SpriteAnimation {
 export interface SpriteProps {
   // Keep this object stable. A new one starts the animation over.
   animation: SpriteAnimation;
+  // Sheets with the same frames, stacked from back to front. Changing them keeps the timing.
+  layers: string[];
   // Accessible name.
   label: string;
   // Called when an animation that doesn't loop has played. It holds its last frame.
@@ -25,7 +26,7 @@ export interface SpriteProps {
   className?: string;
 }
 
-export function Sprite({ animation, label, onFinished, className }: SpriteProps) {
+export function Sprite({ animation, layers, label, onFinished, className }: SpriteProps) {
   const ref = useRef<HTMLDivElement>(null);
   const finished = useEffectEvent(() => onFinished?.());
 
@@ -69,7 +70,11 @@ export function Sprite({ animation, label, onFinished, className }: SpriteProps)
       className={cx(styles.sprite, className)}
       style={{
         aspectRatio: `${animation.frameWidth} / ${animation.frameHeight}`,
-        backgroundImage: `url("${animation.src}")`,
+        // CSS paints its first image on top.
+        backgroundImage: [...layers]
+          .reverse()
+          .map((layer) => `url("${layer}")`)
+          .join(', '),
         backgroundSize: `${animation.columns * 100}% 100%`,
       }}
     />

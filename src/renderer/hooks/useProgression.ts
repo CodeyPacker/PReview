@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { CharacterId, OutfitId } from '../../shared/contracts/progression.ts';
+import type { CharacterId, OutfitId, WeaponId } from '../../shared/contracts/progression.ts';
 
 // Account and character levels. Anything that may award XP invalidates ['progression'].
 export function useProgression() {
@@ -19,7 +19,12 @@ export function useProgression() {
       window.preview.progression.setOutfit(characterId, outfitId),
     onSuccess: (saved) => queryClient.setQueryData(queryKey, saved),
   });
-  return { progression, setActiveCharacter, setOutfit };
+  const setWeapon = useMutation({
+    mutationFn: ({ characterId, weaponId }: { characterId: CharacterId; weaponId: WeaponId }) =>
+      window.preview.progression.setWeapon(characterId, weaponId),
+    onSuccess: (saved) => queryClient.setQueryData(queryKey, saved),
+  });
+  return { progression, setActiveCharacter, setOutfit, setWeapon };
 }
 
 // Dashboard numbers. Read with ['progression'], so XP awards refresh them.

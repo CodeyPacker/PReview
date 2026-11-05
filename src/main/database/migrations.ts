@@ -554,4 +554,15 @@ export const migrations: readonly Migration[] = [
       ) STRICT;
     `,
   },
+  {
+    version: 28,
+    name: 'character_weapons',
+    // The weapon each character holds. A character with no row holds its dagger.
+    sql: `
+      CREATE TABLE character_weapons (
+        character_id TEXT PRIMARY KEY,
+        weapon_id TEXT NOT NULL
+      ) STRICT;
+    `,
+  },
 ];

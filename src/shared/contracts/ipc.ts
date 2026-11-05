@@ -59,6 +59,7 @@ import { settingsPatchSchema, settingsSchema } from './settings.ts';
 import {
   characterIdSchema,
   outfitIdSchema,
+  weaponIdSchema,
   progressionSchema,
   progressStatsSchema,
   xpTransactionSchema,
@@ -309,6 +310,11 @@ export const ipcContract = {
   // Dresses a character in an unlocked outfit.
   'progression.setOutfit': {
     input: z.object({ characterId: characterIdSchema, outfitId: outfitIdSchema }),
+    output: progressionSchema,
+  },
+  // Gives a character an unlocked weapon.
+  'progression.setWeapon': {
+    input: z.object({ characterId: characterIdSchema, weaponId: weaponIdSchema }),
     output: progressionSchema,
   },
   // Adds focused time on a review screen. The main process caps each report.
