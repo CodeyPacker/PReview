@@ -82,6 +82,11 @@
   gap: var(--space-16);
 }
 
+.sprite {
+  flex: none;
+  width: 96px;
+}
+
 .progressBody {
   display: grid;
   flex: 1;
