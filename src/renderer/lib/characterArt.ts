@@ -30,16 +30,8 @@ import whiteVioletScepterVictory from '../assets/characters/ember/outfits/white-
 import whiteVioletVictoryBack from '../assets/characters/ember/outfits/white-violet/victory-back.png';
 import whiteVioletVictoryFront from '../assets/characters/ember/outfits/white-violet/victory-front.png';
 import emberPortrait from '../assets/characters/ember/portrait.png';
-import crystalScepterIdle from '../assets/characters/ember/staffs/crystal-scepter/idle.png';
-import crystalScepterVictory from '../assets/characters/ember/staffs/crystal-scepter/victory.png';
-import crystalStaffIdle from '../assets/characters/ember/staffs/crystal-staff/idle.png';
-import crystalStaffVictory from '../assets/characters/ember/staffs/crystal-staff/victory.png';
-import emberheartIdle from '../assets/characters/ember/staffs/emberheart/idle.png';
-import emberheartVictory from '../assets/characters/ember/staffs/emberheart/victory.png';
-import phoenixCrownIdle from '../assets/characters/ember/staffs/phoenix-crown/idle.png';
-import phoenixCrownVictory from '../assets/characters/ember/staffs/phoenix-crown/victory.png';
-import solarSovereignIdle from '../assets/characters/ember/staffs/solar-sovereign/idle.png';
-import solarSovereignVictory from '../assets/characters/ember/staffs/solar-sovereign/victory.png';
+import crystalScepterIdle from '../assets/characters/ember/scepter/idle.png';
+import crystalScepterVictory from '../assets/characters/ember/scepter/victory.png';
 import emberVictoryBack from '../assets/characters/ember/victory-back.png';
 import emberVictoryFront from '../assets/characters/ember/victory-front.png';
 import crimsonIdleBack from '../assets/characters/shadow/crimson/idle-back.png';
@@ -183,13 +175,6 @@ const emberPortraits: Partial<Record<OutfitId, string>> = {
   'white-violet': whiteVioletPortrait,
 };
 
-const emberStaffs: Partial<Record<WeaponId, { idle: string; victory: string }>> = {
-  'crystal-staff': { idle: crystalStaffIdle, victory: crystalStaffVictory },
-  emberheart: { idle: emberheartIdle, victory: emberheartVictory },
-  'phoenix-crown': { idle: phoenixCrownIdle, victory: phoenixCrownVictory },
-  'solar-sovereign': { idle: solarSovereignIdle, victory: solarSovereignVictory },
-};
-
 // The Crystal Scepter takes the color of the outfit.
 const emberScepters: Partial<Record<OutfitId, { idle: string; victory: string }>> = {
   default: { idle: crystalScepterIdle, victory: crystalScepterVictory },
@@ -213,12 +198,10 @@ export const characterArt: Partial<Record<CharacterId, CharacterArt>> = {
   ember: {
     ...animations,
     portrait: (outfit) => emberPortraits[outfit] ?? emberPortrait,
-    layers: (outfit, weapon) =>
+    layers: (outfit) =>
       holding(
         emberBodies[outfit] ?? emberBodies.default!,
-        weapon === 'crystal-scepter'
-          ? (emberScepters[outfit] ?? emberScepters.default!)
-          : (emberStaffs[weapon] ?? emberStaffs['crystal-staff']!),
+        emberScepters[outfit] ?? emberScepters.default!,
       ),
   },
 };

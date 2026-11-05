@@ -176,31 +176,33 @@ function CharactersPage() {
               })}
             </div>
           </Panel>
-          <Panel title="Weapon">
-            <div className={styles.outfits} role="group" aria-label="Weapon">
-              {viewedWeapons.map((weapon) => {
-                const unlocked = levelReached(weapon.unlockLevel);
-                return (
-                  <ChoiceTile
-                    key={weapon.id}
-                    label={weapon.name}
-                    selected={viewed.unlocked && viewed.weapon === weapon.id}
-                    locked={!unlocked}
-                    disabled={setWeapon.isPending}
-                    {...(!unlocked && {
-                      'aria-label': `${weapon.name}, unlocks at level ${weapon.unlockLevel}`,
-                    })}
-                    onClick={() => {
-                      if (unlocked)
-                        setWeapon.mutate({ characterId: viewed.id, weaponId: weapon.id });
-                    }}
-                  >
-                    <Sword aria-hidden />
-                  </ChoiceTile>
-                );
-              })}
-            </div>
-          </Panel>
+          {viewedWeapons.length > 1 && (
+            <Panel title="Weapon">
+              <div className={styles.outfits} role="group" aria-label="Weapon">
+                {viewedWeapons.map((weapon) => {
+                  const unlocked = levelReached(weapon.unlockLevel);
+                  return (
+                    <ChoiceTile
+                      key={weapon.id}
+                      label={weapon.name}
+                      selected={viewed.unlocked && viewed.weapon === weapon.id}
+                      locked={!unlocked}
+                      disabled={setWeapon.isPending}
+                      {...(!unlocked && {
+                        'aria-label': `${weapon.name}, unlocks at level ${weapon.unlockLevel}`,
+                      })}
+                      onClick={() => {
+                        if (unlocked)
+                          setWeapon.mutate({ characterId: viewed.id, weaponId: weapon.id });
+                      }}
+                    >
+                      <Sword aria-hidden />
+                    </ChoiceTile>
+                  );
+                })}
+              </div>
+            </Panel>
+          )}
         </div>
       </div>
 
