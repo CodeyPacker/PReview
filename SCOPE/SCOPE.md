@@ -1406,13 +1406,14 @@ MVP:
 
 - Complete predefined outfits
 - Outfit selection
+- Weapons chosen separately from the outfit, each unlocked at a character level
 - Different animations
 - Cosmetic unlocks
 
 Future:
 
 - Interchangeable accessories
-- Layered equipment sprites
+- Layered equipment sprites beyond weapons
 - More complex visual customization
 
 ## 13.4 Sprite System

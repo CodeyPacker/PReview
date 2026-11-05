@@ -33,6 +33,18 @@ export const outfits = [
   { id: 'sage', name: 'Sage', unlockLevel: 8 },
 ] as const satisfies readonly { id: OutfitId; name: string; unlockLevel: number }[];
 
+export const weaponIdSchema = z.enum(['dagger', 'void-crescent', 'sunfang', 'stormfork']);
+export type WeaponId = z.infer<typeof weaponIdSchema>;
+
+// Weapons every character can hold, chosen apart from the outfit (SCOPE 13.3). Each is unlocked
+// at a character level.
+export const weapons = [
+  { id: 'dagger', name: 'Dagger', unlockLevel: 1 },
+  { id: 'void-crescent', name: 'Void Crescent', unlockLevel: 2 },
+  { id: 'sunfang', name: 'Sunfang', unlockLevel: 4 },
+  { id: 'stormfork', name: 'Stormfork', unlockLevel: 6 },
+] as const satisfies readonly { id: WeaponId; name: string; unlockLevel: number }[];
+
 // Fixed XP per level for both the account and each character (SCOPE 13.2).
 export const ACCOUNT_XP_PER_LEVEL = 1000;
 export const CHARACTER_XP_PER_LEVEL = 500;
@@ -89,6 +101,8 @@ export const characterProgressSchema = levelSchema.extend({
   unlocked: z.boolean(),
   // The outfit the character wears.
   outfit: outfitIdSchema,
+  // The weapon the character holds.
+  weapon: weaponIdSchema,
 });
 export type CharacterProgress = z.infer<typeof characterProgressSchema>;
 

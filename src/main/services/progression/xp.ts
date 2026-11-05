@@ -10,10 +10,13 @@ import {
   levelOf,
   outfitIdSchema,
   outfits,
+  weaponIdSchema,
+  weapons,
   REVIEW_COMPLETED_XP,
   reviewTimeMultiplier,
   type CharacterId,
   type OutfitId,
+  type WeaponId,
   type Progression,
   type XpReason,
   type XpTransaction,
@@ -55,6 +58,14 @@ export function getProgression(db: DatabaseSync): Progression {
       }[]
     ).map((row) => [row.character_id, row.outfit_id]),
   );
+  const held = new Map(
+    (
+      db.prepare('SELECT character_id, weapon_id FROM character_weapons').all() as {
+        character_id: string;
+        weapon_id: string;
+      }[]
+    ).map((row) => [row.character_id, row.weapon_id]),
+  );
   return {
     account,
     streak: weeklyStreak(db),
@@ -64,6 +75,7 @@ export function getProgression(db: DatabaseSync): Progression {
       ...levelOf(byCharacter.get(character.id) ?? 0, CHARACTER_XP_PER_LEVEL),
       unlocked: account.level >= character.unlockLevel,
       outfit: outfitIdSchema.catch('default').parse(worn.get(character.id)),
+      weapon: weaponIdSchema.catch('dagger').parse(held.get(character.id)),
     })),
   };
 }
@@ -93,6 +105,24 @@ export function setOutfit(
     `INSERT INTO character_outfits (character_id, outfit_id) VALUES (?, ?)
      ON CONFLICT (character_id) DO UPDATE SET outfit_id = excluded.outfit_id`,
   ).run(characterId, outfitId);
+  return getProgression(db);
+}
+
+// Gives a character a weapon its level has unlocked.
+export function setWeapon(
+  db: DatabaseSync,
+  characterId: CharacterId,
+  weaponId: WeaponId,
+): Progression {
+  const character = getProgression(db).characters.find((candidate) => candidate.id === characterId);
+  const weapon = weapons.find((candidate) => candidate.id === weaponId);
+  if (!character?.unlocked || !weapon || character.level < weapon.unlockLevel) {
+    throw new Error('That weapon is still locked.');
+  }
+  db.prepare(
+    `INSERT INTO character_weapons (character_id, weapon_id) VALUES (?, ?)
+     ON CONFLICT (character_id) DO UPDATE SET weapon_id = excluded.weapon_id`,
+  ).run(characterId, weaponId);
   return getProgression(db);
 }
 

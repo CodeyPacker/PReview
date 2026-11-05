@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Shirt } from 'lucide-react';
+import { Shirt, Sword } from 'lucide-react';
 import { useState } from 'react';
 import {
   CHARACTER_XP_PER_LEVEL,
   outfits,
+  weapons,
   type CharacterId,
 } from '../../shared/contracts/progression.ts';
 import { PageHeader } from '../app/PageHeader.tsx';
@@ -31,7 +32,7 @@ const previewAnimations = [
 ] satisfies { value: PreviewAnimation; label: string }[];
 
 function CharactersPage() {
-  const { progression, setActiveCharacter, setOutfit } = useProgression();
+  const { progression, setActiveCharacter, setOutfit, setWeapon } = useProgression();
   const [viewedId, setViewedId] = useState<CharacterId>();
   const [preview, setPreview] = useState<PreviewAnimation>('idle');
   const data = progression.data;
@@ -42,10 +43,17 @@ function CharactersPage() {
     data.characters[0]!;
   const isCompanion = viewed.id === data.activeCharacter;
   const art = viewed.unlocked ? characterArt[viewed.id] : undefined;
-  const outfitUnlocked = (unlockLevel: number) => viewed.unlocked && viewed.level >= unlockLevel;
-  // The newest unlocked outfit is the current step on the track.
-  const reached = outfits.filter((outfit) => outfitUnlocked(outfit.unlockLevel)).at(-1);
-  const next = outfits.find((outfit) => !outfitUnlocked(outfit.unlockLevel));
+  const levelReached = (unlockLevel: number) => viewed.unlocked && viewed.level >= unlockLevel;
+  // Every reward in level order. The dagger is left out, since every character starts with it.
+  const rewards = [
+    ...outfits.map((outfit) => ({ ...outfit, kind: 'Outfit', icon: <Shirt aria-hidden /> })),
+    ...weapons
+      .filter((weapon) => weapon.unlockLevel > 1)
+      .map((weapon) => ({ ...weapon, kind: 'Weapon', icon: <Sword aria-hidden /> })),
+  ].sort((a, b) => a.unlockLevel - b.unlockLevel);
+  // The newest unlocked reward is the current step on the track.
+  const reached = rewards.filter((reward) => levelReached(reward.unlockLevel)).at(-1);
+  const next = rewards.find((reward) => !levelReached(reward.unlockLevel));
   // XP a character needs in all to reach a level.
   const xpForLevel = (level: number) => (level - 1) * CHARACTER_XP_PER_LEVEL;
 
@@ -106,6 +114,7 @@ function CharactersPage() {
                   <Sprite
                     className={styles.sprite}
                     animation={art[preview]}
+                    layers={art.layers[preview]}
                     label={viewed.name}
                     onFinished={() => setPreview('idle')}
                   />
@@ -135,44 +144,72 @@ function CharactersPage() {
           </div>
         </Panel>
 
-        <Panel title="Outfit">
-          <div className={styles.outfits} role="group" aria-label="Outfit">
-            {outfits.map((outfit) => {
-              const unlocked = outfitUnlocked(outfit.unlockLevel);
-              return (
-                <ChoiceTile
-                  key={outfit.id}
-                  label={outfit.name}
-                  selected={viewed.unlocked && viewed.outfit === outfit.id}
-                  locked={!unlocked}
-                  disabled={setOutfit.isPending}
-                  {...(!unlocked && {
-                    'aria-label': `${outfit.name}, unlocks at level ${outfit.unlockLevel}`,
-                  })}
-                  onClick={() => {
-                    if (unlocked) setOutfit.mutate({ characterId: viewed.id, outfitId: outfit.id });
-                  }}
-                >
-                  <Shirt aria-hidden />
-                </ChoiceTile>
-              );
-            })}
-          </div>
-        </Panel>
+        <div className={styles.gear}>
+          <Panel title="Outfit">
+            <div className={styles.outfits} role="group" aria-label="Outfit">
+              {outfits.map((outfit) => {
+                const unlocked = levelReached(outfit.unlockLevel);
+                return (
+                  <ChoiceTile
+                    key={outfit.id}
+                    label={outfit.name}
+                    selected={viewed.unlocked && viewed.outfit === outfit.id}
+                    locked={!unlocked}
+                    disabled={setOutfit.isPending}
+                    {...(!unlocked && {
+                      'aria-label': `${outfit.name}, unlocks at level ${outfit.unlockLevel}`,
+                    })}
+                    onClick={() => {
+                      if (unlocked)
+                        setOutfit.mutate({ characterId: viewed.id, outfitId: outfit.id });
+                    }}
+                  >
+                    <Shirt aria-hidden />
+                  </ChoiceTile>
+                );
+              })}
+            </div>
+          </Panel>
+          <Panel title="Weapon">
+            <div className={styles.outfits} role="group" aria-label="Weapon">
+              {weapons.map((weapon) => {
+                const unlocked = levelReached(weapon.unlockLevel);
+                return (
+                  <ChoiceTile
+                    key={weapon.id}
+                    label={weapon.name}
+                    selected={viewed.unlocked && viewed.weapon === weapon.id}
+                    locked={!unlocked}
+                    disabled={setWeapon.isPending}
+                    {...(!unlocked && {
+                      'aria-label': `${weapon.name}, unlocks at level ${weapon.unlockLevel}`,
+                    })}
+                    onClick={() => {
+                      if (unlocked)
+                        setWeapon.mutate({ characterId: viewed.id, weaponId: weapon.id });
+                    }}
+                  >
+                    <Sword aria-hidden />
+                  </ChoiceTile>
+                );
+              })}
+            </div>
+          </Panel>
+        </div>
       </div>
 
       <div className={styles.bottom}>
         <Panel title="Progression & Unlocks">
           <LevelTrack
-            steps={outfits.map((outfit) => ({
-              level: outfit.unlockLevel,
-              label: 'Outfit',
-              sublabel: outfit.name,
-              icon: <Shirt aria-hidden />,
+            steps={rewards.map((reward) => ({
+              level: reward.unlockLevel,
+              label: reward.kind,
+              sublabel: reward.name,
+              icon: reward.icon,
               state:
-                outfit.id === reached?.id
+                reward.id === reached?.id
                   ? 'current'
-                  : outfitUnlocked(outfit.unlockLevel)
+                  : levelReached(reward.unlockLevel)
                     ? 'done'
                     : 'locked',
             }))}
@@ -180,10 +217,12 @@ function CharactersPage() {
         </Panel>
         <Panel title="Next Unlock">
           {!viewed.unlocked ? (
-            <p className={styles.text}>Unlock this character to earn outfits.</p>
+            <p className={styles.text}>Unlock this character to earn rewards.</p>
           ) : next ? (
             <div className={styles.next}>
-              <span className="headline">{next.name} Outfit</span>
+              <span className="headline">
+                {next.name} {next.kind}
+              </span>
               <Tag tone="accent" size="sm">
                 Level {next.unlockLevel}
               </Tag>
@@ -191,12 +230,12 @@ function CharactersPage() {
                 className={styles.nextBar}
                 value={viewed.xp}
                 max={xpForLevel(next.unlockLevel)}
-                aria-label={`Progress to the ${next.name} outfit`}
+                aria-label={`Progress to the ${next.name} ${next.kind.toLowerCase()}`}
                 valueLabel={`${xp(viewed.xp)} / ${xp(xpForLevel(next.unlockLevel))} XP`}
               />
             </div>
           ) : (
-            <p className={styles.text}>Every outfit is unlocked.</p>
+            <p className={styles.text}>Every reward is unlocked.</p>
           )}
         </Panel>
       </div>

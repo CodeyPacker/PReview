@@ -12,6 +12,7 @@ import type { AppInfo } from './ipc.ts';
 import type {
   CharacterId,
   OutfitId,
+  WeaponId,
   Progression,
   ProgressStats,
   XpTransaction,
@@ -185,6 +186,7 @@ export interface PreviewApi {
     get(): Promise<Progression>;
     setActiveCharacter(characterId: CharacterId): Promise<Progression>;
     setOutfit(characterId: CharacterId, outfitId: OutfitId): Promise<Progression>;
+    setWeapon(characterId: CharacterId, weaponId: WeaponId): Promise<Progression>;
     addReviewTime(pullRequestId: number, ms: number): Promise<null>;
     getStats(): Promise<ProgressStats>;
     listXp(pullRequestId: number): Promise<XpTransaction[]>;

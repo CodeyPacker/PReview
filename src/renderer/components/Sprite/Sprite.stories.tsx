@@ -9,7 +9,7 @@ const shadow = characterArt.shadow!;
 const meta = {
   title: 'Components/Sprite',
   component: Sprite,
-  args: { animation: shadow.idle, label: 'Shadow' },
+  args: { animation: shadow.idle, layers: shadow.layers.idle, label: 'Shadow' },
   decorators: [
     (Story) => (
       <div style={{ width: 240 }}>
@@ -32,7 +32,7 @@ export const Idle: Story = {
 };
 
 export const Victory: Story = {
-  args: { animation: shadow.victory, onFinished: fn() },
+  args: { animation: shadow.victory, layers: shadow.layers.victory, onFinished: fn() },
   play: async ({ args, canvas }) => {
     const sprite = canvas.getByRole('img', { name: 'Shadow' });
     await waitFor(() => expect(args.onFinished).toHaveBeenCalledOnce(), { timeout: 3000 });

@@ -8,6 +8,7 @@ export interface CharacterArt {
   portrait: string;
   idle: SpriteAnimation;
   victory: SpriteAnimation;
+  layers: Record<'idle' | 'victory', string[]>;
 }
 
 const range = (count: number) => Array.from({ length: count }, (_, index) => index);
@@ -19,7 +20,6 @@ export const characterArt: Partial<Record<CharacterId, CharacterArt>> = {
     portrait: shadowPortrait,
     idle: {
       name: 'idle',
-      src: shadowIdle,
       frameWidth: 512,
       frameHeight: 512,
       columns: 8,
@@ -29,7 +29,6 @@ export const characterArt: Partial<Record<CharacterId, CharacterArt>> = {
     },
     victory: {
       name: 'victory',
-      src: shadowVictory,
       frameWidth: 512,
       frameHeight: 512,
       columns: 12,
@@ -37,5 +36,6 @@ export const characterArt: Partial<Record<CharacterId, CharacterArt>> = {
       frameDurationMs: 80,
       loop: false,
     },
+    layers: { idle: [shadowIdle], victory: [shadowVictory] },
   },
 };
