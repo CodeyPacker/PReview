@@ -26,6 +26,8 @@ export interface AgentRunInput {
   resume: boolean;
   // The pull request's diff of one file, for the agent to ask for.
   getFileDiff: (path: string) => string;
+  // A screenshot of one of the task's findings, as base64 WebP. Null for any other id.
+  getFindingScreenshot: (id: number) => string | null;
   // Called with each step worth showing in the activity feed.
   onActivity: (activity: AgentActivity) => void;
   // Asks the user. Resolves with answers keyed by question text, or null when the question

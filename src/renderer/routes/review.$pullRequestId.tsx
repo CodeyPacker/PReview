@@ -48,7 +48,7 @@ import { AgentReviewDialog } from '../app/AgentReviewDialog.tsx';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
-import { useReviewFindings } from '../hooks/useReviewFindings.ts';
+import { loadFindingScreenshot, useReviewFindings } from '../hooks/useReviewFindings.ts';
 import { useQueuedReview } from '../hooks/useQueuedReview.ts';
 import { useReviewCompletion } from '../hooks/useReviewCompletion.ts';
 import { useReviewTime } from '../hooks/useReviewTime.ts';
@@ -465,6 +465,7 @@ function ReviewPage() {
         open={findingsOpen}
         onOpenChange={setFindingsOpen}
         findings={findings}
+        loadScreenshot={loadFindingScreenshot}
         onSave={({ id, ...finding }) =>
           id === undefined
             ? reviewFindings.create.mutateAsync({ pullRequestId, ...finding })

@@ -82,6 +82,7 @@ const api: PreviewApi = {
   },
   reviewFindings: {
     list: (pullRequestId) => invoke('reviewFindings.list', { pullRequestId }),
+    screenshot: (id) => invoke('reviewFindings.screenshot', { id }),
     create: (finding) => invoke('reviewFindings.create', finding),
     update: (finding) => invoke('reviewFindings.update', finding),
     setResolution: (change) => invoke('reviewFindings.setResolution', change),

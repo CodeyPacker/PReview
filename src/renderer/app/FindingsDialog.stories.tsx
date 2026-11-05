@@ -11,6 +11,7 @@ const finding = (id: number, overrides: Partial<ReviewFinding>): ReviewFinding =
   category: 'bug',
   description: 'Saving twice creates two drafts.',
   steps: '',
+  screenshotIds: [],
   validation: 'pending',
   resolution: 'open',
   publishedAt: null,
@@ -43,6 +44,7 @@ function Stateful({ findings: start }: { findings: ReviewFinding[] }) {
       open
       onOpenChange={() => undefined}
       findings={findings}
+      loadScreenshot={() => Promise.resolve(null)}
       onSave={({ id, ...draft }) => {
         setFindings((items) =>
           id === undefined

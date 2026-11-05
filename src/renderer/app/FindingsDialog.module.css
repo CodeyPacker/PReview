@@ -19,6 +19,8 @@
   display: grid;
   gap: var(--space-16);
   width: min(640px, calc(100vw - 2 * var(--space-32)));
+  max-height: calc(100vh - 2 * var(--space-32));
+  overflow-y: auto;
   padding: var(--space-24);
   border: 1px solid var(--border);
   border-radius: var(--radius-2xl);

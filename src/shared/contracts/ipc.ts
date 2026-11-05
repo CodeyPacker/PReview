@@ -238,6 +238,10 @@ export const ipcContract = {
     input: z.object({ pullRequestId: z.number().int() }),
     output: z.array(reviewFindingSchema),
   },
+  'reviewFindings.screenshot': {
+    input: z.object({ id: z.number().int() }),
+    output: z.string().nullable(),
+  },
   'reviewFindings.create': {
     input: createReviewFindingInputSchema,
     output: z.array(reviewFindingSchema),

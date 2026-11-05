@@ -6,6 +6,7 @@ import { reconcileRepositories } from '../repositories/registry.ts';
 import {
   createReviewFinding,
   deleteReviewFinding,
+  getFindingScreenshot,
   listReviewFindings,
   setReviewFindingResolution,
   updateReviewFinding,
@@ -42,7 +43,14 @@ beforeEach(() => {
 });
 
 function finding(pullRequestId: number, description = 'Crashes on save.', steps = '') {
-  return { pullRequestId, category: 'bug' as const, description, steps };
+  return {
+    pullRequestId,
+    category: 'bug' as const,
+    description,
+    steps,
+    screenshotIds: [] as number[],
+    newScreenshots: [] as string[],
+  };
 }
 
 function publish(id: number) {
@@ -134,5 +142,76 @@ describe('review findings', () => {
     expect(create.safeParse(finding(1, '   ')).success).toBe(false);
     expect(create.safeParse({ ...finding(1), category: 'typo' }).success).toBe(false);
     expect(create.parse(finding(1, '  Trim me.  ')).description).toBe('Trim me.');
+  });
+});
+
+describe('finding screenshots', () => {
+  const webp = (fill: number) => {
+    const bytes = Buffer.concat([
+      Buffer.from('RIFF'),
+      Buffer.alloc(4),
+      Buffer.from('WEBP'),
+      Buffer.alloc(8, fill),
+    ]);
+    return `data:image/webp;base64,${bytes.toString('base64')}`;
+  };
+
+  function withScreenshots(...newScreenshots: string[]) {
+    const [saved] = createReviewFinding(db, { ...finding(pullRequestIds[0]!), newScreenshots });
+    return saved!;
+  }
+
+  it('saves screenshots with a new finding and reads them back', () => {
+    const saved = withScreenshots(webp(1), webp(2));
+
+    expect(saved.screenshotIds).toHaveLength(2);
+    expect(getFindingScreenshot(db, saved.screenshotIds[1]!)).toBe(webp(2));
+  });
+
+  it('keeps only the listed screenshots on an update and adds new ones', () => {
+    const saved = withScreenshots(webp(1), webp(2));
+    const [first, second] = saved.screenshotIds as [number, number];
+
+    const [updated] = updateReviewFinding(db, {
+      ...finding(pullRequestIds[0]!),
+      id: saved.id,
+      screenshotIds: [second],
+      newScreenshots: [webp(3)],
+    });
+
+    expect(updated!.screenshotIds).toHaveLength(2);
+    expect(updated!.screenshotIds[0]).toBe(second);
+    expect(getFindingScreenshot(db, first)).toBeNull();
+  });
+
+  it('rejects bytes that are not WebP and saves nothing', () => {
+    const fake = `data:image/webp;base64,${Buffer.from('<svg></svg>').toString('base64')}`;
+
+    expect(() => withScreenshots(fake)).toThrow('not a WebP');
+    expect(listReviewFindings(db, pullRequestIds[0]!)).toEqual([]);
+  });
+
+  it('limits a finding to five screenshots', () => {
+    const saved = withScreenshots(webp(1), webp(2), webp(3), webp(4), webp(5));
+
+    expect(() =>
+      updateReviewFinding(db, {
+        ...finding(pullRequestIds[0]!),
+        id: saved.id,
+        screenshotIds: saved.screenshotIds,
+        newScreenshots: [webp(6)],
+      }),
+    ).toThrow('5 screenshots');
+    expect(listReviewFindings(db, pullRequestIds[0]!)[0]!.screenshotIds).toEqual(
+      saved.screenshotIds,
+    );
+  });
+
+  it('deletes screenshots with their finding', () => {
+    const saved = withScreenshots(webp(1));
+
+    deleteReviewFinding(db, pullRequestIds[0]!, saved.id);
+
+    expect(getFindingScreenshot(db, saved.screenshotIds[0]!)).toBeNull();
   });
 });

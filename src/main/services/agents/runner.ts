@@ -14,6 +14,8 @@ import type {
 } from '../../agents/provider.ts';
 import type { log as appLog } from '../../logging/log.ts';
 import type { GitProvider } from '../../providers/types.ts';
+import { SCREENSHOT_DATA_URL_PREFIX } from '../../../shared/contracts/review-findings.ts';
+import { getFindingScreenshot } from '../pull-requests/findings.ts';
 import { readFileInside } from '../../security/read-inside.ts';
 import { cancelQuestions, createQuestion, recordActivity, saveAnswers } from './activity.ts';
 import {
@@ -309,6 +311,11 @@ export class AgentRunner {
       sessionId,
       resume,
       getFileDiff: (path) => fileDiff(context.files, path),
+      getFindingScreenshot: (id) =>
+        context.findings.some((finding) => finding.screenshotIds.includes(id))
+          ? (getFindingScreenshot(this.deps.db, id)?.slice(SCREENSHOT_DATA_URL_PREFIX.length) ??
+            null)
+          : null,
       onActivity: (activity) => this.activity(task.id, activity),
       ask: (questions, signal) => this.ask(task.id, context.title, questions, signal),
     });

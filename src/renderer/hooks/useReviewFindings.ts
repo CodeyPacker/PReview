@@ -6,6 +6,8 @@ import type {
   UpdateReviewFindingInput,
 } from '../../shared/contracts/review-findings.ts';
 
+export const loadFindingScreenshot = (id: number) => window.preview.reviewFindings.screenshot(id);
+
 // A pull request's findings, stored on this machine. Each change returns the full list,
 // which replaces the cached one. Resolving a finding may award XP.
 export function useReviewFindings(pullRequestId: number) {

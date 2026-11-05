@@ -22,6 +22,18 @@ export type FindingResolution = z.infer<typeof findingResolutionSchema>;
 const descriptionSchema = z.string().trim().min(1).max(16_384);
 const stepsSchema = z.string().trim().max(16_384);
 
+export const MAX_FINDING_SCREENSHOTS = 5;
+// Claude takes images up to 5 MB once encoded as base64, which adds a third.
+export const MAX_SCREENSHOT_BYTES = 3_500_000;
+export const SCREENSHOT_DATA_URL_PREFIX = 'data:image/webp;base64,';
+
+// The app converts every screenshot to WebP before saving it.
+const screenshotDataUrlSchema = z
+  .string()
+  .max(SCREENSHOT_DATA_URL_PREFIX.length + Math.ceil((MAX_SCREENSHOT_BYTES * 4) / 3) + 4)
+  .regex(/^data:image\/webp;base64,[A-Za-z0-9+/]+={0,2}$/);
+const newScreenshotsSchema = z.array(screenshotDataUrlSchema).max(MAX_FINDING_SCREENSHOTS);
+
 // A problem with the pull request that isn't tied to a code line. It stays on this machine
 // until it is published with a review, and is kept after that to track its status.
 export const reviewFindingSchema = z.object({
@@ -31,6 +43,8 @@ export const reviewFindingSchema = z.object({
   description: z.string(),
   // Empty when there are none.
   steps: z.string(),
+  // Read one with reviewFindings.screenshot. Screenshots never go to GitHub.
+  screenshotIds: z.array(z.number().int()),
   validation: findingValidationSchema,
   resolution: findingResolutionSchema,
   // Null until it is published with a review. A published finding can't be edited or deleted.
@@ -45,11 +59,14 @@ export const createReviewFindingInputSchema = z.object({
   category: findingCategorySchema,
   description: descriptionSchema,
   steps: stepsSchema,
+  newScreenshots: newScreenshotsSchema,
 });
 export type CreateReviewFindingInput = z.infer<typeof createReviewFindingInputSchema>;
 
 export const updateReviewFindingInputSchema = createReviewFindingInputSchema.extend({
   id: z.number().int(),
+  // The saved screenshots to keep. The others are deleted.
+  screenshotIds: z.array(z.number().int()).max(MAX_FINDING_SCREENSHOTS),
 });
 export type UpdateReviewFindingInput = z.infer<typeof updateReviewFindingInputSchema>;
 

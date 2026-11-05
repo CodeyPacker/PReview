@@ -156,6 +156,8 @@ export interface PreviewApi {
   // Each call resolves with every finding of the pull request.
   reviewFindings: {
     list(pullRequestId: number): Promise<ReviewFinding[]>;
+    // One screenshot as a data URL, or null when it is gone.
+    screenshot(id: number): Promise<string | null>;
     create(finding: CreateReviewFindingInput): Promise<ReviewFinding[]>;
     update(finding: UpdateReviewFindingInput): Promise<ReviewFinding[]>;
     setResolution(change: SetFindingResolutionInput): Promise<ReviewFinding[]>;

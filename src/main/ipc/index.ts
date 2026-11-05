@@ -15,6 +15,7 @@ import {
 import {
   createReviewFinding,
   deleteReviewFinding,
+  getFindingScreenshot,
   listReviewFindings,
   setReviewFindingResolution,
   updateReviewFinding,
@@ -250,6 +251,7 @@ export function registerIpcHandlers(
   );
 
   handle('reviewFindings.list', ({ pullRequestId }) => listReviewFindings(db, pullRequestId));
+  handle('reviewFindings.screenshot', ({ id }) => getFindingScreenshot(db, id));
   handle('reviewFindings.create', (finding) => createReviewFinding(db, finding));
   handle('reviewFindings.update', (finding) => updateReviewFinding(db, finding));
   handle('reviewFindings.setResolution', (change) => setReviewFindingResolution(db, change));

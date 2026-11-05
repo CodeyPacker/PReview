@@ -36,7 +36,13 @@ function insertPullRequest(number: number): number {
 }
 
 function addFinding(category: 'bug' | 'security' | 'test'): number {
-  createReviewFinding(db, { pullRequestId, category, description: 'Broken', steps: '' });
+  createReviewFinding(db, {
+    pullRequestId,
+    category,
+    description: 'Broken',
+    steps: '',
+    newScreenshots: [],
+  });
   return (db.prepare('SELECT MAX(id) AS id FROM review_findings').get() as { id: number }).id;
 }
 

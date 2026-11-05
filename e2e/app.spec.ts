@@ -1791,6 +1791,7 @@ test('adds, edits and resolves findings, and keeps published ones read-only', as
           category: 'security',
           description: 'Token is logged',
           steps: 'Open the log.',
+          screenshotIds: [],
           validation: 'validated',
           resolution: 'open',
           publishedAt: now,
@@ -1804,6 +1805,7 @@ test('adds, edits and resolves findings, and keeps published ones read-only', as
         'reviewFindings.create': (input: Record<string, unknown>) => {
           findings.push({
             ...input,
+            screenshotIds: [],
             id: nextId++,
             validation: 'pending',
             resolution: 'open',
@@ -1844,8 +1846,36 @@ test('adds, edits and resolves findings, and keeps published ones read-only', as
     await expect(dialog.getByRole('heading', { name: 'New finding' })).toBeVisible();
     await dialog.getByRole('radio', { name: 'UI bug' }).click();
     await dialog.getByLabel('Description').fill('Button overlaps\nOn narrow windows.');
+    // A dropped image is attached as WebP, and a dropped text file is refused.
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg==';
+    const drop = dialog.getByTestId('screenshot-drop');
+    const dropFile = async (name: string, type: string, base64: string) => {
+      const dataTransfer = await page.evaluateHandle(
+        ([fileName, fileType, data]) => {
+          const bytes = Uint8Array.from(atob(data!), (char) => char.charCodeAt(0));
+          const transfer = new DataTransfer();
+          transfer.items.add(new File([bytes], fileName!, { type: fileType! }));
+          return transfer;
+        },
+        [name, type, base64],
+      );
+      await drop.dispatchEvent('drop', { dataTransfer });
+    };
+    await dropFile('notes.txt', 'text/plain', 'aGk=');
+    await expect(dialog.getByText('Only images can be attached.')).toBeVisible();
+    await dropFile('bug.png', 'image/png', png);
+    await expect(dialog.getByRole('button', { name: 'Open screenshot 1' })).toBeVisible();
     await dialog.getByRole('button', { name: 'Save' }).click();
     await expect(dialog.getByText('Unpublished: 1.')).toBeVisible();
+    const attached = await app.evaluate(
+      () =>
+        (globalThis as unknown as { reviewFindings: () => { newScreenshots?: string[] }[] })
+          .reviewFindings()
+          .at(-1)?.newScreenshots,
+    );
+    expect(attached).toHaveLength(1);
+    expect(attached![0]).toMatch(/^data:image\/webp;base64,/);
 
     // An unpublished finding opens to edit.
     await dialog.getByRole('button', { name: /Button overlaps/ }).click();

@@ -94,6 +94,7 @@ describe('loadTaskContext', () => {
     addTask([], JSON.stringify({ items: [], tests: [], summary: 'Fixed the typo.' }));
     const [finding] = createReviewFinding(db, {
       pullRequestId,
+      newScreenshots: [],
       category: 'bug',
       description: 'Crashes on empty input.',
       steps: 'Submit an empty form.',
@@ -123,7 +124,12 @@ describe('loadTaskContext', () => {
       description: 'Adds login.',
       summary: 'Please fix these.',
       findings: [
-        { category: 'bug', description: 'Crashes on empty input.', steps: 'Submit an empty form.' },
+        {
+          category: 'bug',
+          description: 'Crashes on empty input.',
+          steps: 'Submit an empty form.',
+          screenshotIds: [],
+        },
       ],
       earlierRuns: ['Fixed the typo.'],
     });
@@ -147,12 +153,13 @@ describe('taskPrompt', () => {
       comments: [
         { path: 'src/app.ts', side: 'modified', startLine: 2, line: 3, body: 'Rename this.' },
       ],
-      findings: [{ category: 'bug', description: 'Crashes.', steps: '' }],
+      findings: [{ category: 'bug', description: 'Crashes.', steps: '', screenshotIds: [4, 9] }],
       threads: [],
       earlierRuns: [],
     });
 
     expect(prompt).toContain('- M src/app.ts +2 -1');
+    expect(prompt).toContain('get_finding_screenshot tool: 4, 9');
     expect(prompt).toContain('- R src/new.ts (from src/old.ts) +0 -0');
     expect(prompt).toContain('C1. src/app.ts, lines 2-3 of the new version:\nRename this.');
     expect(prompt).toContain('F1. Bug: Crashes.');
