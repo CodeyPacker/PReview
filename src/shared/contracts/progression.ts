@@ -6,10 +6,10 @@ export const characterIdSchema = z.enum(['shadow', 'ember', 'frost', 'bolt']);
 export type CharacterId = z.infer<typeof characterIdSchema>;
 
 // The MVP roster. Shadow is unlocked from the start, and the rest unlock at an account level.
-// Names other than Shadow are placeholders until the art is made.
+// Names other than Shadow are placeholders.
 export const characters = [
   { id: 'shadow', name: 'Shadow', title: 'The ninja', unlockLevel: 1 },
-  { id: 'ember', name: 'Ember', title: 'Placeholder', unlockLevel: 3 },
+  { id: 'ember', name: 'Ember', title: 'The dragon mage', unlockLevel: 3 },
   { id: 'frost', name: 'Frost', title: 'Placeholder', unlockLevel: 6 },
   { id: 'bolt', name: 'Bolt', title: 'Placeholder', unlockLevel: 10 },
 ] as const satisfies readonly {
