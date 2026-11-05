@@ -170,6 +170,8 @@ export interface GitProvider {
     number: number,
     review: ProviderReview,
   ): Promise<{ id: string }>;
+  // The pull request's description. Empty when it has none.
+  getPullRequestDescription(repositoryFullName: string, number: number): Promise<string>;
   // The pull request's description and each changed file's diff, for an agent's task.
   getPullRequestDetails(
     repositoryFullName: string,

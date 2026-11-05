@@ -15,6 +15,20 @@ export function usePullRequestFiles(
   });
 }
 
+// The pull request's description, read when it is first asked for. Its last update is in the
+// key, so an edit on GitHub reads it again.
+export function usePullRequestDescription(
+  pullRequestId: number,
+  updatedAt: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: ['pullRequestDescription', pullRequestId, updatedAt],
+    queryFn: () => window.preview.pullRequestFiles.getDescription(pullRequestId),
+    enabled,
+  });
+}
+
 // The pull request's commits. The head commit is in the key, so a push reads them again.
 export function usePullRequestCommits(pullRequestId: number, headSha: string | undefined) {
   return useQuery({

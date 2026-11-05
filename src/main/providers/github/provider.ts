@@ -520,6 +520,11 @@ export class GitHubProvider implements GitProvider {
     return { id: String(postedReviewSchema.parse(posted).id) };
   }
 
+  async getPullRequestDescription(repositoryFullName: string, number: number): Promise<string> {
+    const pull = await this.client.getJson(`/repos/${repositoryFullName}/pulls/${number}`);
+    return pullRequestBodySchema.parse(pull).body ?? '';
+  }
+
   async getPullRequestDetails(
     repositoryFullName: string,
     number: number,

@@ -529,6 +529,18 @@ describe('GitHubProvider submitReview', () => {
   });
 });
 
+describe('GitHubProvider getPullRequestDescription', () => {
+  it('reads the description', async () => {
+    const { provider } = setup([json({ body: 'Adds login.' })]);
+    await expect(provider.getPullRequestDescription('octo/app', 7)).resolves.toBe('Adds login.');
+  });
+
+  it('is empty when there is none', async () => {
+    const { provider } = setup([json({ body: null })]);
+    await expect(provider.getPullRequestDescription('octo/app', 7)).resolves.toBe('');
+  });
+});
+
 describe('GitHubProvider getPullRequestDetails', () => {
   it("reads the description and each file's diff", async () => {
     const { provider } = setup([

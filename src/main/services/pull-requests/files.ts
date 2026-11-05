@@ -63,6 +63,12 @@ export class PullRequestFiles {
     throw new Error('The pull request kept changing while its files were read. Try again.');
   }
 
+  // The pull request's description. Empty when it has none.
+  getDescription(pullRequestId: number): Promise<string> {
+    const { fullName, number } = this.findRepository(pullRequestId);
+    return this.deps.provider.getPullRequestDescription(fullName, number);
+  }
+
   // The pull request's commits, oldest first.
   listCommits(pullRequestId: number): Promise<PullRequestCommit[]> {
     const { fullName, number } = this.findRepository(pullRequestId);

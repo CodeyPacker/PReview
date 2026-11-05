@@ -57,6 +57,7 @@ function setup(contents: Record<string, string | undefined> = {}) {
     closePullRequest: vi.fn<GitProvider['closePullRequest']>(),
     deleteBranch: vi.fn<GitProvider['deleteBranch']>(),
     getReviews: vi.fn<GitProvider['getReviews']>(),
+    getPullRequestDescription: vi.fn<GitProvider['getPullRequestDescription']>(),
     getPullRequestDetails: vi.fn<GitProvider['getPullRequestDetails']>(),
     getChecks: vi.fn<GitProvider['getChecks']>(),
   } satisfies GitProvider;
@@ -72,6 +73,16 @@ const file: ProviderChangedFile = {
   deletions: 0,
   hunks: [{ originalStart: 0, originalCount: 0, modifiedStart: 1, modifiedCount: 1 }],
 };
+
+describe('PullRequestFiles getDescription', () => {
+  it('reads the description of the pull request', async () => {
+    const { provider, files } = setup();
+    provider.getPullRequestDescription.mockResolvedValue('Adds login.');
+
+    await expect(files.getDescription(pullRequestId)).resolves.toBe('Adds login.');
+    expect(provider.getPullRequestDescription).toHaveBeenCalledWith('octo/app', 7);
+  });
+});
 
 describe('PullRequestFiles commits', () => {
   it('lists the commits and returns one commit against its parent', async () => {

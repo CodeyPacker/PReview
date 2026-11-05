@@ -2126,6 +2126,42 @@ test('closes a pull request from the Finish Review menu, after asking', async ()
   }
 });
 
+test('shows the pull request details, with its description', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Add login'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+      'pullRequestFiles.getDescription':
+        '## Summary\n\nAdds a **login** page.\n\n<b>raw</b>\n\n[bad](javascript:alert(1))',
+    });
+    await openReview(app, page);
+
+    await page.getByRole('button', { name: 'Details' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Add login' })).toBeVisible();
+    await expect(dialog.getByRole('heading', { name: 'Summary' })).toBeVisible();
+    await expect(dialog.locator('strong', { hasText: 'login' })).toBeVisible();
+    await expect(dialog.getByText('raw')).toBeHidden();
+    await expect(dialog.getByRole('link', { name: 'bad' })).not.toHaveAttribute(
+      'href',
+      /javascript/,
+    );
+    await expect(dialog.getByRole('link', { name: 'View on GitHub' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await expect(dialog).toBeHidden();
+  } finally {
+    await app.close();
+  }
+});
+
 test('opens a re-review on the changes since the last review', async () => {
   const app = await launch();
   try {

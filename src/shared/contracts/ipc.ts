@@ -130,6 +130,11 @@ export const ipcContract = {
     input: z.object({ pullRequestId: z.number().int() }),
     output: pullRequestChangesSchema,
   },
+  // The pull request's description, read from the provider. Empty when it has none.
+  'pullRequestFiles.getDescription': {
+    input: z.object({ pullRequestId: z.number().int() }),
+    output: z.string(),
+  },
   // The pull request's commits, oldest first.
   'pullRequestFiles.listCommits': {
     input: z.object({ pullRequestId: z.number().int() }),

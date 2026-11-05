@@ -182,6 +182,9 @@ export function registerIpcHandlers(
   });
 
   handle('pullRequestFiles.list', ({ pullRequestId }) => pullRequestFiles.list(pullRequestId));
+  handle('pullRequestFiles.getDescription', ({ pullRequestId }) =>
+    pullRequestFiles.getDescription(pullRequestId),
+  );
   handle('pullRequestFiles.listCommits', ({ pullRequestId }) =>
     pullRequestFiles.listCommits(pullRequestId),
   );

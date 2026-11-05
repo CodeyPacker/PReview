@@ -119,6 +119,7 @@ export interface PreviewApi {
   };
   pullRequestFiles: {
     list(pullRequestId: number): Promise<PullRequestChanges>;
+    getDescription(pullRequestId: number): Promise<string>;
     listCommits(pullRequestId: number): Promise<PullRequestCommit[]>;
     listCommit(pullRequestId: number, sha: string): Promise<PullRequestChanges>;
     listSince(

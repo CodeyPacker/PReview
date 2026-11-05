@@ -7,6 +7,7 @@ import type {
 import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { Comment } from '../components/Comment/Comment.tsx';
+import { Markdown } from '../components/Markdown/Markdown.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { isMac } from '../lib/platform.ts';
@@ -158,7 +159,7 @@ export function ThreadCard({ thread, actions }: ThreadCardProps) {
               ) : undefined
             }
           >
-            {comment.body}
+            <Markdown>{comment.body}</Markdown>
           </Comment>
         );
       })}
