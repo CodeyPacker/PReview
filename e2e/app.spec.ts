@@ -503,7 +503,7 @@ test('celebrates a merged pull request and picks a new companion', async () => {
         unlockLevel,
         unlocked: unlockLevel <= 3,
         outfit: 'default',
-        weapon: id === 'ember' ? 'crystal-staff' : 'dagger',
+        weapon: id === 'ember' ? 'crystal-scepter' : 'dagger',
       });
       const progression = {
         account: level(2150, 1000),

@@ -226,11 +226,8 @@ describe('weapons', () => {
        VALUES ('seed', 'review-completed', 2000, 1, 2000, 0, 1, 'octo/app', 1, 'ember')`,
     ).run();
     const ember = () => getProgression(db).characters.find(({ id }) => id === 'ember');
-    expect(ember()?.weapon).toBe('crystal-staff');
+    expect(ember()?.weapon).toBe('crystal-scepter');
     expect(() => setWeapon(db, 'ember', 'dagger')).toThrow('locked');
-    expect(() => setWeapon(db, 'ember', 'phoenix-crown')).toThrow('locked');
-    setWeapon(db, 'ember', 'emberheart');
-    expect(ember()?.weapon).toBe('emberheart');
   });
 });
 

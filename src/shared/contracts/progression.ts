@@ -67,11 +67,7 @@ export const weaponIdSchema = z.enum([
   'sunfang',
   'stormfork',
   'icy-dagger',
-  'crystal-staff',
-  'emberheart',
   'crystal-scepter',
-  'phoenix-crown',
-  'solar-sovereign',
 ]);
 export type WeaponId = z.infer<typeof weaponIdSchema>;
 
@@ -88,11 +84,7 @@ export const weapons: {
   { id: 'sunfang', name: 'Sunfang', unlockLevel: 4, characters: shadowSet },
   { id: 'stormfork', name: 'Stormfork', unlockLevel: 6, characters: shadowSet },
   { id: 'icy-dagger', name: 'Icy Dagger', unlockLevel: 9, characters: shadowSet },
-  { id: 'crystal-staff', name: 'Crystal Staff', unlockLevel: 1, characters: emberSet },
-  { id: 'emberheart', name: 'Emberheart', unlockLevel: 2, characters: emberSet },
-  { id: 'crystal-scepter', name: 'Crystal Scepter', unlockLevel: 4, characters: emberSet },
-  { id: 'phoenix-crown', name: 'Phoenix Crown', unlockLevel: 6, characters: emberSet },
-  { id: 'solar-sovereign', name: 'Solar Sovereign', unlockLevel: 9, characters: emberSet },
+  { id: 'crystal-scepter', name: 'Crystal Scepter', unlockLevel: 1, characters: emberSet },
 ];
 
 export function weaponsFor(characterId: CharacterId) {
