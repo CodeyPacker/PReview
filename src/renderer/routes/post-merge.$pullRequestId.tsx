@@ -225,7 +225,7 @@ function PostMergePage() {
             <div className={styles.progress}>
               <Avatar
                 name={character?.name ?? 'Shadow'}
-                src={art?.portrait}
+                src={character && art?.portrait(character.outfit)}
                 size="xl"
                 tone={art ? 'neutral' : 'accent'}
               />

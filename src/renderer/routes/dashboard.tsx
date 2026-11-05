@@ -199,7 +199,7 @@ function DashboardPage() {
             <div className={styles.activeCharacter}>
               <Avatar
                 name={activeCharacter?.name ?? 'Shadow'}
-                src={activeArt?.portrait}
+                src={activeCharacter && activeArt?.portrait(activeCharacter.outfit)}
                 size="lg"
                 tone={activeArt ? 'neutral' : 'accent'}
               />
@@ -354,7 +354,11 @@ function DashboardPage() {
                 key={character.id}
                 size="sm"
                 name={character.name}
-                image={character.unlocked ? characterArt[character.id]?.portrait : undefined}
+                image={
+                  character.unlocked
+                    ? characterArt[character.id]?.portrait(character.outfit)
+                    : undefined
+                }
                 selected={character.id === progression?.activeCharacter}
                 {...(character.unlocked
                   ? { level: character.level }
