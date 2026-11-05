@@ -63,6 +63,7 @@ const api: PreviewApi = {
   },
   pullRequestFiles: {
     list: (pullRequestId) => invoke('pullRequestFiles.list', { pullRequestId }),
+    getDescription: (pullRequestId) => invoke('pullRequestFiles.getDescription', { pullRequestId }),
     listCommits: (pullRequestId) => invoke('pullRequestFiles.listCommits', { pullRequestId }),
     listCommit: (pullRequestId, sha) =>
       invoke('pullRequestFiles.listCommit', { pullRequestId, sha }),

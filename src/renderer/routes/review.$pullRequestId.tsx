@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  FileText,
   Flag,
   ListChecks,
   Maximize2,
@@ -47,6 +48,7 @@ import { agentIsBusy, agentMergeWarning, agentStatus } from '../app/agentStatus.
 import { AgentReviewDialog } from '../app/AgentReviewDialog.tsx';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
+import { PullRequestDetailsDialog } from '../app/PullRequestDetailsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
 import { loadFindingScreenshot, useReviewFindings } from '../hooks/useReviewFindings.ts';
 import { useQueuedReview } from '../hooks/useQueuedReview.ts';
@@ -91,6 +93,7 @@ function ReviewPage() {
   const [agentReviewOpen, setAgentReviewOpen] = useState(false);
   const [findingsOpen, setFindingsOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [chosenVerdict, setChosenVerdict] = useState<ReviewVerdict>('approve');
   const openReviewDialog = (verdict: ReviewVerdict) => {
     setChosenVerdict(verdict);
@@ -431,6 +434,13 @@ function ReviewPage() {
           )}
           <Button
             size="sm"
+            iconStart={<FileText aria-hidden />}
+            onClick={() => setDetailsOpen(true)}
+          >
+            Details
+          </Button>
+          <Button
+            size="sm"
             iconStart={<ListChecks aria-hidden />}
             iconEnd={openFindings > 0 ? <Count value={openFindings} /> : undefined}
             aria-label={`Findings, ${openFindings} open`}
@@ -461,6 +471,11 @@ function ReviewPage() {
           />
         </div>
       </header>
+      <PullRequestDetailsDialog
+        open={detailsOpen}
+        onOpenChange={setDetailsOpen}
+        pullRequest={pullRequest}
+      />
       <FindingsDialog
         open={findingsOpen}
         onOpenChange={setFindingsOpen}

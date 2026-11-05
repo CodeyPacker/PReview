@@ -10,6 +10,7 @@ import { Avatar } from '../components/Avatar/Avatar.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { Comment } from '../components/Comment/Comment.tsx';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
+import { Markdown } from '../components/Markdown/Markdown.tsx';
 import { StatusPill } from '../components/StatusPill/StatusPill.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
@@ -173,7 +174,7 @@ export function DraftCard({ draft, author, onEdit, onDelete, deleting }: DraftCa
         </>
       }
     >
-      {draft.body}
+      <Markdown>{draft.body}</Markdown>
     </Comment>
   );
 }

@@ -15,7 +15,7 @@ export interface CommentProps extends Omit<HTMLAttributes<HTMLElement>, 'title'>
   actions?: ReactNode;
 }
 
-// The body is shown as plain text, so untrusted text can't inject markup.
+// Plain text bodies keep their line breaks. Wrap a body written for GitHub in Markdown.
 export function Comment({
   author,
   avatar,

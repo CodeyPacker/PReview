@@ -70,6 +70,7 @@ function setup() {
     setThreadResolved,
     submitReview,
     getReviews,
+    getPullRequestDescription: vi.fn(),
     getPullRequestDetails: vi.fn(),
     getChecks: vi.fn(),
     mergePullRequest,

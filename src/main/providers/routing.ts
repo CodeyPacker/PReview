@@ -108,6 +108,9 @@ export class RoutingProvider implements GitProvider {
   submitReview(r: string, number: number, review: Parameters<GitProvider['submitReview']>[2]) {
     return this.route(r, (p) => p.submitReview(r, number, review));
   }
+  getPullRequestDescription(r: string, number: number) {
+    return this.route(r, (p) => p.getPullRequestDescription(r, number));
+  }
   getPullRequestDetails(r: string, number: number) {
     return this.route(r, (p) => p.getPullRequestDetails(r, number));
   }
