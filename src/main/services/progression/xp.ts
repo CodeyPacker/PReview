@@ -8,8 +8,7 @@ import {
   defaultCharacter,
   findingXp,
   levelOf,
-  outfitIdSchema,
-  outfits,
+  outfitsFor,
   weaponsFor,
   REVIEW_COMPLETED_XP,
   reviewTimeMultiplier,
@@ -73,7 +72,9 @@ export function getProgression(db: DatabaseSync): Progression {
       ...character,
       ...levelOf(byCharacter.get(character.id) ?? 0, CHARACTER_XP_PER_LEVEL),
       unlocked: account.level >= character.unlockLevel,
-      outfit: outfitIdSchema.catch('default').parse(worn.get(character.id)),
+      outfit:
+        outfitsFor(character.id).find((outfit) => outfit.id === worn.get(character.id))?.id ??
+        'default',
       weapon:
         weaponsFor(character.id).find((weapon) => weapon.id === held.get(character.id))?.id ??
         weaponsFor(character.id)[0]!.id,
@@ -98,7 +99,7 @@ export function setOutfit(
   outfitId: OutfitId,
 ): Progression {
   const character = getProgression(db).characters.find((candidate) => candidate.id === characterId);
-  const outfit = outfits.find((candidate) => candidate.id === outfitId);
+  const outfit = outfitsFor(characterId).find((candidate) => candidate.id === outfitId);
   if (!character?.unlocked || !outfit || character.level < outfit.unlockLevel) {
     throw new Error('That outfit is still locked.');
   }

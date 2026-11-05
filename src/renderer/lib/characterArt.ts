@@ -1,8 +1,39 @@
 import type { CharacterId, OutfitId, WeaponId } from '../../shared/contracts/progression.ts';
 import emberIdleBack from '../assets/characters/ember/idle-back.png';
 import emberIdleFront from '../assets/characters/ember/idle-front.png';
-import emberIdle from '../assets/characters/ember/idle.png';
+import blackPinkIdleBack from '../assets/characters/ember/outfits/black-pink/idle-back.png';
+import blackPinkIdleFront from '../assets/characters/ember/outfits/black-pink/idle-front.png';
+import blackPinkPortrait from '../assets/characters/ember/outfits/black-pink/portrait.png';
+import blackPinkScepterIdle from '../assets/characters/ember/outfits/black-pink/scepter-idle.png';
+import blackPinkScepterVictory from '../assets/characters/ember/outfits/black-pink/scepter-victory.png';
+import blackPinkVictoryBack from '../assets/characters/ember/outfits/black-pink/victory-back.png';
+import blackPinkVictoryFront from '../assets/characters/ember/outfits/black-pink/victory-front.png';
+import blueIdleBack from '../assets/characters/ember/outfits/blue/idle-back.png';
+import blueIdleFront from '../assets/characters/ember/outfits/blue/idle-front.png';
+import bluePortrait from '../assets/characters/ember/outfits/blue/portrait.png';
+import blueScepterIdle from '../assets/characters/ember/outfits/blue/scepter-idle.png';
+import blueScepterVictory from '../assets/characters/ember/outfits/blue/scepter-victory.png';
+import blueVictoryBack from '../assets/characters/ember/outfits/blue/victory-back.png';
+import blueVictoryFront from '../assets/characters/ember/outfits/blue/victory-front.png';
+import greenIdleBack from '../assets/characters/ember/outfits/green/idle-back.png';
+import greenIdleFront from '../assets/characters/ember/outfits/green/idle-front.png';
+import greenPortrait from '../assets/characters/ember/outfits/green/portrait.png';
+import greenScepterIdle from '../assets/characters/ember/outfits/green/scepter-idle.png';
+import greenScepterVictory from '../assets/characters/ember/outfits/green/scepter-victory.png';
+import greenVictoryBack from '../assets/characters/ember/outfits/green/victory-back.png';
+import greenVictoryFront from '../assets/characters/ember/outfits/green/victory-front.png';
+import whiteVioletIdleBack from '../assets/characters/ember/outfits/white-violet/idle-back.png';
+import whiteVioletIdleFront from '../assets/characters/ember/outfits/white-violet/idle-front.png';
+import whiteVioletPortrait from '../assets/characters/ember/outfits/white-violet/portrait.png';
+import whiteVioletScepterIdle from '../assets/characters/ember/outfits/white-violet/scepter-idle.png';
+import whiteVioletScepterVictory from '../assets/characters/ember/outfits/white-violet/scepter-victory.png';
+import whiteVioletVictoryBack from '../assets/characters/ember/outfits/white-violet/victory-back.png';
+import whiteVioletVictoryFront from '../assets/characters/ember/outfits/white-violet/victory-front.png';
 import emberPortrait from '../assets/characters/ember/portrait.png';
+import crystalScepterIdle from '../assets/characters/ember/staffs/crystal-scepter/idle.png';
+import crystalScepterVictory from '../assets/characters/ember/staffs/crystal-scepter/victory.png';
+import crystalStaffIdle from '../assets/characters/ember/staffs/crystal-staff/idle.png';
+import crystalStaffVictory from '../assets/characters/ember/staffs/crystal-staff/victory.png';
 import emberheartIdle from '../assets/characters/ember/staffs/emberheart/idle.png';
 import emberheartVictory from '../assets/characters/ember/staffs/emberheart/victory.png';
 import phoenixCrownIdle from '../assets/characters/ember/staffs/phoenix-crown/idle.png';
@@ -11,7 +42,6 @@ import solarSovereignIdle from '../assets/characters/ember/staffs/solar-sovereig
 import solarSovereignVictory from '../assets/characters/ember/staffs/solar-sovereign/victory.png';
 import emberVictoryBack from '../assets/characters/ember/victory-back.png';
 import emberVictoryFront from '../assets/characters/ember/victory-front.png';
-import emberVictory from '../assets/characters/ember/victory.png';
 import crimsonIdleBack from '../assets/characters/shadow/crimson/idle-back.png';
 import crimsonIdleFront from '../assets/characters/shadow/crimson/idle-front.png';
 import crimsonVictoryBack from '../assets/characters/shadow/crimson/victory-back.png';
@@ -41,7 +71,7 @@ import type { SpriteAnimation } from '../components/Sprite/index.ts';
 type Layers = Record<'idle' | 'victory', string[]>;
 
 export interface CharacterArt {
-  portrait: string;
+  portrait: (outfit: OutfitId) => string;
   idle: SpriteAnimation;
   victory: SpriteAnimation;
   layers: (outfit: OutfitId, weapon: WeaponId) => Layers;
@@ -113,24 +143,67 @@ const shadowWeapons: Partial<Record<WeaponId, { idle: string; victory: string }>
   'icy-dagger': { idle: icyDaggerIdle, victory: icyDaggerVictory },
 };
 
-const emberBody: Body = {
-  idleBack: emberIdleBack,
-  idleFront: emberIdleFront,
-  victoryBack: emberVictoryBack,
-  victoryFront: emberVictoryFront,
+const emberBodies: Partial<Record<OutfitId, Body>> = {
+  default: {
+    idleBack: emberIdleBack,
+    idleFront: emberIdleFront,
+    victoryBack: emberVictoryBack,
+    victoryFront: emberVictoryFront,
+  },
+  blue: {
+    idleBack: blueIdleBack,
+    idleFront: blueIdleFront,
+    victoryBack: blueVictoryBack,
+    victoryFront: blueVictoryFront,
+  },
+  green: {
+    idleBack: greenIdleBack,
+    idleFront: greenIdleFront,
+    victoryBack: greenVictoryBack,
+    victoryFront: greenVictoryFront,
+  },
+  'black-pink': {
+    idleBack: blackPinkIdleBack,
+    idleFront: blackPinkIdleFront,
+    victoryBack: blackPinkVictoryBack,
+    victoryFront: blackPinkVictoryFront,
+  },
+  'white-violet': {
+    idleBack: whiteVioletIdleBack,
+    idleFront: whiteVioletIdleFront,
+    victoryBack: whiteVioletVictoryBack,
+    victoryFront: whiteVioletVictoryFront,
+  },
+};
+
+const emberPortraits: Partial<Record<OutfitId, string>> = {
+  blue: bluePortrait,
+  green: greenPortrait,
+  'black-pink': blackPinkPortrait,
+  'white-violet': whiteVioletPortrait,
 };
 
 const emberStaffs: Partial<Record<WeaponId, { idle: string; victory: string }>> = {
+  'crystal-staff': { idle: crystalStaffIdle, victory: crystalStaffVictory },
   emberheart: { idle: emberheartIdle, victory: emberheartVictory },
   'phoenix-crown': { idle: phoenixCrownIdle, victory: phoenixCrownVictory },
   'solar-sovereign': { idle: solarSovereignIdle, victory: solarSovereignVictory },
+};
+
+// The Crystal Scepter takes the color of the outfit.
+const emberScepters: Partial<Record<OutfitId, { idle: string; victory: string }>> = {
+  default: { idle: crystalScepterIdle, victory: crystalScepterVictory },
+  blue: { idle: blueScepterIdle, victory: blueScepterVictory },
+  green: { idle: greenScepterIdle, victory: greenScepterVictory },
+  'black-pink': { idle: blackPinkScepterIdle, victory: blackPinkScepterVictory },
+  'white-violet': { idle: whiteVioletScepterIdle, victory: whiteVioletScepterVictory },
 };
 
 // Characters without art yet show their initial instead. Outfits without sheets show the default.
 export const characterArt: Partial<Record<CharacterId, CharacterArt>> = {
   shadow: {
     ...animations,
-    portrait: shadowPortrait,
+    portrait: () => shadowPortrait,
     layers: (outfit, weapon) =>
       holding(
         shadowBodies[outfit] ?? shadowBodies.default!,
@@ -139,11 +212,13 @@ export const characterArt: Partial<Record<CharacterId, CharacterArt>> = {
   },
   ember: {
     ...animations,
-    portrait: emberPortrait,
-    // The Crystal Staff is part of Ember's full sheets.
-    layers: (_outfit, weapon) => {
-      const staff = emberStaffs[weapon];
-      return staff ? holding(emberBody, staff) : { idle: [emberIdle], victory: [emberVictory] };
-    },
+    portrait: (outfit) => emberPortraits[outfit] ?? emberPortrait,
+    layers: (outfit, weapon) =>
+      holding(
+        emberBodies[outfit] ?? emberBodies.default!,
+        weapon === 'crystal-scepter'
+          ? (emberScepters[outfit] ?? emberScepters.default!)
+          : (emberStaffs[weapon] ?? emberStaffs['crystal-staff']!),
+      ),
   },
 };

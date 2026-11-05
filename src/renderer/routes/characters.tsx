@@ -3,7 +3,7 @@ import { Shirt, Sword } from 'lucide-react';
 import { useState } from 'react';
 import {
   CHARACTER_XP_PER_LEVEL,
-  outfits,
+  outfitsFor,
   weaponsFor,
   type CharacterId,
 } from '../../shared/contracts/progression.ts';
@@ -44,10 +44,11 @@ function CharactersPage() {
   const isCompanion = viewed.id === data.activeCharacter;
   const art = viewed.unlocked ? characterArt[viewed.id] : undefined;
   const levelReached = (unlockLevel: number) => viewed.unlocked && viewed.level >= unlockLevel;
+  const viewedOutfits = outfitsFor(viewed.id);
   const viewedWeapons = weaponsFor(viewed.id);
   // Every reward in level order. The starting weapon is left out, since it's never locked.
   const rewards = [
-    ...outfits.map((outfit) => ({ ...outfit, kind: 'Outfit', icon: <Shirt aria-hidden /> })),
+    ...viewedOutfits.map((outfit) => ({ ...outfit, kind: 'Outfit', icon: <Shirt aria-hidden /> })),
     ...viewedWeapons
       .filter((weapon) => weapon.unlockLevel > 1)
       .map((weapon) => ({ ...weapon, kind: 'Weapon', icon: <Sword aria-hidden /> })),
@@ -68,7 +69,11 @@ function CharactersPage() {
               <CharacterCard
                 key={character.id}
                 name={character.name}
-                image={character.unlocked ? characterArt[character.id]?.portrait : undefined}
+                image={
+                  character.unlocked
+                    ? characterArt[character.id]?.portrait(character.outfit)
+                    : undefined
+                }
                 selected={character.id === viewed.id}
                 onClick={() => {
                   setViewedId(character.id);
@@ -148,7 +153,7 @@ function CharactersPage() {
         <div className={styles.gear}>
           <Panel title="Outfit">
             <div className={styles.outfits} role="group" aria-label="Outfit">
-              {outfits.map((outfit) => {
+              {viewedOutfits.map((outfit) => {
                 const unlocked = levelReached(outfit.unlockLevel);
                 return (
                   <ChoiceTile

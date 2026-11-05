@@ -182,6 +182,21 @@ describe('outfits', () => {
     expect(() => setOutfit(db, 'shadow', 'crimson')).toThrow('locked');
     expect(() => setOutfit(db, 'ember', 'default')).toThrow('locked');
   });
+
+  it('gives each character its own outfits', () => {
+    db.prepare(
+      `INSERT INTO xp_transactions
+         (reward_key, reason, base_xp, multiplier, amount, active_ms, pull_request_id,
+          repository, number, character_id)
+       VALUES ('seed', 'review-completed', 2000, 1, 2000, 0, 1, 'octo/app', 1, 'ember')`,
+    ).run();
+    const ember = () => getProgression(db).characters.find(({ id }) => id === 'ember');
+    expect(ember()?.outfit).toBe('default');
+    expect(() => setOutfit(db, 'ember', 'midnight')).toThrow('locked');
+    expect(() => setOutfit(db, 'ember', 'black-pink')).toThrow('locked');
+    setOutfit(db, 'ember', 'green');
+    expect(ember()?.outfit).toBe('green');
+  });
 });
 
 describe('weapons', () => {

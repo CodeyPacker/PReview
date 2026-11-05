@@ -21,17 +21,45 @@ export const characters = [
 
 export const defaultCharacter: CharacterId = 'shadow';
 
-export const outfitIdSchema = z.enum(['default', 'midnight', 'crimson', 'sage', 'white']);
+// Frost and Bolt share Shadow's outfits and weapons until they have art.
+const shadowSet: CharacterId[] = ['shadow', 'frost', 'bolt'];
+const emberSet: CharacterId[] = ['ember'];
+
+export const outfitIdSchema = z.enum([
+  'default',
+  'midnight',
+  'crimson',
+  'sage',
+  'white',
+  'blue',
+  'green',
+  'black-pink',
+  'white-violet',
+]);
 export type OutfitId = z.infer<typeof outfitIdSchema>;
 
-// Complete outfits every character has, each unlocked at a character level (SCOPE 13.3).
-export const outfits = [
-  { id: 'default', name: 'Default', unlockLevel: 1 },
-  { id: 'midnight', name: 'Midnight', unlockLevel: 3 },
-  { id: 'crimson', name: 'Crimson', unlockLevel: 5 },
-  { id: 'sage', name: 'Sage', unlockLevel: 8 },
-  { id: 'white', name: 'White', unlockLevel: 10 },
-] as const satisfies readonly { id: OutfitId; name: string; unlockLevel: number }[];
+// Complete outfits, each unlocked at a character level (SCOPE 13.3). Every character starts in
+// the default.
+export const outfits: {
+  id: OutfitId;
+  name: string;
+  unlockLevel: number;
+  characters: CharacterId[];
+}[] = [
+  { id: 'default', name: 'Default', unlockLevel: 1, characters: [...shadowSet, ...emberSet] },
+  { id: 'midnight', name: 'Midnight', unlockLevel: 3, characters: shadowSet },
+  { id: 'crimson', name: 'Crimson', unlockLevel: 5, characters: shadowSet },
+  { id: 'sage', name: 'Sage', unlockLevel: 8, characters: shadowSet },
+  { id: 'white', name: 'White', unlockLevel: 10, characters: shadowSet },
+  { id: 'blue', name: 'Icy Blue', unlockLevel: 3, characters: emberSet },
+  { id: 'green', name: 'Vibrant Green', unlockLevel: 5, characters: emberSet },
+  { id: 'black-pink', name: 'Black + Pink', unlockLevel: 8, characters: emberSet },
+  { id: 'white-violet', name: 'White + Violet', unlockLevel: 10, characters: emberSet },
+];
+
+export function outfitsFor(characterId: CharacterId) {
+  return outfits.filter((outfit) => outfit.characters.includes(characterId));
+}
 
 export const weaponIdSchema = z.enum([
   'dagger',
@@ -41,14 +69,11 @@ export const weaponIdSchema = z.enum([
   'icy-dagger',
   'crystal-staff',
   'emberheart',
+  'crystal-scepter',
   'phoenix-crown',
   'solar-sovereign',
 ]);
 export type WeaponId = z.infer<typeof weaponIdSchema>;
-
-// Frost and Bolt share Shadow's weapons until they have art.
-const blades: CharacterId[] = ['shadow', 'frost', 'bolt'];
-const staffs: CharacterId[] = ['ember'];
 
 // Weapons are chosen apart from the outfit (SCOPE 13.3), and each is unlocked at a character
 // level. A character starts with the first weapon it can hold.
@@ -58,15 +83,16 @@ export const weapons: {
   unlockLevel: number;
   characters: CharacterId[];
 }[] = [
-  { id: 'dagger', name: 'Dagger', unlockLevel: 1, characters: blades },
-  { id: 'void-crescent', name: 'Void Crescent', unlockLevel: 2, characters: blades },
-  { id: 'sunfang', name: 'Sunfang', unlockLevel: 4, characters: blades },
-  { id: 'stormfork', name: 'Stormfork', unlockLevel: 6, characters: blades },
-  { id: 'icy-dagger', name: 'Icy Dagger', unlockLevel: 9, characters: blades },
-  { id: 'crystal-staff', name: 'Crystal Staff', unlockLevel: 1, characters: staffs },
-  { id: 'emberheart', name: 'Emberheart', unlockLevel: 2, characters: staffs },
-  { id: 'phoenix-crown', name: 'Phoenix Crown', unlockLevel: 6, characters: staffs },
-  { id: 'solar-sovereign', name: 'Solar Sovereign', unlockLevel: 9, characters: staffs },
+  { id: 'dagger', name: 'Dagger', unlockLevel: 1, characters: shadowSet },
+  { id: 'void-crescent', name: 'Void Crescent', unlockLevel: 2, characters: shadowSet },
+  { id: 'sunfang', name: 'Sunfang', unlockLevel: 4, characters: shadowSet },
+  { id: 'stormfork', name: 'Stormfork', unlockLevel: 6, characters: shadowSet },
+  { id: 'icy-dagger', name: 'Icy Dagger', unlockLevel: 9, characters: shadowSet },
+  { id: 'crystal-staff', name: 'Crystal Staff', unlockLevel: 1, characters: emberSet },
+  { id: 'emberheart', name: 'Emberheart', unlockLevel: 2, characters: emberSet },
+  { id: 'crystal-scepter', name: 'Crystal Scepter', unlockLevel: 4, characters: emberSet },
+  { id: 'phoenix-crown', name: 'Phoenix Crown', unlockLevel: 6, characters: emberSet },
+  { id: 'solar-sovereign', name: 'Solar Sovereign', unlockLevel: 9, characters: emberSet },
 ];
 
 export function weaponsFor(characterId: CharacterId) {
