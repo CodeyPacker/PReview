@@ -68,6 +68,10 @@ export const weaponIdSchema = z.enum([
   'stormfork',
   'icy-dagger',
   'crystal-scepter',
+  'icy-scepter',
+  'verdant-scepter',
+  'magenta-scepter',
+  'violet-scepter',
 ]);
 export type WeaponId = z.infer<typeof weaponIdSchema>;
 
@@ -85,6 +89,10 @@ export const weapons: {
   { id: 'stormfork', name: 'Stormfork', unlockLevel: 6, characters: shadowSet },
   { id: 'icy-dagger', name: 'Icy Dagger', unlockLevel: 9, characters: shadowSet },
   { id: 'crystal-scepter', name: 'Crystal Scepter', unlockLevel: 1, characters: emberSet },
+  { id: 'icy-scepter', name: 'Icy Scepter', unlockLevel: 2, characters: emberSet },
+  { id: 'verdant-scepter', name: 'Verdant Scepter', unlockLevel: 4, characters: emberSet },
+  { id: 'magenta-scepter', name: 'Magenta Scepter', unlockLevel: 6, characters: emberSet },
+  { id: 'violet-scepter', name: 'Violet Scepter', unlockLevel: 9, characters: emberSet },
 ];
 
 export function weaponsFor(characterId: CharacterId) {

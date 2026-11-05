@@ -228,6 +228,10 @@ describe('weapons', () => {
     const ember = () => getProgression(db).characters.find(({ id }) => id === 'ember');
     expect(ember()?.weapon).toBe('crystal-scepter');
     expect(() => setWeapon(db, 'ember', 'dagger')).toThrow('locked');
+    expect(() => setWeapon(db, 'ember', 'magenta-scepter')).toThrow('locked');
+    setOutfit(db, 'ember', 'green');
+    setWeapon(db, 'ember', 'verdant-scepter');
+    expect(ember()).toMatchObject({ outfit: 'green', weapon: 'verdant-scepter' });
   });
 });
 
