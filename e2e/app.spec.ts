@@ -69,11 +69,41 @@ test('launches the app window', async () => {
   await app.close();
 });
 
+test('applies the appearance settings', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+    const root = page.locator('html');
+
+    await page.getByRole('radio', { name: 'Teal' }).click();
+    await expect(root).toHaveAttribute('data-accent', 'teal');
+    await page.getByRole('radio', { name: 'Compact' }).click();
+    await expect(root).toHaveAttribute('data-density', 'compact');
+    await page.getByRole('radio', { name: 'Large' }).click();
+    await expect(root).toHaveAttribute('data-font-size', 'large');
+    await page.getByRole('radio', { name: 'Dark' }).click();
+    await expect(root).toHaveAttribute('data-theme', 'dark');
+
+    await page.getByRole('radio', { name: 'Purple' }).click();
+    await expect(root).not.toHaveAttribute('data-accent');
+  } finally {
+    await app.close();
+  }
+});
+
 test('keeps a saved setting after a restart', async () => {
   let app = await launch();
   let page = await app.firstWindow();
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
     theme: 'system',
+    accent: 'purple',
+    density: 'default',
+    fontSize: 'default',
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
@@ -89,6 +119,9 @@ test('keeps a saved setting after a restart', async () => {
   page = await app.firstWindow();
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
     theme: 'dark',
+    accent: 'purple',
+    density: 'default',
+    fontSize: 'default',
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
@@ -111,6 +144,9 @@ test('rejects an invalid setting', async () => {
   ).rejects.toThrow('settings.update: invalid input');
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
     theme: 'system',
+    accent: 'purple',
+    density: 'default',
+    fontSize: 'default',
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',

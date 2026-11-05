@@ -1,10 +1,13 @@
+import { RadioGroup } from '@base-ui/react/radio-group';
 import { createFileRoute } from '@tanstack/react-router';
 import { PageHeader } from '../app/PageHeader.tsx';
 import { Button } from '../components/Button/Button.tsx';
+import { ColorSwatch } from '../components/ColorSwatch/ColorSwatch.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { Select } from '../components/Select/Select.tsx';
 import { Switch } from '../components/Switch/Switch.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
+import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
 import { useExportBackup, useRestoreBackup } from '../hooks/useBackups.ts';
 import {
@@ -16,6 +19,9 @@ import {
 import type { UpdateState } from '../../shared/contracts/updates.ts';
 import {
   defaultSettings,
+  type Accent,
+  type Density,
+  type FontSize,
   type ReviewLeader,
   type Settings,
 } from '../../shared/contracts/settings.ts';
@@ -32,6 +38,33 @@ const leaders: { value: ReviewLeader; label: string }[] = [
   { value: 'Control+Shift', label: 'Ctrl+Shift' },
   { value: 'Alt+Shift', label: 'Alt / Option+Shift' },
   { value: 'Meta+Shift', label: 'Command / Windows+Shift' },
+];
+
+const themes: { value: Settings['theme']; label: string }[] = [
+  { value: 'system', label: 'System' },
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+];
+
+const accents: { value: Accent; label: string; color: string }[] = [
+  { value: 'purple', label: 'Purple', color: 'var(--accent-option-1)' },
+  { value: 'blue', label: 'Blue', color: 'var(--accent-option-2)' },
+  { value: 'teal', label: 'Teal', color: 'var(--accent-option-3)' },
+  { value: 'amber', label: 'Amber', color: 'var(--accent-option-4)' },
+  { value: 'coral', label: 'Coral', color: 'var(--accent-option-5)' },
+  { value: 'pink', label: 'Pink', color: 'var(--accent-option-6)' },
+];
+
+const densities: { value: Density; label: string }[] = [
+  { value: 'compact', label: 'Compact' },
+  { value: 'default', label: 'Default' },
+  { value: 'comfortable', label: 'Comfortable' },
+];
+
+const fontSizes: { value: FontSize; label: string }[] = [
+  { value: 'small', label: 'Small' },
+  { value: 'default', label: 'Default' },
+  { value: 'large', label: 'Large' },
 ];
 
 const notificationSettings = [
@@ -92,8 +125,62 @@ function SettingsPage() {
       />
       <div className={styles.columns}>
         <div className={styles.column}>
+          <Panel title="Appearance">
+            <div className={styles.row}>
+              <span id="theme-label" className="headline">
+                Theme
+              </span>
+              <ToggleGroup
+                aria-labelledby="theme-label"
+                options={themes}
+                value={settings.data?.theme ?? defaultSettings.theme}
+                disabled={!settings.data}
+                onValueChange={(theme) => update.mutate({ theme })}
+              />
+            </div>
+            <div className={styles.row}>
+              <span id="accent-label" className="headline">
+                Accent color
+              </span>
+              <RadioGroup
+                className={styles.swatches}
+                aria-labelledby="accent-label"
+                value={settings.data?.accent ?? defaultSettings.accent}
+                disabled={!settings.data}
+                onValueChange={(accent) => update.mutate({ accent })}
+              >
+                {accents.map(({ value, label, color }) => (
+                  <ColorSwatch key={value} value={value} color={color} aria-label={label} />
+                ))}
+              </RadioGroup>
+            </div>
+            <div className={styles.row}>
+              <span id="density-label" className="headline">
+                UI density
+              </span>
+              <ToggleGroup
+                aria-labelledby="density-label"
+                options={densities}
+                value={settings.data?.density ?? defaultSettings.density}
+                disabled={!settings.data}
+                onValueChange={(density) => update.mutate({ density })}
+              />
+            </div>
+            <div className={styles.row}>
+              <span id="font-size-label" className="headline">
+                Font size
+              </span>
+              <ToggleGroup
+                aria-labelledby="font-size-label"
+                options={fontSizes}
+                value={settings.data?.fontSize ?? defaultSettings.fontSize}
+                disabled={!settings.data}
+                onValueChange={(fontSize) => update.mutate({ fontSize })}
+              />
+            </div>
+          </Panel>
           <Panel title="Review shortcuts">
-            <div className={styles.leader}>
+            <div className={styles.row}>
               <span id="review-leader-label" className="headline">
                 Leader key
               </span>
