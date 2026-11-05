@@ -25,7 +25,6 @@ export const outfitIdSchema = z.enum(['default', 'midnight', 'crimson', 'sage', 
 export type OutfitId = z.infer<typeof outfitIdSchema>;
 
 // Complete outfits every character has, each unlocked at a character level (SCOPE 13.3).
-// They have no art yet.
 export const outfits = [
   { id: 'default', name: 'Default', unlockLevel: 1 },
   { id: 'midnight', name: 'Midnight', unlockLevel: 3 },

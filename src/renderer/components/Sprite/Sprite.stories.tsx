@@ -5,11 +5,12 @@ import { characterArt } from '../../lib/characterArt.ts';
 import { Sprite } from './Sprite.tsx';
 
 const shadow = characterArt.shadow!;
+const layers = shadow.layers('default', 'dagger');
 
 const meta = {
   title: 'Components/Sprite',
   component: Sprite,
-  args: { animation: shadow.idle, layers: shadow.layers.idle, label: 'Shadow' },
+  args: { animation: shadow.idle, layers: layers.idle, label: 'Shadow' },
   decorators: [
     (Story) => (
       <div style={{ width: 240 }}>
@@ -32,7 +33,7 @@ export const Idle: Story = {
 };
 
 export const Victory: Story = {
-  args: { animation: shadow.victory, layers: shadow.layers.victory, onFinished: fn() },
+  args: { animation: shadow.victory, layers: layers.victory, onFinished: fn() },
   play: async ({ args, canvas }) => {
     const sprite = canvas.getByRole('img', { name: 'Shadow' });
     await waitFor(() => expect(args.onFinished).toHaveBeenCalledOnce(), { timeout: 3000 });

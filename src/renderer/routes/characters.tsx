@@ -18,7 +18,7 @@ import { Sprite } from '../components/Sprite/Sprite.tsx';
 import { Tag } from '../components/Tag/Tag.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { useProgression } from '../hooks/useProgression.ts';
-import { characterArt, layersFor } from '../lib/characterArt.ts';
+import { characterArt } from '../lib/characterArt.ts';
 import styles from './characters.module.css';
 
 export const Route = createFileRoute('/characters')({ component: CharactersPage });
@@ -115,7 +115,7 @@ function CharactersPage() {
                   <Sprite
                     className={styles.sprite}
                     animation={art[preview]}
-                    layers={layersFor(art, viewed.weapon)[preview]}
+                    layers={art.layers(viewed.outfit, viewed.weapon)[preview]}
                     label={viewed.name}
                     onFinished={() => setPreview('idle')}
                   />
