@@ -2149,12 +2149,12 @@ test('shows the pull request details, with its description', async () => {
     await expect(dialog.getByRole('heading', { name: 'Add login' })).toBeVisible();
     await expect(dialog.getByRole('heading', { name: 'Summary' })).toBeVisible();
     await expect(dialog.locator('strong', { hasText: 'login' })).toBeVisible();
-    await expect(dialog.getByText('raw')).toBeHidden();
+    await expect(dialog.locator('b')).toHaveCount(0);
     await expect(dialog.getByRole('link', { name: 'bad' })).not.toHaveAttribute(
       'href',
       /javascript/,
     );
-    await expect(dialog.getByRole('link', { name: 'View on GitHub' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'View on GitHub' })).toBeVisible();
     await dialog.getByRole('button', { name: 'Close' }).click();
     await expect(dialog).toBeHidden();
   } finally {
