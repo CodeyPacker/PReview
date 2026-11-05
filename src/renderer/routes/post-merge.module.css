@@ -23,6 +23,15 @@
   background: linear-gradient(135deg, var(--accent-soft), var(--canvas-tint));
 }
 
+.sprite {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  height: 100%;
+  translate: -50% 0;
+}
+
 .close {
   position: absolute;
   top: var(--space-16);

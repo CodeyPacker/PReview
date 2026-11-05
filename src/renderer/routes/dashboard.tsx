@@ -17,6 +17,7 @@ import type { PullRequest } from '../../shared/contracts/pull-requests.ts';
 import { agentStatus } from '../app/agentStatus.ts';
 import { relativeTime } from '../app/relativeTime.ts';
 import { repositoryName } from '../app/repositoryName.ts';
+import { characterArt } from '../lib/characterArt.ts';
 import { cx } from '../lib/cx.ts';
 import { Avatar } from '../components/Avatar/index.ts';
 import { BarChart } from '../components/BarChart/index.ts';
@@ -81,6 +82,7 @@ function DashboardPage() {
   const activeCharacter = progression?.characters.find(
     (character) => character.id === progression.activeCharacter,
   );
+  const activeArt = activeCharacter && characterArt[activeCharacter.id];
   const streakWeeks = progression?.streak.current ?? 0;
   const statCard = (
     label: string,
@@ -195,7 +197,12 @@ function DashboardPage() {
               ).toLocaleString('en-US')} XP`}
             />
             <div className={styles.activeCharacter}>
-              <Avatar name={activeCharacter?.name ?? 'Shadow'} size="lg" tone="accent" />
+              <Avatar
+                name={activeCharacter?.name ?? 'Shadow'}
+                src={activeArt?.portrait}
+                size="lg"
+                tone={activeArt ? 'neutral' : 'accent'}
+              />
               <div className={styles.characterText}>
                 <span className={styles.characterName}>{activeCharacter?.name ?? 'Shadow'}</span>
                 <span className={styles.characterLevel}>Level {activeCharacter?.level ?? 1}</span>
@@ -347,6 +354,7 @@ function DashboardPage() {
                 key={character.id}
                 size="sm"
                 name={character.name}
+                image={character.unlocked ? characterArt[character.id]?.portrait : undefined}
                 selected={character.id === progression?.activeCharacter}
                 {...(character.unlocked
                   ? { level: character.level }

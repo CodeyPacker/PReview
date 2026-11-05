@@ -13,17 +13,27 @@ import { ChoiceTile } from '../components/ChoiceTile/ChoiceTile.tsx';
 import { LevelTrack } from '../components/LevelTrack/LevelTrack.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
 import { ProgressBar } from '../components/ProgressBar/ProgressBar.tsx';
+import { Sprite } from '../components/Sprite/Sprite.tsx';
 import { Tag } from '../components/Tag/Tag.tsx';
+import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { useProgression } from '../hooks/useProgression.ts';
+import { characterArt } from '../lib/characterArt.ts';
 import styles from './characters.module.css';
 
 export const Route = createFileRoute('/characters')({ component: CharactersPage });
 
 const xp = (value: number) => value.toLocaleString('en-US');
 
+type PreviewAnimation = 'idle' | 'victory';
+const previewAnimations = [
+  { value: 'idle', label: 'Idle' },
+  { value: 'victory', label: 'Victory' },
+] satisfies { value: PreviewAnimation; label: string }[];
+
 function CharactersPage() {
   const { progression, setActiveCharacter, setOutfit } = useProgression();
   const [viewedId, setViewedId] = useState<CharacterId>();
+  const [preview, setPreview] = useState<PreviewAnimation>('idle');
   const data = progression.data;
   if (!data) return null;
 
@@ -31,6 +41,7 @@ function CharactersPage() {
     data.characters.find((character) => character.id === (viewedId ?? data.activeCharacter)) ??
     data.characters[0]!;
   const isCompanion = viewed.id === data.activeCharacter;
+  const art = viewed.unlocked ? characterArt[viewed.id] : undefined;
   const outfitUnlocked = (unlockLevel: number) => viewed.unlocked && viewed.level >= unlockLevel;
   // The newest unlocked outfit is the current step on the track.
   const reached = outfits.filter((outfit) => outfitUnlocked(outfit.unlockLevel)).at(-1);
@@ -48,8 +59,12 @@ function CharactersPage() {
               <CharacterCard
                 key={character.id}
                 name={character.name}
+                image={character.unlocked ? characterArt[character.id]?.portrait : undefined}
                 selected={character.id === viewed.id}
-                onClick={() => setViewedId(character.id)}
+                onClick={() => {
+                  setViewedId(character.id);
+                  setPreview('idle');
+                }}
                 {...(character.unlocked
                   ? { level: character.level }
                   : {
@@ -85,9 +100,29 @@ function CharactersPage() {
             ) : (
               <p className={styles.text}>Unlocks at Account Level {viewed.unlockLevel}.</p>
             )}
-            <div className={styles.art} aria-hidden>
-              {viewed.unlocked ? viewed.name.charAt(0) : '?'}
-            </div>
+            {art ? (
+              <>
+                <div className={styles.art}>
+                  <Sprite
+                    className={styles.sprite}
+                    animation={art[preview]}
+                    label={viewed.name}
+                    onFinished={() => setPreview('idle')}
+                  />
+                </div>
+                <ToggleGroup
+                  aria-label="Animation"
+                  size="sm"
+                  options={previewAnimations}
+                  value={preview}
+                  onValueChange={setPreview}
+                />
+              </>
+            ) : (
+              <div className={styles.art} aria-hidden>
+                {viewed.unlocked ? viewed.name.charAt(0) : '?'}
+              </div>
+            )}
             <Button
               variant="primary"
               disabled={!viewed.unlocked || isCompanion}

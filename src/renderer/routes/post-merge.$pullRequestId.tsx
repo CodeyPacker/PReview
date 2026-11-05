@@ -21,6 +21,7 @@ import { IconButton } from '../components/IconButton/index.ts';
 import { IconTile } from '../components/IconTile/index.ts';
 import { Panel } from '../components/Panel/index.ts';
 import { ProgressBar } from '../components/ProgressBar/index.ts';
+import { Sprite } from '../components/Sprite/index.ts';
 import { StatCard, type StatCardProps } from '../components/StatCard/index.ts';
 import { StatusPill } from '../components/StatusPill/index.ts';
 import { Tag } from '../components/Tag/index.ts';
@@ -29,6 +30,7 @@ import { useAchievements } from '../hooks/useAchievements.ts';
 import { useMergedPullRequest } from '../hooks/useMergedPullRequest.ts';
 import { useProgression, usePullRequestXp } from '../hooks/useProgression.ts';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
+import { characterArt } from '../lib/characterArt.ts';
 import styles from './post-merge.module.css';
 
 export const Route = createFileRoute('/post-merge/$pullRequestId')({ component: PostMergePage });
@@ -105,6 +107,7 @@ function PostMergePage() {
   const account = progression?.account;
   const characterId = awards[0]?.characterId ?? progression?.activeCharacter;
   const character = progression?.characters.find((item) => item.id === characterId);
+  const art = character && characterArt[character.id];
   const characterXp = awards
     .filter((award) => award.characterId === characterId)
     .reduce((total, award) => total + award.amount, 0);
@@ -119,6 +122,9 @@ function PostMergePage() {
     <div className={styles.page}>
       <Panel padding="sm" className={styles.hero}>
         <div className={styles.art}>
+          {art && (
+            <Sprite className={styles.sprite} animation={art.victory} label={character.name} />
+          )}
           <IconButton
             icon={<X />}
             label="Close"
@@ -212,7 +218,12 @@ function PostMergePage() {
           </Panel>
           <Panel title="Character Progress">
             <div className={styles.progress}>
-              <Avatar name={character?.name ?? 'Shadow'} size="xl" tone="accent" />
+              <Avatar
+                name={character?.name ?? 'Shadow'}
+                src={art?.portrait}
+                size="xl"
+                tone={art ? 'neutral' : 'accent'}
+              />
               <div className={styles.progressBody}>
                 <div className={styles.progressHead}>
                   <span className={styles.level}>{character?.name ?? 'Shadow'}</span>

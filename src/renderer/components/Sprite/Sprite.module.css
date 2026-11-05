@@ -1,0 +1,5 @@
+/* Sprite. Read values from tokens.css custom properties only. */
+
+.sprite {
+  background-repeat: no-repeat;
+}

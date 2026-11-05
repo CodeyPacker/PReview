@@ -453,6 +453,11 @@ test('starts with one character and every badge unearned', async () => {
       'aria-pressed',
       'true',
     );
+    const animation = page.getByRole('radiogroup', { name: 'Animation' });
+    await expect(page.getByRole('img', { name: 'Shadow' })).toBeVisible();
+    await animation.getByRole('radio', { name: 'Victory' }).click();
+    // Victory plays once, then Shadow goes back to idle.
+    await expect(animation.getByRole('radio', { name: 'Idle' })).toBeChecked();
     await page.getByRole('button', { name: /Unlocks at Account Level 3/ }).click();
     await expect(page.getByText('Unlocks at Account Level 3.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Set as Companion' })).toBeDisabled();
