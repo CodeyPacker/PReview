@@ -653,7 +653,7 @@ test('starts with one character and every badge unearned', async () => {
       'true',
     );
     const animation = page.getByRole('radiogroup', { name: 'Animation' });
-    await expect(page.getByRole('img', { name: 'Shadow' })).toBeVisible();
+    await expect(page.getByRole('main').getByRole('img', { name: 'Shadow' })).toBeVisible();
     await animation.getByRole('radio', { name: 'Victory' }).click();
     // Victory plays once, then Shadow goes back to idle.
     await expect(animation.getByRole('radio', { name: 'Idle' })).toBeChecked();
@@ -783,16 +783,15 @@ test('celebrates a merged pull request and picks a new companion', async () => {
     await expect(page.getByText('+20 XP')).toBeVisible();
     await expect(page.getByText('First Bug Caught')).toBeVisible();
     // The account and Shadow are both at level 3.
-    await expect(page.getByText('Level 3', { exact: true })).toHaveCount(2);
+    await expect(page.getByRole('main').getByText('Level 3', { exact: true })).toHaveCount(2);
     await expect(page.getByRole('progressbar', { name: 'Account level progress' })).toHaveAttribute(
       'aria-valuenow',
       '150',
     );
     // The character's bar is named by its visible level.
-    await expect(page.getByRole('progressbar', { name: 'Level 3' })).toHaveAttribute(
-      'aria-valuenow',
-      '200',
-    );
+    await expect(
+      page.getByRole('main').getByRole('progressbar', { name: 'Level 3' }),
+    ).toHaveAttribute('aria-valuenow', '200');
     await page.screenshot({ path: test.info().outputPath('post-merge.png') });
 
     // Ember unlocked at Account Level 3, so it can be the companion now.
