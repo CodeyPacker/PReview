@@ -35,8 +35,8 @@ export interface AgentRunnerDeps {
   // Shows a system notification.
   notify: (title: string, body: string) => void;
   log: Pick<typeof appLog, 'warn'>;
-  // Tasks that may run at once.
-  limit?: number;
+  // Tasks that may run at once. Read each time, because the setting can change.
+  limit?: () => number;
   // How long a run goes before the user is told.
   longRunMs?: number;
   // Called when a run completes, so its changes can be pushed.
@@ -99,7 +99,7 @@ export class AgentRunner {
 
   // Starts queued tasks while there is room.
   wake(): void {
-    const limit = this.deps.limit ?? DEFAULT_LIMIT;
+    const limit = this.deps.limit?.() ?? DEFAULT_LIMIT;
     while (this.running.size < limit) {
       const next = this.deps.db
         .prepare(

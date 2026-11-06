@@ -110,7 +110,12 @@ export function registerIpcHandlers(
   }));
 
   handle('settings.getAll', () => getSettings(db));
-  handle('settings.update', (patch) => updateSettings(db, patch));
+  handle('settings.update', (patch) => {
+    const settings = updateSettings(db, patch);
+    // A higher limit has room for tasks that are waiting.
+    if (patch.agentLimit !== undefined) agentRunner.wake();
+    return settings;
+  });
   handle('backups.export', () => backupFiles.export());
   handle('backups.restore', () => backupFiles.restore());
   handle('notifications.list', () => notifier.list());

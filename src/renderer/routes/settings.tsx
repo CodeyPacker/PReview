@@ -20,6 +20,7 @@ import type { UpdateState } from '../../shared/contracts/updates.ts';
 import {
   defaultSettings,
   type Accent,
+  type AgentModel,
   type Density,
   type FontSize,
   type ReviewLeader,
@@ -65,6 +66,16 @@ const fontSizes: { value: FontSize; label: string }[] = [
   { value: 'small', label: 'Small' },
   { value: 'default', label: 'Default' },
   { value: 'large', label: 'Large' },
+];
+
+const agentLimits = ['1', '2', '3', '4', '5'];
+
+const agentModels: { value: AgentModel; label: string }[] = [
+  { value: 'default', label: 'Claude Code default' },
+  { value: 'fable', label: 'Fable' },
+  { value: 'opus', label: 'Opus' },
+  { value: 'sonnet', label: 'Sonnet' },
+  { value: 'haiku', label: 'Haiku' },
 ];
 
 const notificationSettings = [
@@ -238,8 +249,35 @@ function SettingsPage() {
               onCheckedChange={(groupSupportFiles) => update.mutate({ groupSupportFiles })}
             />
           </Panel>
-          {isWindows && settings.data && (
-            <Panel title="Agents">
+          <Panel title="Agents">
+            <div className={styles.row}>
+              <span id="agent-limit-label" className="headline">
+                Agents at once
+              </span>
+              <ToggleGroup
+                aria-labelledby="agent-limit-label"
+                options={agentLimits}
+                value={String(settings.data?.agentLimit ?? defaultSettings.agentLimit)}
+                disabled={!settings.data}
+                onValueChange={(limit) => update.mutate({ agentLimit: Number(limit) })}
+              />
+            </div>
+            <div className={styles.row}>
+              <span id="agent-model-label" className="headline">
+                Default model
+              </span>
+              <Select
+                aria-labelledby="agent-model-label"
+                options={agentModels}
+                value={settings.data?.agentModel ?? defaultSettings.agentModel}
+                disabled={!settings.data}
+                onValueChange={(agentModel) => update.mutate({ agentModel })}
+              />
+            </div>
+            <p className={styles.description}>
+              Other agents wait in the queue. A new model applies the next time an agent starts.
+            </p>
+            {isWindows && settings.data && (
               <TextField
                 // Remounts with the saved value after each save.
                 key={settings.data.wslDistro}
@@ -253,8 +291,8 @@ function SettingsPage() {
                     update.mutate({ wslDistro });
                 }}
               />
-            </Panel>
-          )}
+            )}
+          </Panel>
         </div>
         <div className={styles.column}>
           <Panel title="Updates">
