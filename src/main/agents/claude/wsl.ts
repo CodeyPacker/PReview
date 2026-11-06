@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import { promisify } from 'node:util';
 import { NOT_INSTALLED, pathFromShell, versionProblem, type ClaudeSetup } from './executable.ts';
 import type { Isolation } from './isolation.ts';
-import { PNPM_VIRTUAL_STORE, sandboxFor } from './isolation.ts';
+import { PACKAGE_CACHE, packageCacheEnv, PNPM_VIRTUAL_STORE, sandboxFor } from './isolation.ts';
 
 // Runs a program and resolves with its output. Rejects like execFile when it fails.
 export type Exec = (file: string, args: string[]) => Promise<{ stdout: string }>;
@@ -145,7 +145,7 @@ export async function findWslClaude(distro: string, run: Exec = exec): Promise<C
 // The same rules as on macOS, in WSL's paths. Both home folders stay unreadable: WSL's own and
 // the Windows one under /mnt/c.
 // The temp folder lives in Linux's /tmp. The sandbox opens Unix sockets there, and /mnt/c
-// doesn't support them.
+// doesn't support them. The package cache stays in Linux too, where links to it are fast.
 export async function prepareWslIsolation(
   worktree: string,
   distro: string,
@@ -153,11 +153,10 @@ export async function prepareWslIsolation(
 ): Promise<Isolation> {
   const temp = await wslRun(distro, ['mktemp', '-d', '/tmp/pv-XXXXXX'], run);
   const root = toWslPath(await realpath(worktree));
-  const sandbox = sandboxFor(
-    root,
-    temp,
-    await wslRun(distro, ['sh', '-c', 'printf %s "$HOME"'], run),
-  );
+  const home = await wslRun(distro, ['sh', '-c', 'printf %s "$HOME"'], run);
+  const cache = `${home}/.cache/${PACKAGE_CACHE}`;
+  await wslRun(distro, ['mkdir', '-p', cache], run);
+  const sandbox = sandboxFor(root, temp, cache, home);
   sandbox.filesystem = {
     ...sandbox.filesystem,
     denyRead: [...(sandbox.filesystem?.denyRead ?? []), toWslPath(homedir())],
@@ -166,14 +165,11 @@ export async function prepareWslIsolation(
     env: {
       CLAUDE_CODE_TMPDIR: temp,
       TMPDIR: temp,
-      npm_config_cache: `${temp}/npm`,
+      ...packageCacheEnv(cache),
       npm_config_update_notifier: 'false',
       npm_config_userconfig: `${temp}/npmrc`,
       PNPM_HOME: `${temp}/pnpm`,
       npm_config_virtual_store_dir: `${temp}/${PNPM_VIRTUAL_STORE}`,
-      YARN_CACHE_FOLDER: `${temp}/yarn`,
-      COREPACK_HOME: `${temp}/corepack`,
-      BUN_INSTALL_CACHE_DIR: `${temp}/bun`,
     },
     sandbox,
     // node_modules links into the temp folder, so it goes too when pnpm used it.

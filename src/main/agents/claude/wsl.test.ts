@@ -1,5 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
-import { checkWsl, findWslClaude, fromWslPath, toWslPath, wslArgs, type Exec } from './wsl.ts';
+import {
+  checkWsl,
+  findWslClaude,
+  fromWslPath,
+  prepareWslIsolation,
+  toWslPath,
+  wslArgs,
+  type Exec,
+} from './wsl.ts';
+
+// prepareWslIsolation reads Windows paths, which don't exist where the tests run.
+vi.mock('node:fs/promises', async (original) => ({
+  ...(await original<typeof import('node:fs/promises')>()),
+  realpath: () => Promise.resolve('C:\\worktree'),
+}));
+vi.mock('node:os', async (original) => ({
+  ...(await original<typeof import('node:os')>()),
+  homedir: () => 'C:\\Users\\me',
+}));
 
 const failure = (fields: Record<string, unknown>) =>
   Object.assign(new Error('Command failed'), fields);
@@ -118,5 +136,26 @@ describe('findWslClaude', () => {
       runner({ bash: '/usr/bin/claude\n', '/usr/bin/claude': '1.0.0 (Claude Code)\n' }),
     );
     expect(old).toEqual({ problem: expect.stringContaining('found 1.0.0') as string });
+  });
+});
+
+describe('prepareWslIsolation', () => {
+  it('keeps downloaded packages in the Linux home folder, where commands can write them', async () => {
+    const commands: string[][] = [];
+    const run: Exec = (_file, args) => {
+      const command = args.slice(3);
+      commands.push(command);
+      const stdout =
+        command[0] === 'mktemp' ? '/tmp/pv-abc' : command[0] === 'sh' ? '/home/me' : '';
+      return Promise.resolve({ stdout });
+    };
+
+    const isolation = await prepareWslIsolation('C:\\worktree', 'Ubuntu', run);
+
+    const cache = '/home/me/.cache/preview/agent-packages';
+    expect(commands).toContainEqual(['mkdir', '-p', cache]);
+    expect(isolation.env.npm_config_store_dir).toBe(`${cache}/pnpm-store`);
+    expect(isolation.sandbox.filesystem?.allowWrite).toContain(cache);
+    expect(isolation.env.npm_config_virtual_store_dir).toBe('/tmp/pv-abc/pnpm-virtual');
   });
 });
