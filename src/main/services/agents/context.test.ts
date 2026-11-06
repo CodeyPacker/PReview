@@ -7,7 +7,13 @@ import { createReviewFinding } from '../pull-requests/findings.ts';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { dependencySetup, fileDiff, loadTaskContext, taskPrompt } from './context.ts';
+import {
+  AGENT_INSTRUCTIONS,
+  dependencySetup,
+  fileDiff,
+  loadTaskContext,
+  taskPrompt,
+} from './context.ts';
 
 let db: ReturnType<typeof openDatabase>;
 let pullRequestId: number;
@@ -180,6 +186,13 @@ describe('fileDiff', () => {
   });
 });
 
+describe('AGENT_INSTRUCTIONS', () => {
+  it('runs only the tests that cover the change, and installs nothing without them', () => {
+    expect(AGENT_INSTRUCTIONS).toContain('run only those tests, not the whole suite');
+    expect(AGENT_INSTRUCTIONS).toContain('If none do, do not install dependencies');
+  });
+});
+
 describe('dependencySetup', () => {
   const folder = (...files: string[]) => {
     const dir = mkdtempSync(join(tmpdir(), 'preview-setup-'));
@@ -193,6 +206,7 @@ describe('dependencySetup', () => {
     );
     expect(dependencySetup(folder('package.json', 'package-lock.json'))).toContain('`npm ci`');
     expect(dependencySetup(folder('package.json'))).toContain('`npm install`');
+    expect(dependencySetup(folder('package.json'))).toContain('If you need to run tests');
   });
 
   it('asks for nothing when dependencies are installed or there is no package.json', () => {

@@ -44,7 +44,8 @@ export const AGENT_INSTRUCTIONS = [
   'Work only in the current folder. It is a checkout of the pull request at the reviewed commit.',
   'Do not commit, push or change branches. PReview commits and pushes your changes.',
   'Git is not available, and the network only reaches the npm and Yarn registries. Use the get_file_diff tool to see what the pull request changed in a file.',
-  "Run the project's tests that cover your changes before you finish.",
+  'Make the fix first. Then search for tests that cover what you changed, before installing anything.',
+  'If tests cover it, run only those tests, not the whole suite. If none do, do not install dependencies or run tests. CI checks every pushed commit.',
   'If an item is unclear or needs a decision from the reviewer, leave it and mark it needs_input with your question.',
 ].join('\n');
 
@@ -225,7 +226,7 @@ export function taskPrompt(context: TaskContext): string {
     );
   }
   sections.push(
-    '## When you finish\n\nReport every line comment and finding by its id (C1, F1 and so on): fixed, not_fixed with the reason, or needs_input with your question. List the test commands you ran and whether they passed.',
+    '## When you finish\n\nReport every line comment and finding by its id (C1, F1 and so on): fixed, not_fixed with the reason, or needs_input with your question. List the test commands you ran and whether they passed. If you ran none, say in your summary that no tests cover the change.',
   );
   return sections.join('\n\n');
 }
@@ -247,7 +248,7 @@ export function dependencySetup(worktree: string): string | null {
   const command =
     INSTALL_COMMANDS.find(([lockfile]) => existsSync(join(worktree, lockfile)))?.[1] ??
     'npm install';
-  return `## Setup\n\nDependencies aren't installed. Run \`${command}\` before running tests.`;
+  return `## Setup\n\nDependencies aren't installed. If you need to run tests, run \`${command}\` first. Otherwise skip it.`;
 }
 
 // What get_file_diff answers for a path.
