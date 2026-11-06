@@ -2924,6 +2924,53 @@ test('folds unchanged lines and reveals a search match inside them', async () =>
   }
 });
 
+test('lists active agent tasks on the Dashboard in the order they will run', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    const task = (id: number, status: string, queue: unknown) => ({
+      id,
+      pullRequestId: 1,
+      status,
+      attempts: 0,
+      error: null,
+      queue,
+      report: null,
+      costUsd: null,
+      question: null,
+      push: null,
+      ci: null,
+      createdAt: '2026-10-31T12:00:00Z',
+      startedAt: null,
+      finishedAt: null,
+    });
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Queued work'),
+      // Newest first, as the main process lists them.
+      'agentTasks.list': [
+        task(3, 'queued', { position: 1, total: 2 }),
+        task(2, 'queued', { position: 2, total: 2 }),
+        task(1, 'running', null),
+      ],
+    });
+    await page.evaluate(() => {
+      location.hash = '/dashboard';
+    });
+    await page.reload();
+
+    const items = page
+      .getByRole('tabpanel', { name: /^Active/ })
+      .getByRole('button', { name: /Queued work/ });
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).not.toContainText('in queue');
+    await expect(items.nth(1)).toContainText('1 of 2 in queue');
+    await expect(items.nth(2)).toContainText('2 of 2 in queue');
+  } finally {
+    await app.close();
+  }
+});
+
 test('moves a queued agent task in the queue from the Inbox', async () => {
   const app = await launch();
   try {
