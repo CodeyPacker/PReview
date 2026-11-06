@@ -71,6 +71,9 @@ export interface PreviewApi {
     getAll(): Promise<Settings>;
     update(patch: SettingsPatch): Promise<Settings>;
   };
+  logs: {
+    open(): Promise<null>;
+  };
   backups: {
     export(): Promise<ExportBackupResult>;
     // Restarts PReview when the user goes ahead, so it resolves only on cancel or a bad file.

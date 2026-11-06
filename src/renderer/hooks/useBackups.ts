@@ -6,6 +6,10 @@ export function useExportBackup() {
 }
 
 // Asks for a backup and restarts to restore it. Settles only on cancel or a bad file.
+export function useOpenLogs() {
+  return useMutation({ mutationFn: () => window.preview.logs.open() });
+}
+
 export function useRestoreBackup() {
   return useMutation({ mutationFn: () => window.preview.backups.restore() });
 }

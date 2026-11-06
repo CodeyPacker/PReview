@@ -64,6 +64,8 @@ import { handle } from './handle.ts';
 
 export interface IpcServices {
   setLaunchAtLogin: (open: boolean) => void;
+  // Opens the folder of log files. Rejects when it can't.
+  openLogs: () => Promise<void>;
   // Exports a backup, or restores one, through the system file dialogs.
   backupFiles: {
     export(): Promise<ExportBackupResult>;
@@ -90,6 +92,7 @@ export function registerIpcHandlers(
   db: DatabaseSync,
   {
     setLaunchAtLogin,
+    openLogs,
     backupFiles,
     notifier,
     updates,
@@ -119,6 +122,10 @@ export function registerIpcHandlers(
     if (patch.launchAtLogin !== undefined) setLaunchAtLogin(patch.launchAtLogin);
     if (patch.autoCheckUpdates) void updates.check();
     return settings;
+  });
+  handle('logs.open', async () => {
+    await openLogs();
+    return null;
   });
   handle('backups.export', () => backupFiles.export());
   handle('backups.restore', () => backupFiles.restore());

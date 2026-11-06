@@ -143,6 +143,33 @@ test('opens the startup screen chosen in Settings', async () => {
   }
 });
 
+test('opens the logs folder from Settings', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    // Records the folder instead of opening it on the screen of whoever runs this test.
+    await app.evaluate(({ shell }) => {
+      shell.openPath = (path) => {
+        (globalThis as { openedPath?: string }).openedPath = path;
+        return Promise.resolve('');
+      };
+    });
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+    await page.getByRole('button', { name: 'Open Logs' }).click();
+
+    await expect
+      .poll(() => app.evaluate(() => (globalThis as { openedPath?: string }).openedPath))
+      .toMatch(/logs/i);
+    await expect(page.getByRole('alert')).toBeHidden();
+  } finally {
+    await app.close();
+  }
+});
+
 test('keeps a saved setting after a restart', async () => {
   let app = await launch();
   let page = await app.firstWindow();

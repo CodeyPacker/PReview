@@ -86,6 +86,8 @@ export const ipcContract = {
   'backups.export': { input: z.undefined(), output: exportBackupResultSchema },
   // Asks for a backup and restarts to put it in place.
   'backups.restore': { input: z.undefined(), output: restoreBackupResultSchema },
+  // Opens the folder of log files.
+  'logs.open': { input: z.undefined(), output: z.null() },
   'notifications.list': { input: z.undefined(), output: notificationsStateSchema },
   'notifications.markAllRead': { input: z.undefined(), output: notificationsStateSchema },
   // Quiet while the user is in Zen Mode: no desktop notifications.

@@ -25,6 +25,9 @@ const api: PreviewApi = {
     export: () => invoke('backups.export', undefined),
     restore: () => invoke('backups.restore', undefined),
   },
+  logs: {
+    open: () => invoke('logs.open', undefined),
+  },
   notifications: {
     list: () => invoke('notifications.list', undefined),
     markAllRead: () => invoke('notifications.markAllRead', undefined),
