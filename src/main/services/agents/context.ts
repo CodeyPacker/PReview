@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import type { ReviewThread } from '../../../shared/contracts/pull-request-reviews.ts';
@@ -240,6 +240,20 @@ const INSTALL_COMMANDS: [string, string][] = [
   ['bun.lockb', 'bun install --frozen-lockfile'],
 ];
 
+// The exact pnpm package.json asks for. Only a plain version counts, because the pull request
+// decides this text and it goes into the agent's prompt.
+function pinnedPnpm(worktree: string): string | null {
+  try {
+    const { packageManager } = JSON.parse(readFileSync(join(worktree, 'package.json'), 'utf8')) as {
+      packageManager?: unknown;
+    };
+    if (typeof packageManager !== 'string') return null;
+    return /^pnpm@(\d+\.\d+\.\d+)(?:\+|$)/.exec(packageManager)?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 // Tells the agent to install the project's dependencies when the worktree has none, so it can
 // run the tests. Null when there is nothing to install.
 export function dependencySetup(worktree: string): string | null {
@@ -248,7 +262,14 @@ export function dependencySetup(worktree: string): string | null {
   const command =
     INSTALL_COMMANDS.find(([lockfile]) => existsSync(join(worktree, lockfile)))?.[1] ??
     'npm install';
-  return `## Setup\n\nDependencies aren't installed. If you need to run tests, run \`${command}\` first. Otherwise skip it.`;
+  const setup = `## Setup\n\nDependencies aren't installed. If you need to run tests, run`;
+  // The sandbox has no pnpm of its own, and npx's newest one can differ from the project's.
+  const pnpm = existsSync(join(worktree, 'pnpm-lock.yaml')) ? pinnedPnpm(worktree) : null;
+  if (pnpm) {
+    const runner = `npx --yes pnpm@${pnpm}`;
+    return `${setup} \`${runner} install --frozen-lockfile\` first. Otherwise skip it. Use \`${runner}\` for every pnpm command.`;
+  }
+  return `${setup} \`${command}\` first. Otherwise skip it.`;
 }
 
 // What get_file_diff answers for a path.

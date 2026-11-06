@@ -31,9 +31,14 @@ export function useDraftComposer(
     setComposer(next);
   }
 
-  function saveComposer() {
+  function saveComposer(then?: () => void) {
     if (!composer || !shownChanges) return;
-    const done = { onSuccess: () => setComposer(undefined) };
+    const done = {
+      onSuccess: () => {
+        setComposer(undefined);
+        then?.();
+      },
+    };
     if (composer.draftId === undefined) {
       reviewDrafts.create.mutate(
         {
@@ -62,5 +67,16 @@ export function useDraftComposer(
     }
   }
 
-  return { composer, changeComposer, saveComposer };
+  // Saves a comment with unsent text before going on, so it goes out with the review. When the
+  // save fails, the comment stays open and shows why.
+  function saveOpenComment(then: () => void) {
+    if (!composer?.body.trim()) {
+      then();
+      return;
+    }
+    showFile(composer.path);
+    saveComposer(then);
+  }
+
+  return { composer, changeComposer, saveComposer, saveOpenComment };
 }

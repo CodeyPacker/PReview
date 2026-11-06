@@ -1715,6 +1715,68 @@ test('submits a review, and only allows a comment on your own pull request', asy
   }
 });
 
+test('sends a comment that was still open when the review went to the agent', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Open comment'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [
+          {
+            ...changedFile('a.ts'),
+            hunks: [{ originalStart: 1, originalCount: 1, modifiedStart: 1, modifiedCount: 1 }],
+          },
+        ],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+    });
+    await app.evaluate(({ ipcMain }) => {
+      const drafts: Record<string, unknown>[] = [];
+      const submitted: unknown[] = [];
+      Object.assign(globalThis, { submittedReviews: submitted });
+      const handlers: Record<string, (input: never) => unknown> = {
+        'reviewDrafts.list': () => drafts,
+        'reviewDrafts.create': (input: Record<string, unknown>) => {
+          const now = new Date().toISOString();
+          drafts.push({ ...input, id: 1, createdAt: now, updatedAt: now, outdated: false });
+          return drafts;
+        },
+        'pullRequestReviews.submit': (input: unknown) => {
+          submitted.push(input);
+          return { status: 'submitted' };
+        },
+      };
+      for (const [channel, handler] of Object.entries(handlers)) {
+        ipcMain.removeHandler(channel);
+        ipcMain.handle(channel, (_event, input) => handler(input as never));
+      }
+    });
+    await openReview(app, page);
+
+    const modified = page.locator('.modified-in-monaco-diff-editor');
+    await modified.locator('.view-line').first().click();
+    await page.keyboard.press('Control+i');
+    await page.getByRole('textbox', { name: /^Comment on new line/ }).fill('This should add.');
+
+    await finishReviewWith(page, /^Send to Agent/);
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('The agent works on 1 line comment.');
+    await dialog.getByRole('button', { name: 'Submit', exact: true }).click();
+    await expect(dialog.getByRole('heading', { name: 'Sent to the agent' })).toBeVisible();
+    const [review] = await app.evaluate(
+      () =>
+        (globalThis as unknown as { submittedReviews: { draftIds: number[] }[] }).submittedReviews,
+    );
+    expect(review?.draftIds).toEqual([1]);
+  } finally {
+    await app.close();
+  }
+});
+
 test('drafts, edits, deletes and publishes line comments in the diff', async () => {
   const app = await launch();
   try {
