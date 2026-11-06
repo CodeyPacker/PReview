@@ -90,7 +90,8 @@ export class ClaudeAgent implements AgentProvider {
         ...(agentModel === 'default' ? {} : { model: agentModel }),
         permissionMode: 'default',
         settings: { permissions: { blockReadsOutsideWorkingDirectories: true } },
-        tools: ALLOWED_TOOLS,
+        // The tools it can see. AskUserQuestion goes through onQuestion below.
+        tools: [...ALLOWED_TOOLS, 'AskUserQuestion'],
         disallowedTools: BLOCKED_TOOLS,
         canUseTool: createToolGate({
           root: input.worktree,

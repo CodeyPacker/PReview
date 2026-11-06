@@ -193,6 +193,12 @@ describe('AGENT_INSTRUCTIONS', () => {
   });
 });
 
+describe('questions for the reviewer', () => {
+  it('tells the agent to ask while it runs, since a report can not be answered', () => {
+    expect(AGENT_INSTRUCTIONS).toContain('ask with the AskUserQuestion tool');
+  });
+});
+
 describe('dependencySetup', () => {
   const folder = (...files: string[]) => {
     const dir = mkdtempSync(join(tmpdir(), 'preview-setup-'));
