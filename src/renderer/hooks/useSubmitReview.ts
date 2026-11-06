@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { SubmitReviewInput } from '../../shared/contracts/pull-request-reviews.ts';
+import { cheerCompanion } from '../lib/companionCheer.ts';
 
 // Publishes a review to GitHub. The result says whether GitHub accepted it, why not, or that
 // it was queued because GitHub couldn't be reached.
@@ -9,6 +10,9 @@ export function useSubmitReview() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (review: SubmitReviewInput) => window.preview.pullRequestReviews.submit(review),
+    onSuccess: (result) => {
+      if (result.status !== 'rejected') cheerCompanion();
+    },
     onSettled: (_result, _error, review) =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: ['reviewDrafts', review.pullRequestId] }),

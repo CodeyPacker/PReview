@@ -67,6 +67,7 @@ export function Sprite({ animation, layers, label, onFinished, className }: Spri
       ref={ref}
       role="img"
       aria-label={label}
+      data-animation={animation.name}
       className={cx(styles.sprite, className)}
       style={{
         aspectRatio: `${animation.frameWidth} / ${animation.frameHeight}`,

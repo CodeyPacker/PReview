@@ -15,6 +15,7 @@ import wordmarkLight from '../assets/wordmark-light.png';
 import { usePullRequests } from '../hooks/usePullRequests.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { defaultSettings } from '../../shared/contracts/settings.ts';
+import { Companion } from './Companion.tsx';
 import { reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
 import { SidebarContext } from './SidebarContext.ts';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
@@ -130,6 +131,7 @@ export function AppShell() {
               <NavItem to="/integrations" icon={<Plug />} label="Integrations" />
               <NavItem to="/settings" icon={<Settings />} label="Settings" />
             </nav>
+            {!collapsed && <Companion />}
             <div className={styles.footer}>
               <NotificationsButton />
             </div>
