@@ -17,7 +17,7 @@ import electronUpdater from 'electron-updater';
 import type { DatabaseSync } from 'node:sqlite';
 import { rmSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { checkIntegrity, openDatabase } from './database/connection.ts';
 import { ClaudeAgent } from './agents/claude/agent.ts';
@@ -536,6 +536,10 @@ void app.whenReady().then(async () => {
     // A development build would register the Electron binary, and Linux has no such setting.
     setLaunchAtLogin: (openAtLogin) => {
       if (app.isPackaged && process.platform !== 'linux') app.setLoginItemSettings({ openAtLogin });
+    },
+    openLogs: async () => {
+      const error = await shell.openPath(dirname(log.transports.file.getFile().path));
+      if (error) throw new Error(error);
     },
     backupFiles,
     notifier,

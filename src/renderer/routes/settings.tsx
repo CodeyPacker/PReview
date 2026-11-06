@@ -9,7 +9,7 @@ import { Switch } from '../components/Switch/Switch.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
 import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
-import { useExportBackup, useRestoreBackup } from '../hooks/useBackups.ts';
+import { useExportBackup, useOpenLogs, useRestoreBackup } from '../hooks/useBackups.ts';
 import {
   useAppVersion,
   useCheckForUpdates,
@@ -151,6 +151,7 @@ function SettingsPage() {
   const leader = settings.data?.reviewLeader ?? defaultSettings.reviewLeader;
   const exportBackup = useExportBackup();
   const restoreBackup = useRestoreBackup();
+  const openLogs = useOpenLogs();
   const exported = exportBackup.data?.status === 'exported' ? exportBackup.data.path : undefined;
   const invalidBackup =
     restoreBackup.data?.status === 'invalid' ? restoreBackup.data.message : undefined;
@@ -451,6 +452,22 @@ function SettingsPage() {
                   (exportBackup.isError
                     ? 'Could not export a backup.'
                     : 'Could not restore the backup.')}
+              </p>
+            )}
+          </Panel>
+          <Panel title="Troubleshooting">
+            <p className={styles.description}>
+              Logs record what PReview did and any errors, with tokens and other secrets removed.
+              They stay on this computer unless you share them.
+            </p>
+            <div className={styles.actions}>
+              <Button loading={openLogs.isPending} onClick={() => openLogs.mutate()}>
+                Open Logs
+              </Button>
+            </div>
+            {openLogs.isError && (
+              <p role="alert" className={styles.error}>
+                Could not open the logs folder.
               </p>
             )}
           </Panel>
