@@ -1,6 +1,6 @@
 {
   "procs": [
-    {"name": "app", "cmd": "pnpm dev"},
-    {"name": "storybook", "cmd": "pnpm storybook", "autostart": false}
+    { "name": "app", "cmd": "pnpm dev" },
+    { "name": "storybook", "cmd": "pnpm storybook", "autostart": false }
   ]
 }
