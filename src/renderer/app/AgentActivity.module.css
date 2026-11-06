@@ -18,9 +18,16 @@
   margin: 0;
 }
 
+.queue {
+  margin-right: auto;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
   gap: var(--space-8);
 }

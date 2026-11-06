@@ -67,6 +67,8 @@ export const agentTaskSchema = z.object({
   attempts: z.number().int(),
   // Why the last run failed. Safe to show.
   error: z.string().nullable(),
+  // Its place in the queue, when the status is queued.
+  queue: z.object({ position: z.number().int(), total: z.number().int() }).nullable(),
   report: agentReportSchema.nullable(),
   costUsd: z.number().nullable(),
   // The unanswered question, when the status is waiting.
@@ -125,6 +127,12 @@ export const agentChangeSchema = z.object({
 export type AgentChange = z.infer<typeof agentChangeSchema>;
 
 export const agentTaskIdInputSchema = z.object({ taskId: z.number().int() });
+
+export const moveAgentTaskInputSchema = z.object({
+  taskId: z.number().int(),
+  direction: z.enum(['up', 'down']),
+});
+export type MoveAgentTaskInput = z.infer<typeof moveAgentTaskInputSchema>;
 
 export const answerAgentQuestionInputSchema = z.object({
   questionId: z.number().int(),

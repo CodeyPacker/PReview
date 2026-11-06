@@ -5,6 +5,7 @@ import {
   agentTaskIdInputSchema,
   agentTaskSchema,
   answerAgentQuestionInputSchema,
+  moveAgentTaskInputSchema,
 } from './agent-tasks.ts';
 import { exportBackupResultSchema, restoreBackupResultSchema } from './backups.ts';
 import { githubAuthStateSchema } from './github.ts';
@@ -351,6 +352,8 @@ export const ipcContract = {
   'agentTasks.forceStop': { input: agentTaskIdInputSchema, output: z.null() },
   // Queues a stopped or failed task again.
   'agentTasks.resume': { input: agentTaskIdInputSchema, output: z.null() },
+  // Swaps a queued task with its neighbor in the queue.
+  'agentTasks.move': { input: moveAgentTaskInputSchema, output: z.null() },
   // Commits and pushes a completed task's changes.
   'agentTasks.push': { input: agentTaskIdInputSchema, output: z.null() },
   // A task's changes that aren't pushed yet.

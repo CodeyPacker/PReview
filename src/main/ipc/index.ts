@@ -58,7 +58,7 @@ import {
 } from '../services/repositories/watched-folders.ts';
 import { getSettings, updateSettings } from '../services/settings.ts';
 import type { RepositorySearch } from '../services/pull-requests/repository-search.ts';
-import { listActivity, listAgentTasks } from '../services/agents/activity.ts';
+import { listActivity, listAgentTasks, moveQueuedTask } from '../services/agents/activity.ts';
 import type { AgentPublisher } from '../services/agents/publisher.ts';
 import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
@@ -247,6 +247,10 @@ export function registerIpcHandlers(
   });
   handle('agentTasks.resume', ({ taskId }) => {
     agentRunner.resume(taskId);
+    return null;
+  });
+  handle('agentTasks.move', ({ taskId, direction }) => {
+    moveQueuedTask(db, taskId, direction);
     return null;
   });
   handle('agentTasks.push', async ({ taskId }) => {

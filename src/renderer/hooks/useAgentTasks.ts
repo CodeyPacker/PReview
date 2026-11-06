@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AgentTask, AnswerAgentQuestionInput } from '../../shared/contracts/agent-tasks.ts';
+import type {
+  AgentTask,
+  AnswerAgentQuestionInput,
+  MoveAgentTaskInput,
+} from '../../shared/contracts/agent-tasks.ts';
 
 const agentTasksKey = ['agentTasks'] as const;
 // Tasks change by themselves while an agent works, so the list is read again often then.
@@ -52,6 +56,15 @@ export function useAgentTaskAction() {
         queryClient.invalidateQueries({ queryKey: ['agentActivity', taskId] }),
         queryClient.invalidateQueries({ queryKey: ['agentChanges', taskId] }),
       ]),
+  });
+}
+
+// Moves a queued task up or down the queue.
+export function useMoveAgentTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: MoveAgentTaskInput) => window.preview.agentTasks.move(input),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: agentTasksKey }),
   });
 }
 
