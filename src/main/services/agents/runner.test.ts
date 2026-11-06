@@ -7,7 +7,7 @@ import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
 import type { AgentRunInput, AgentRunResult, AgentReport } from '../../agents/provider.ts';
 import type { GitProvider } from '../../providers/types.ts';
-import { listActivity, listAgentTasks } from './activity.ts';
+import { listActivity, listAgentTasks, moveQueuedTask } from './activity.ts';
 import { AgentRunner, type AgentRunnerDeps } from './runner.ts';
 import type { OpenWorktreeResult } from './worktrees.ts';
 
@@ -237,6 +237,41 @@ describe('AgentRunner', () => {
     await vi.waitFor(() => expect(task(running).status).toBe('stopped'));
     expect(task(queued).status).toBe('stopped');
     expect(runs).toHaveLength(1);
+  });
+
+  it('starts queued tasks in the order the user moved them to', async () => {
+    const { runner, runs } = setup({ limit: () => 1 });
+    const first = addTask(addPullRequest(7));
+    const second = addTask(addPullRequest(8));
+    const third = addTask(addPullRequest(9));
+
+    moveQueuedTask(db, third, 'up');
+    moveQueuedTask(db, third, 'up');
+    expect(listAgentTasks(db).find(({ id }) => id === third)?.queue).toEqual({
+      position: 1,
+      total: 3,
+    });
+    expect(listAgentTasks(db).find(({ id }) => id === second)?.queue).toEqual({
+      position: 3,
+      total: 3,
+    });
+    // Already first, so this changes nothing.
+    moveQueuedTask(db, third, 'up');
+
+    runner.wake();
+    await vi.waitFor(() => expect(task(third).status).toBe('running'));
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+    expect(task(first).status).toBe('queued');
+    runs[0]!.finish({ status: 'completed', report, costUsd: 0 });
+    await vi.waitFor(() => expect(task(first).status).toBe('running'));
+    await vi.waitFor(() => expect(runs).toHaveLength(2));
+    expect(task(second).status).toBe('queued');
+    expect(listAgentTasks(db).find(({ id }) => id === first)?.queue).toBeNull();
+    runs[1]!.finish({ status: 'completed', report, costUsd: 0 });
+    await vi.waitFor(() => expect(task(second).status).toBe('running'));
+    await vi.waitFor(() => expect(runs).toHaveLength(3));
+    runs[2]!.finish({ status: 'completed', report, costUsd: 0 });
+    await vi.waitFor(() => expect(task(second).status).toBe('completed'));
   });
 
   it('starts more tasks when the limit is raised', async () => {

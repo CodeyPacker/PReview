@@ -21,6 +21,7 @@ import {
   useAgentActivity,
   useAgentChanges,
   useAgentTaskAction,
+  useMoveAgentTask,
   useAnswerAgentQuestion,
 } from '../hooks/useAgentTasks.ts';
 import styles from './AgentActivity.module.css';
@@ -47,6 +48,7 @@ export function AgentActivity({ task }: AgentActivityProps) {
   const active = isAgentActive(task) || task.status === 'waiting';
   const { data: events = [] } = useAgentActivity(task.id, active);
   const action = useAgentTaskAction();
+  const move = useMoveAgentTask();
   const run = (name: 'stop' | 'forceStop' | 'resume' | 'push' | 'investigate') =>
     action.mutate({ action: name, taskId: task.id });
   const pending = (name: string) => action.isPending && action.variables?.action === name;
@@ -74,6 +76,29 @@ export function AgentActivity({ task }: AgentActivityProps) {
       {unpushed && changes.length > 0 && <Changes changes={changes} />}
       {events.length > 0 && <Feed events={events.slice(-FEED_LENGTH)} />}
       <div className={styles.actions}>
+        {task.queue && (
+          <span className={styles.queue}>
+            {task.queue.position} of {task.queue.total} in queue
+          </span>
+        )}
+        {task.queue && task.queue.total > 1 && (
+          <>
+            <Button
+              size="sm"
+              disabled={task.queue.position === 1 || move.isPending}
+              onClick={() => move.mutate({ taskId: task.id, direction: 'up' })}
+            >
+              Move Up
+            </Button>
+            <Button
+              size="sm"
+              disabled={task.queue.position === task.queue.total || move.isPending}
+              onClick={() => move.mutate({ taskId: task.id, direction: 'down' })}
+            >
+              Move Down
+            </Button>
+          </>
+        )}
         {(task.status === 'queued' || task.status === 'running' || task.status === 'waiting') && (
           <Button size="sm" loading={pending('stop')} onClick={() => run('stop')}>
             Stop

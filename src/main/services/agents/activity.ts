@@ -6,8 +6,10 @@ import {
   type AgentEvent,
   type AgentQuestionItem,
   type AgentTask,
+  type MoveAgentTaskInput,
 } from '../../../shared/contracts/agent-tasks.ts';
 import type { AgentActivity } from '../../agents/provider.ts';
+import { transaction } from '../../database/connection.ts';
 import { redact } from '../../logging/redact.ts';
 
 // Summaries stay short in the feed. Logs behind them are cut to keep the database small.
@@ -60,6 +62,7 @@ export function listAgentTasks(db: DatabaseSync): AgentTask[] {
   const rows = db
     .prepare(
       `SELECT t.id, t.pull_request_id, t.status, t.attempts, t.error, t.result, t.cost_usd,
+              COALESCE(t.queue_position, t.id) AS queue_order,
               t.created_at, t.started_at, t.finished_at, t.push_status, t.push_error,
               t.pushed_sha, t.ci_status, t.ci_checks,
               q.id AS question_id, q.questions, q.created_at AS question_created_at
@@ -75,6 +78,7 @@ export function listAgentTasks(db: DatabaseSync): AgentTask[] {
     error: string | null;
     result: string | null;
     cost_usd: number | null;
+    queue_order: number;
     created_at: string;
     started_at: string | null;
     finished_at: string | null;
@@ -87,12 +91,20 @@ export function listAgentTasks(db: DatabaseSync): AgentTask[] {
     questions: string | null;
     question_created_at: string | null;
   }[];
+  const queue = rows
+    .filter((row) => row.status === 'queued')
+    .map((row) => row.queue_order)
+    .sort((a, b) => a - b);
   return rows.map((row) => ({
     id: row.id,
     pullRequestId: row.pull_request_id,
     status: row.status,
     attempts: row.attempts,
     error: row.error,
+    queue:
+      row.status === 'queued'
+        ? { position: queue.indexOf(row.queue_order) + 1, total: queue.length }
+        : null,
     report: row.result ? agentReportSchema.parse(JSON.parse(row.result)) : null,
     costUsd: row.cost_usd,
     question:
@@ -116,6 +128,30 @@ export function listAgentTasks(db: DatabaseSync): AgentTask[] {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
   }));
+}
+
+// Swaps a queued task with its neighbor in the queue. Does nothing at either end of the queue,
+// or when the task has already left it.
+export function moveQueuedTask(
+  db: DatabaseSync,
+  taskId: number,
+  direction: MoveAgentTaskInput['direction'],
+): void {
+  transaction(db, () => {
+    const queue = db
+      .prepare(
+        `SELECT id, COALESCE(queue_position, id) AS position FROM agent_tasks
+         WHERE status = 'queued' ORDER BY position`,
+      )
+      .all() as { id: number; position: number }[];
+    const index = queue.findIndex(({ id }) => id === taskId);
+    const task = queue[index];
+    const neighbor = queue[direction === 'up' ? index - 1 : index + 1];
+    if (!task || !neighbor) return;
+    const place = db.prepare('UPDATE agent_tasks SET queue_position = ? WHERE id = ?');
+    place.run(neighbor.position, task.id);
+    place.run(task.position, neighbor.id);
+  });
 }
 
 export function createQuestion(

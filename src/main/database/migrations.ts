@@ -580,4 +580,13 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX finding_screenshots_finding ON finding_screenshots (finding_id);
     `,
   },
+  {
+    version: 30,
+    name: 'agent_task_queue_position',
+    // Where a task sits in the queue once the user moved it. A task that was never moved uses
+    // its id, so the queue is oldest first by default and new tasks join the end.
+    sql: `
+      ALTER TABLE agent_tasks ADD COLUMN queue_position INTEGER;
+    `,
+  },
 ];

@@ -2841,6 +2841,64 @@ test('folds unchanged lines and reveals a search match inside them', async () =>
   }
 });
 
+test('moves a queued agent task in the queue from the Inbox', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, { 'pullRequests.list': pullRequestsState('Queued work') });
+    await app.evaluate(({ ipcMain }) => {
+      let position = 2;
+      const moves: unknown[] = [];
+      Object.assign(globalThis, { agentMoves: moves });
+      ipcMain.removeHandler('agentTasks.list');
+      ipcMain.handle('agentTasks.list', () => [
+        {
+          id: 5,
+          pullRequestId: 1,
+          status: 'queued',
+          attempts: 0,
+          error: null,
+          queue: { position, total: 3 },
+          report: null,
+          costUsd: null,
+          question: null,
+          push: null,
+          ci: null,
+          createdAt: '2026-10-31T12:00:00Z',
+          startedAt: null,
+          finishedAt: null,
+        },
+      ]);
+      ipcMain.removeHandler('agentTasks.listActivity');
+      ipcMain.handle('agentTasks.listActivity', () => []);
+      ipcMain.removeHandler('agentTasks.move');
+      ipcMain.handle('agentTasks.move', (_event, input: unknown) => {
+        moves.push(input);
+        position = 1;
+        return null;
+      });
+    });
+    await page.evaluate(() => {
+      location.hash = '/inbox';
+    });
+    await page.reload();
+    await page.getByText('Queued work').first().click();
+
+    const activity = page.getByRole('region', { name: 'Agent activity' });
+    await expect(activity).toContainText('2 of 3 in queue');
+    await activity.getByRole('button', { name: 'Move Up' }).click();
+    await expect(activity).toContainText('1 of 3 in queue');
+    await expect(activity.getByRole('button', { name: 'Move Up' })).toBeDisabled();
+    await expect(activity.getByRole('button', { name: 'Move Down' })).toBeEnabled();
+    expect(
+      await app.evaluate(() => (globalThis as unknown as { agentMoves: unknown[] }).agentMoves),
+    ).toEqual([{ taskId: 5, direction: 'up' }]);
+  } finally {
+    await app.close();
+  }
+});
+
 test("shows an agent's work in the Inbox and answers its question", async () => {
   const app = await launch();
   try {

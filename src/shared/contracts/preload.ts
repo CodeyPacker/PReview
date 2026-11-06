@@ -3,6 +3,7 @@ import type {
   AgentEvent,
   AgentTask,
   AnswerAgentQuestionInput,
+  MoveAgentTaskInput,
 } from './agent-tasks.ts';
 import type { ExportBackupResult, RestoreBackupResult } from './backups.ts';
 import type { GitHubAuthState } from './github.ts';
@@ -212,6 +213,7 @@ export interface PreviewApi {
     stop(taskId: number): Promise<null>;
     forceStop(taskId: number): Promise<null>;
     resume(taskId: number): Promise<null>;
+    move(input: MoveAgentTaskInput): Promise<null>;
     push(taskId: number): Promise<null>;
     changes(taskId: number): Promise<AgentChange[]>;
     investigate(taskId: number): Promise<null>;

@@ -66,7 +66,7 @@ type Answers = Record<string, string>;
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-// Runs queued agent tasks, oldest first, a few at a time and one per pull request. A failed
+// Runs queued agent tasks in queue order, a few at a time and one per pull request. A failed
 // run is retried twice, then waits for the user. Tasks interrupted by a crash resume their
 // sessions on the next start. Each step is saved to the task's activity feed, and questions
 // the agent asks wait for the user's answer.
@@ -107,7 +107,7 @@ export class AgentRunner {
            WHERE status = 'queued' AND pull_request_id NOT IN (
              SELECT pull_request_id FROM agent_tasks WHERE status IN ('running', 'waiting')
            )
-           ORDER BY id LIMIT 1`,
+           ORDER BY COALESCE(queue_position, id) LIMIT 1`,
         )
         .get() as { id: number } | undefined;
       if (!next) return;
