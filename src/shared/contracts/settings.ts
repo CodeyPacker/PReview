@@ -25,7 +25,16 @@ export type ReviewLeader = z.infer<typeof reviewLeaderSchema>;
 export const agentModelSchema = z.enum(['default', 'fable', 'opus', 'sonnet', 'haiku']);
 export type AgentModel = z.infer<typeof agentModelSchema>;
 
+// 'last-review' opens the review on show when the app closed, or the Dashboard without one.
+export const startupScreenSchema = z.enum(['last-review', 'dashboard', 'inbox']);
+export type StartupScreen = z.infer<typeof startupScreenSchema>;
+
 export const settingsSchema = z.strictObject({
+  startupScreen: startupScreenSchema,
+  launchAtLogin: z.boolean(),
+  autoCheckUpdates: z.boolean(),
+  // Closing the window hides it and agents keep running. When false, closing quits.
+  keepRunningOnClose: z.boolean(),
   theme: themeSchema,
   accent: accentSchema,
   density: densitySchema,
@@ -51,6 +60,10 @@ export const settingsPatchSchema = settingsSchema.partial();
 export type SettingsPatch = z.infer<typeof settingsPatchSchema>;
 
 export const defaultSettings: Settings = {
+  startupScreen: 'last-review',
+  launchAtLogin: false,
+  autoCheckUpdates: true,
+  keepRunningOnClose: true,
   theme: 'system',
   accent: 'purple',
   density: 'default',

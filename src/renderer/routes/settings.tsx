@@ -25,6 +25,7 @@ import {
   type FontSize,
   type ReviewLeader,
   type Settings,
+  type StartupScreen,
 } from '../../shared/contracts/settings.ts';
 import { reviewShortcuts, reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
 import { isMac, isWindows } from '../lib/platform.ts';
@@ -40,6 +41,35 @@ const leaders: { value: ReviewLeader; label: string }[] = [
   { value: 'Alt+Shift', label: 'Alt / Option+Shift' },
   { value: 'Meta+Shift', label: 'Command / Windows+Shift' },
 ];
+
+const startupScreens: { value: StartupScreen; label: string }[] = [
+  { value: 'last-review', label: 'Last review' },
+  { value: 'dashboard', label: 'Dashboard' },
+  { value: 'inbox', label: 'Inbox' },
+];
+
+const generalSettings = [
+  // Linux has no setting for this.
+  ...(isMac || isWindows
+    ? ([
+        {
+          key: 'launchAtLogin',
+          label: 'Launch at login',
+          description: 'Start PReview when you log in to this computer.',
+        },
+      ] as const)
+    : []),
+  {
+    key: 'autoCheckUpdates',
+    label: 'Check for updates automatically',
+    description: 'At startup and every few hours. You can always check from Updates.',
+  },
+  {
+    key: 'keepRunningOnClose',
+    label: 'Keep running when the window closes',
+    description: 'Agents keep working, and PReview stays in the system tray until you quit it.',
+  },
+] as const satisfies readonly { key: keyof Settings; label: string; description: string }[];
 
 const themes: { value: Settings['theme']; label: string }[] = [
   { value: 'system', label: 'System' },
@@ -136,6 +166,37 @@ function SettingsPage() {
       />
       <div className={styles.columns}>
         <div className={styles.column}>
+          <Panel title="General">
+            <div className={styles.row}>
+              <span id="startup-screen-label" className="headline">
+                Startup screen
+              </span>
+              <Select
+                aria-labelledby="startup-screen-label"
+                options={startupScreens}
+                value={settings.data?.startupScreen ?? defaultSettings.startupScreen}
+                disabled={!settings.data}
+                onValueChange={(startupScreen) => update.mutate({ startupScreen })}
+              />
+            </div>
+            <ul className={styles.switches}>
+              {generalSettings.map(({ key, label, description }) => (
+                <li key={key}>
+                  <Switch
+                    label={
+                      <span className={styles.setting}>
+                        <span className="headline">{label}</span>
+                        <span className={styles.description}>{description}</span>
+                      </span>
+                    }
+                    checked={settings.data?.[key] ?? defaultSettings[key]}
+                    disabled={!settings.data}
+                    onCheckedChange={(checked) => update.mutate({ [key]: checked })}
+                  />
+                </li>
+              ))}
+            </ul>
+          </Panel>
           <Panel title="Appearance">
             <div className={styles.row}>
               <span id="theme-label" className="headline">
