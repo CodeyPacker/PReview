@@ -39,7 +39,7 @@ import type {
   SubmitReviewResult,
   ThreadActionResult,
 } from './pull-request-reviews.ts';
-import type { PullRequestsState } from './pull-requests.ts';
+import type { ClearReviewDataResult, PullRequestsState } from './pull-requests.ts';
 import type {
   CreateReviewDraftInput,
   ReattachReviewDraftsInput,
@@ -73,6 +73,9 @@ export interface PreviewApi {
   };
   logs: {
     open(): Promise<null>;
+  };
+  reviewData: {
+    clear(): Promise<ClearReviewDataResult>;
   };
   backups: {
     export(): Promise<ExportBackupResult>;

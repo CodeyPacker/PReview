@@ -121,6 +121,32 @@ test('saves the agent settings', async () => {
   }
 });
 
+test('deletes review data from Settings after asking', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+    const open = page.getByRole('button', { name: 'Delete Review Data…' });
+    const dialog = page.getByRole('dialog', { name: 'Delete review data?' });
+    const confirm = dialog.getByRole('button', { name: 'Delete Review Data' });
+
+    await open.click();
+    await confirm.click();
+    await expect(dialog).toBeHidden();
+
+    await mockIpc(app, { 'reviewData.clear': { status: 'busy' } });
+    await open.click();
+    await confirm.click();
+    await expect(dialog.getByRole('alert')).toContainText('An agent is working');
+  } finally {
+    await app.close();
+  }
+});
+
 test('opens the startup screen chosen in Settings', async () => {
   const app = await launch();
   try {

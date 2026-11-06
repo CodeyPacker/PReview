@@ -1,5 +1,7 @@
 import { RadioGroup } from '@base-ui/react/radio-group';
 import { createFileRoute } from '@tanstack/react-router';
+import { useState } from 'react';
+import { ClearReviewDataDialog } from '../app/ClearReviewDataDialog.tsx';
 import { PageHeader } from '../app/PageHeader.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { ColorSwatch } from '../components/ColorSwatch/ColorSwatch.tsx';
@@ -149,6 +151,7 @@ function SettingsPage() {
   const settings = useSettings();
   const update = useUpdateSettings();
   const leader = settings.data?.reviewLeader ?? defaultSettings.reviewLeader;
+  const [clearOpen, setClearOpen] = useState(false);
   const exportBackup = useExportBackup();
   const restoreBackup = useRestoreBackup();
   const openLogs = useOpenLogs();
@@ -472,6 +475,18 @@ function SettingsPage() {
                     : 'Could not restore the backup.')}
               </p>
             )}
+          </Panel>
+          <Panel title="Privacy & Data">
+            <p className={styles.description}>
+              Delete the unsent comments, findings, screenshots and agent history stored on this
+              computer.
+            </p>
+            <div className={styles.actions}>
+              <Button variant="outline" tone="danger" onClick={() => setClearOpen(true)}>
+                Delete Review Data…
+              </Button>
+            </div>
+            <ClearReviewDataDialog open={clearOpen} onOpenChange={setClearOpen} />
           </Panel>
           <Panel title="Troubleshooting">
             <p className={styles.description}>

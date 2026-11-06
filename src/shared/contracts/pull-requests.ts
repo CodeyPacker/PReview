@@ -47,3 +47,7 @@ export const pullRequestsStateSchema = z.object({
   syncing: z.boolean(),
 });
 export type PullRequestsState = z.infer<typeof pullRequestsStateSchema>;
+
+// 'busy' when an agent is working or a review is being sent.
+export const clearReviewDataResultSchema = z.object({ status: z.enum(['cleared', 'busy']) });
+export type ClearReviewDataResult = z.infer<typeof clearReviewDataResultSchema>;

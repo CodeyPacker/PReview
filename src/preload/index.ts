@@ -28,6 +28,9 @@ const api: PreviewApi = {
   logs: {
     open: () => invoke('logs.open', undefined),
   },
+  reviewData: {
+    clear: () => invoke('reviewData.clear', undefined),
+  },
   notifications: {
     list: () => invoke('notifications.list', undefined),
     markAllRead: () => invoke('notifications.markAllRead', undefined),

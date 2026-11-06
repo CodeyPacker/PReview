@@ -38,7 +38,7 @@ import {
   queuedReviewSchema,
   threadActionResultSchema,
 } from './pull-request-reviews.ts';
-import { pullRequestsStateSchema } from './pull-requests.ts';
+import { clearReviewDataResultSchema, pullRequestsStateSchema } from './pull-requests.ts';
 import {
   createReviewDraftInputSchema,
   reattachReviewDraftsInputSchema,
@@ -88,6 +88,7 @@ export const ipcContract = {
   'backups.restore': { input: z.undefined(), output: restoreBackupResultSchema },
   // Opens the folder of log files.
   'logs.open': { input: z.undefined(), output: z.null() },
+  'reviewData.clear': { input: z.undefined(), output: clearReviewDataResultSchema },
   'notifications.list': { input: z.undefined(), output: notificationsStateSchema },
   'notifications.markAllRead': { input: z.undefined(), output: notificationsStateSchema },
   // Quiet while the user is in Zen Mode: no desktop notifications.

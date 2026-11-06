@@ -3,6 +3,7 @@ import type { ExportBackupResult, RestoreBackupResult } from '../../shared/contr
 import type { DatabaseSync } from 'node:sqlite';
 import type { AppInfo } from '../../shared/contracts/ipc.ts';
 import type { GitHubAccounts } from '../services/github/accounts.ts';
+import { clearReviewData } from '../services/pull-requests/clear-review-data.ts';
 import type { Notifier } from '../services/notifications.ts';
 import type { Updates } from '../services/updates.ts';
 import type { RepositoryDiscovery } from '../services/repositories/discovery.ts';
@@ -127,6 +128,7 @@ export function registerIpcHandlers(
     await openLogs();
     return null;
   });
+  handle('reviewData.clear', () => clearReviewData(db));
   handle('backups.export', () => backupFiles.export());
   handle('backups.restore', () => backupFiles.restore());
   handle('notifications.list', () => notifier.list());
