@@ -118,10 +118,39 @@ test('saves the agent settings', async () => {
   }
 });
 
+test('opens the startup screen chosen in Settings', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+    await page.getByRole('combobox', { name: 'Startup screen' }).click();
+    await page.getByRole('option', { name: 'Inbox' }).click();
+    await expect
+      .poll(() => page.evaluate(() => window.preview.settings.getAll()))
+      .toMatchObject({ startupScreen: 'inbox' });
+
+    await page.evaluate(() => {
+      location.hash = '/';
+    });
+    await page.reload();
+    await expect(page).toHaveURL(/#\/inbox$/);
+  } finally {
+    await app.close();
+  }
+});
+
 test('keeps a saved setting after a restart', async () => {
   let app = await launch();
   let page = await app.firstWindow();
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
+    startupScreen: 'last-review',
+    launchAtLogin: false,
+    autoCheckUpdates: true,
+    keepRunningOnClose: true,
     theme: 'system',
     accent: 'purple',
     density: 'default',
@@ -142,6 +171,10 @@ test('keeps a saved setting after a restart', async () => {
   app = await launch();
   page = await app.firstWindow();
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
+    startupScreen: 'last-review',
+    launchAtLogin: false,
+    autoCheckUpdates: true,
+    keepRunningOnClose: true,
     theme: 'dark',
     accent: 'purple',
     density: 'default',
@@ -169,6 +202,10 @@ test('rejects an invalid setting', async () => {
     ),
   ).rejects.toThrow('settings.update: invalid input');
   expect(await page.evaluate(() => window.preview.settings.getAll())).toEqual({
+    startupScreen: 'last-review',
+    launchAtLogin: false,
+    autoCheckUpdates: true,
+    keepRunningOnClose: true,
     theme: 'system',
     accent: 'purple',
     density: 'default',
@@ -3058,6 +3095,19 @@ test("shows the agent's unpushed changes and warns before merging without them",
   } finally {
     await app.close();
   }
+});
+
+test('closing the window quits when PReview should not keep running', async () => {
+  const app = await launch();
+  const page = await app.firstWindow();
+  await page.evaluate(() => window.preview.settings.update({ keepRunningOnClose: false }));
+
+  // The app can quit before this call answers, so it isn't awaited.
+  const closed = app.waitForEvent('close');
+  void app
+    .evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]?.close())
+    .catch(() => {});
+  await closed;
 });
 
 test('closing the window hides it, and PReview stays open until it quits', async () => {

@@ -109,11 +109,14 @@ function createWindow(lifetime: WindowLifetime): void {
 
   if (!hiddenForTests) win.once('ready-to-show', () => win.show());
 
-  // Closing hides the window, so running agents continue. Quitting is what ends the app.
+  // Closing normally hides the window, so running agents continue. Quitting is what ends the app.
   win.on('close', (event) => {
-    if (!lifetime.hideOnClose) return;
+    const action = lifetime.closeAction;
+    if (action === 'close') return;
     event.preventDefault();
-    win.hide();
+    // Quitting from inside this event would be cancelled by the close it just prevented.
+    if (action === 'quit') setImmediate(() => app.quit());
+    else win.hide();
   });
   // Windows is shutting down or signing out, and a hidden window must not hold that up.
   win.on('session-end', () => lifetime.forceQuit());
@@ -419,11 +422,12 @@ void app.whenReady().then(async () => {
   });
   const lifetime = new WindowLifetime({
     busy: () => agentRunner.busy,
+    keepRunning: () => getSettings(db).keepRunningOnClose,
     confirmQuit: () =>
       dialog.showMessageBoxSync({
         type: 'warning',
         message: 'An agent is still running',
-        detail: 'Quitting stops it. To let it finish, keep PReview running and close the window.',
+        detail: 'Quitting stops it. To let it finish, choose Keep Running.',
         buttons: ['Keep Running', 'Quit Anyway'],
         defaultId: 0,
         cancelId: 0,
@@ -499,6 +503,7 @@ void app.whenReady().then(async () => {
   const updates = new Updates({
     source: autoUpdater,
     enabled: app.isPackaged,
+    automatic: () => getSettings(db).autoCheckUpdates,
     // An ad-hoc signed macOS app can't install an update, so the user downloads it.
     canInstall: process.platform !== 'darwin',
     releaseUrl: (version) => `https://github.com/CodeyPacker/PReview/releases/tag/v${version}`,
@@ -528,6 +533,10 @@ void app.whenReady().then(async () => {
     log,
   });
   registerIpcHandlers(db, {
+    // A development build would register the Electron binary, and Linux has no such setting.
+    setLaunchAtLogin: (openAtLogin) => {
+      if (app.isPackaged && process.platform !== 'linux') app.setLoginItemSettings({ openAtLogin });
+    },
     backupFiles,
     notifier,
     updates,

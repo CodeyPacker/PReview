@@ -24,6 +24,8 @@ export interface UpdatesDeps {
   source: UpdateSource;
   // False in a development build, which never updates.
   enabled: boolean;
+  // Whether to check without being asked. Read each time, because the setting can change.
+  automatic: () => boolean;
   // False where the update can't be installed by PReview, such as an unsigned macOS app. The
   // user is then sent to download it.
   canInstall: boolean;
@@ -41,7 +43,8 @@ export interface UpdatesDeps {
 
 const messageOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-// Checks GitHub Releases for a new version at start and every few hours. Where it can install,
+// Checks GitHub Releases for a new version at start and every few hours, unless the user turned
+// that off, and whenever they ask. Where it can install,
 // it downloads the update and asks before restarting, never while an agent runs. A declined
 // update installs when PReview quits.
 export class Updates {
@@ -87,8 +90,11 @@ export class Updates {
 
   start(): void {
     if (!this.deps.enabled) return;
-    void this.check();
-    this.timer = setInterval(() => void this.check(), this.deps.checkMs ?? CHECK_MS);
+    const checkIfAutomatic = () => {
+      if (this.deps.automatic()) void this.check();
+    };
+    checkIfAutomatic();
+    this.timer = setInterval(checkIfAutomatic, this.deps.checkMs ?? CHECK_MS);
   }
 
   stop(): void {

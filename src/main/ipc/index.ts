@@ -63,6 +63,7 @@ import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
 
 export interface IpcServices {
+  setLaunchAtLogin: (open: boolean) => void;
   // Exports a backup, or restores one, through the system file dialogs.
   backupFiles: {
     export(): Promise<ExportBackupResult>;
@@ -88,6 +89,7 @@ export interface IpcServices {
 export function registerIpcHandlers(
   db: DatabaseSync,
   {
+    setLaunchAtLogin,
     backupFiles,
     notifier,
     updates,
@@ -114,6 +116,8 @@ export function registerIpcHandlers(
     const settings = updateSettings(db, patch);
     // A higher limit has room for tasks that are waiting.
     if (patch.agentLimit !== undefined) agentRunner.wake();
+    if (patch.launchAtLogin !== undefined) setLaunchAtLogin(patch.launchAtLogin);
+    if (patch.autoCheckUpdates) void updates.check();
     return settings;
   });
   handle('backups.export', () => backupFiles.export());

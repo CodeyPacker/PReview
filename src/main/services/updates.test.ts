@@ -12,6 +12,7 @@ class FakeSource extends EventEmitter {
 
 let source: FakeSource;
 let busy: boolean;
+let automatic: boolean;
 const prompt = vi.fn<(kind: 'restart' | 'download', version: string) => Promise<boolean>>();
 const openUrl = vi.fn();
 const log = { info: vi.fn(), warn: vi.fn() };
@@ -21,6 +22,7 @@ function create(canInstall: boolean, enabled = true): Updates {
   updates = new Updates({
     source,
     enabled,
+    automatic: () => automatic,
     canInstall,
     releaseUrl: (version) => `https://example.test/v${version}`,
     busy: () => busy,
@@ -37,6 +39,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   source = new FakeSource();
   busy = false;
+  automatic = true;
   prompt.mockReset();
   openUrl.mockReset();
 });
@@ -52,6 +55,21 @@ describe('Updates', () => {
     expect(source.checkForUpdates).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(20_000);
     expect(source.checkForUpdates).toHaveBeenCalledTimes(3);
+  });
+
+  it('only checks when asked once automatic checks are off', async () => {
+    automatic = false;
+    const updates = create(true);
+    updates.start();
+    vi.advanceTimersByTime(20_000);
+    expect(source.checkForUpdates).not.toHaveBeenCalled();
+
+    await updates.check();
+    expect(source.checkForUpdates).toHaveBeenCalledTimes(1);
+
+    automatic = true;
+    vi.advanceTimersByTime(10_000);
+    expect(source.checkForUpdates).toHaveBeenCalledTimes(2);
   });
 
   it('never checks in a development build', async () => {
