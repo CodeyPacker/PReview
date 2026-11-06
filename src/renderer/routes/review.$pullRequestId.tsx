@@ -158,7 +158,9 @@ function ReviewPage() {
   const openFindings = findings.filter((finding) => finding.resolution === 'open').length;
   const unpublishedFindings = findings.filter((finding) => finding.publishedAt === null);
   const reviewThreads = useReviewThreads(pullRequestId, files.data?.headSha);
-  const openThreads = reviewThreads.data?.filter((thread) => !thread.resolved).length ?? 0;
+  // The discussions an agent reads. It skips outdated ones, since their code has changed.
+  const openThreads =
+    reviewThreads.data?.filter((thread) => !thread.resolved && !thread.outdated).length ?? 0;
   const threadActions = useThreadActions(pullRequestId);
   // A failure to reach GitHub reads like a refusal, so the thread shows it in place.
   const unreachable = {
