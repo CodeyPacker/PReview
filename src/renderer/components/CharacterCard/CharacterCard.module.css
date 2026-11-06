@@ -2,6 +2,8 @@
 
 .card {
   display: grid;
+  /* In a short space the art gives way, so the name and level still show. */
+  grid-template-rows: minmax(0, 1fr) auto;
   width: 128px;
   padding: 0;
   overflow: hidden;
@@ -40,6 +42,10 @@
   position: relative;
   display: grid;
   place-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
   aspect-ratio: 1 / 1;
   background: linear-gradient(180deg, var(--canvas-tint), var(--surface-sunken));
 }
@@ -47,7 +53,8 @@
 .image {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  min-height: 0;
+  object-fit: contain;
 }
 
 .placeholder {
