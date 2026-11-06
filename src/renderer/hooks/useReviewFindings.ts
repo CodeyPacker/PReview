@@ -5,6 +5,7 @@ import type {
   SetFindingResolutionInput,
   UpdateReviewFindingInput,
 } from '../../shared/contracts/review-findings.ts';
+import { cheerCompanion } from '../lib/companionCheer.ts';
 
 export const loadFindingScreenshot = (id: number) => window.preview.reviewFindings.screenshot(id);
 
@@ -22,7 +23,10 @@ export function useReviewFindings(pullRequestId: number) {
   const create = useMutation({
     mutationFn: (finding: CreateReviewFindingInput) =>
       window.preview.reviewFindings.create(finding),
-    onSuccess: replace,
+    onSuccess: (saved) => {
+      replace(saved);
+      cheerCompanion();
+    },
   });
   const update = useMutation({
     mutationFn: (finding: UpdateReviewFindingInput) =>

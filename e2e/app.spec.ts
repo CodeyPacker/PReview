@@ -2924,6 +2924,51 @@ test('folds unchanged lines and reveals a search match inside them', async () =>
   }
 });
 
+test('the companion celebrates when an agent finishes, then goes back to idle', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      const task = {
+        id: 1,
+        pullRequestId: 1,
+        status: 'running',
+        attempts: 1,
+        error: null,
+        queue: null,
+        report: null,
+        costUsd: null,
+        question: null,
+        push: null,
+        ci: null,
+        createdAt: '2026-10-31T12:00:00Z',
+        startedAt: null,
+        finishedAt: null,
+      };
+      Object.assign(globalThis, { finishAgent: () => (task.status = 'completed') });
+      ipcMain.removeHandler('agentTasks.list');
+      ipcMain.handle('agentTasks.list', () => [task]);
+    });
+    await page.reload();
+
+    const companion = page.getByRole('region', { name: 'Your companion' });
+    const sprite = companion.getByRole('img', { name: 'Shadow' });
+    await expect(sprite).toHaveAttribute('data-animation', 'idle');
+    await expect(companion).toContainText('Level 1');
+
+    await app.evaluate(() => (globalThis as unknown as { finishAgent: () => void }).finishAgent());
+    await expect(sprite).toHaveAttribute('data-animation', 'victory');
+    await expect(sprite).toHaveAttribute('data-animation', 'idle', { timeout: 15_000 });
+
+    // The sidebar hides it, as Zen Mode does.
+    await page.getByRole('button', { name: 'Collapse navigation' }).click();
+    await expect(companion).toHaveCount(0);
+  } finally {
+    await app.close();
+  }
+});
+
 test('lists active agent tasks on the Dashboard in the order they will run', async () => {
   const app = await launch();
   try {
