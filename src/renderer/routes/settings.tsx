@@ -251,6 +251,24 @@ function SettingsPage() {
                 onValueChange={(fontSize) => update.mutate({ fontSize })}
               />
             </div>
+            <div className={styles.row}>
+              <span id="diff-font-size-label" className="headline">
+                Diff font size
+              </span>
+              <ToggleGroup
+                aria-labelledby="diff-font-size-label"
+                options={fontSizes}
+                value={settings.data?.diffFontSize ?? defaultSettings.diffFontSize}
+                disabled={!settings.data}
+                onValueChange={(diffFontSize) => update.mutate({ diffFontSize })}
+              />
+            </div>
+            <Switch
+              label={<span className="headline">Wrap long lines in diffs</span>}
+              checked={settings.data?.diffWordWrap ?? defaultSettings.diffWordWrap}
+              disabled={!settings.data}
+              onCheckedChange={(diffWordWrap) => update.mutate({ diffWordWrap })}
+            />
           </Panel>
           <Panel title="Review shortcuts">
             <div className={styles.row}>

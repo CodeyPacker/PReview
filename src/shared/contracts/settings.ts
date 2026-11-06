@@ -39,6 +39,8 @@ export const settingsSchema = z.strictObject({
   accent: accentSchema,
   density: densitySchema,
   fontSize: fontSizeSchema,
+  diffFontSize: fontSizeSchema,
+  diffWordWrap: z.boolean(),
   reviewLeader: reviewLeaderSchema,
   // Set when the user closes the first-launch GitHub prompt without connecting.
   githubPromptDismissed: z.boolean(),
@@ -68,6 +70,8 @@ export const defaultSettings: Settings = {
   accent: 'purple',
   density: 'default',
   fontSize: 'default',
+  diffFontSize: 'default',
+  diffWordWrap: false,
   reviewLeader: 'Control',
   githubPromptDismissed: false,
   wslDistro: 'Ubuntu',
