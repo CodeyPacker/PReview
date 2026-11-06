@@ -1946,28 +1946,58 @@ The following phases represent logical delivery milestones, not fixed schedules.
 PReview's MVP is complete when:
 
 - [ ] The application installs and launches on Windows and macOS.
-- [ ] GitHub OAuth authentication works.
-- [ ] Watched folders automatically discover eligible repositories.
-- [ ] Tracked PRs appear in a functional Inbox.
-- [ ] Monaco displays usable side-by-side and unified diffs.
-- [ ] Users can review files, create drafts, and publish feedback.
+- [x] GitHub OAuth authentication works.
+- [x] Watched folders automatically discover eligible repositories.
+- [x] Tracked PRs appear in a functional Inbox.
+- [x] Monaco displays usable side-by-side and unified diffs.
+- [x] Users can review files, create drafts, and publish feedback.
 - [ ] Review sessions persist across restarts.
-- [ ] GitHub discussions can be read and managed.
-- [ ] Zen Mode functions as approved.
-- [ ] Send to Agent launches Claude with sufficient PR context.
-- [ ] Agents work in isolated Git worktrees.
+- [x] GitHub discussions can be read and managed.
+- [x] Zen Mode functions as approved.
+- [x] Send to Agent launches Claude with sufficient PR context.
+- [x] Agents work in isolated Git worktrees.
 - [ ] Agent progress, questions, and errors appear inside PReview.
 - [ ] Safe automatic pushes and CI monitoring work.
-- [ ] Re-review mode focuses on new changes.
+- [x] Re-review mode focuses on new changes.
 - [ ] Findings can be validated and user-verified.
-- [ ] XP is awarded without duplicate transactions.
-- [ ] Characters level up independently.
-- [ ] Achievements unlock correctly.
+- [x] XP is awarded without duplicate transactions.
+- [x] Characters level up independently.
+- [x] Achievements unlock correctly.
 - [ ] Context-aware sprite animations work.
-- [ ] The approved post-merge celebration works.
+- [x] The approved post-merge celebration works.
 - [ ] Offline drafts and queued submissions survive restarts.
 - [ ] Backups and crash recovery work.
 - [ ] All nine approved visual designs are represented in the application.
+
+## 23.1 Status (2026-11-06)
+
+A ticked item is built and covered by automated tests or real use. Passing e2e tests often use mocked data, so a tick is not proof of real use for every item.
+
+Still open:
+
+| Criterion | What is left |
+|---|---|
+| Installs on Windows and macOS | Installers build in CI. No release is published and they are unsigned. Publish only on the owner's clear yes. |
+| Review sessions persist across restarts | Unit tests only. Not tried with a real restart. |
+| Agent progress, questions, and errors | Progress and errors worked in a real Windows run. Questions passed a real SDK call on macOS, but not through the app or WSL. |
+| Safe automatic pushes and CI monitoring | A real Windows push worked. Not yet seen: the app showing a finished CI result, or a refused push outside tests. |
+| Findings validated and user-verified | Agents validate and users resolve. Nothing can set a finding to rejected. |
+| Context-aware sprite animations | The sidebar companion idles and plays victory on XP, a finished agent, and saved findings or reviews. Only idle and victory art exist, so every event looks the same. Only the agent trigger has a test. |
+| Offline drafts and queued submissions | Unit tests and startup code. Not tried with a real outage. |
+| Backups and crash recovery | Backup export and restore, and window reload, have mocked or isolated e2e tests. No real crash tried. |
+| All nine designs represented | All nine screens exist. The review screen has no agent and findings side panel. Agent activity is in the Inbox and findings are in a dialog. Only the review design was compared this pass. |
+
+## 23.2 Decisions Made During Implementation
+
+These override earlier sections where they differ.
+
+- Settings has no Review Preferences panel. Review depth, auto-labels and grouping related pull requests are cut. Drafts stay a per-repository switch.
+- Privacy & Data has one button that deletes review data and keeps settings and XP. Data retention and save-history options are cut. The app has no chat.
+- Editor preferences are diff font size and word wrap.
+- Each review shortcut's letter can be changed. J, K and Escape are fixed. C, V, X, Q, W, H, M and R are reserved.
+- Agents make the fix first and install or test only when tests cover the change. CI checks every push.
+- Downloaded packages stay between agent runs in one folder shared by all repositories. The owner accepted the risk that a bad pull request could change saved packages, since only trusted code goes through PReview. Nothing removes old packages yet.
+- Queued agent tasks move up and down from their own Agent Activity section. The Dashboard lists them in run order.
 
 ---
 
