@@ -126,6 +126,8 @@ function DashboardPage() {
   const tasksByTab = useMemo(() => {
     const groups: Record<AgentTab, AgentTask[]> = { active: [], completed: [], attention: [] };
     for (const task of agentTasks ?? []) groups[agentTabOf(task)].push(task);
+    // Running tasks come first, then the queue in the order it will run.
+    groups.active.sort((a, b) => (a.queue?.position ?? 0) - (b.queue?.position ?? 0));
     return groups;
   }, [agentTasks]);
 
@@ -322,7 +324,11 @@ function DashboardPage() {
                           leading={<IconTile icon={<Bot />} tone="info" size="md" />}
                           eyebrow={pull && repositoryNames.get(pull.repositoryId)}
                           title={pull ? `#${pull.number} ${pull.title}` : 'Pull request'}
-                          meta={relativeTime(task.finishedAt ?? task.startedAt ?? task.createdAt)}
+                          meta={
+                            task.queue
+                              ? `${task.queue.position} of ${task.queue.total} in queue`
+                              : relativeTime(task.finishedAt ?? task.startedAt ?? task.createdAt)
+                          }
                           trailing={<StatusPill status={agentStatus[task.status]} size="sm" />}
                         />
                       );
