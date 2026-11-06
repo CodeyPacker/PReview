@@ -45,9 +45,12 @@ export function CharacterCard({
         {image ? (
           <img src={image} alt="" className={styles.image} />
         ) : (
-          <span className={styles.placeholder} aria-hidden>
-            {name.charAt(0).toUpperCase()}
-          </span>
+          // A locked character's name stays hidden, so its initial does too.
+          !locked && (
+            <span className={styles.placeholder} aria-hidden>
+              {name.charAt(0).toUpperCase()}
+            </span>
+          )
         )}
         {locked && (
           <span className={styles.lock}>
