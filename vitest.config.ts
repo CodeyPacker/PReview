@@ -6,21 +6,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     projects: [
-      {
-        // Main-process and shared code, plus renderer tests that render to a string, run in Node.
-        test: {
-          name: 'unit',
-          environment: 'node',
-          // Tests that run real git can take seconds on Windows while other files run alongside.
-          testTimeout: 30_000,
-          hookTimeout: 30_000,
-          include: [
-            'src/main/**/*.test.ts',
-            'src/shared/**/*.test.ts',
-            'src/renderer/**/*.test.{ts,tsx}',
-          ],
-        },
-      },
+      './vitest.unit.config.ts',
       {
         // Every Storybook story renders in Chromium and must pass the a11y checks.
         plugins: [storybookTest({ configDir: join(import.meta.dirname, '.storybook') })],
