@@ -696,6 +696,8 @@ function ReviewPage() {
             ) : (
               <DiffViewer
                 ref={diffViewer}
+                fontSize={settings?.diffFontSize}
+                wordWrap={settings?.diffWordWrap}
                 path={selected.path}
                 previousPath={selected.previousPath}
                 original={diff.data.original}

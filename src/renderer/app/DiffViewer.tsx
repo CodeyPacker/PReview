@@ -33,6 +33,7 @@ import {
 import type { FileSearchMatch } from '../lib/fileSearch.ts';
 import { createFileScroller } from '../lib/fileScroller.ts';
 import type { DiffMode } from '../../shared/contracts/review-sessions.ts';
+import type { FontSize } from '../../shared/contracts/settings.ts';
 
 export type { DiffMode };
 
@@ -61,8 +62,12 @@ export interface DiffViewerDrafts {
   deletingId: number | undefined;
 }
 
+const FONT_SIZES: Record<FontSize, number> = { small: 12, default: 13, large: 15 };
+
 export interface DiffViewerProps {
   ref?: Ref<DiffViewerHandle>;
+  fontSize?: FontSize;
+  wordWrap?: boolean;
   path: string;
   // The path before a rename. Gives the old side its own language and name.
   previousPath: string | null;
@@ -116,6 +121,8 @@ function createModel(scheme: string, path: string, text: string): monaco.editor.
 // A read-only Monaco diff of one file.
 export function DiffViewer({
   ref,
+  fontSize = 'default',
+  wordWrap = false,
   path,
   previousPath,
   original,
@@ -198,7 +205,6 @@ export function DiffViewer({
       // Unchanged stretches fold away, and the reviewer expands them for more context.
       hideUnchangedRegions: { enabled: true },
       fontFamily: monoFont(),
-      fontSize: 13,
     });
     editor.current = diffEditor;
     const code = diffEditor.getModifiedEditor();
@@ -423,6 +429,13 @@ export function DiffViewer({
     const subscription = numberEditor.onDidLayoutChange(alignHeader);
     return () => subscription.dispose();
   }, [mode, original, onLineNumberOffsetChange]);
+
+  useEffect(() => {
+    editor.current?.updateOptions({
+      fontSize: FONT_SIZES[fontSize],
+      wordWrap: wordWrap ? 'on' : 'off',
+    });
+  }, [fontSize, wordWrap]);
 
   // A search match can sit in folded lines, so the folds open while searching.
   useEffect(() => {

@@ -84,7 +84,10 @@ test('applies the appearance settings', async () => {
     await expect(root).toHaveAttribute('data-accent', 'teal');
     await page.getByRole('radio', { name: 'Compact' }).click();
     await expect(root).toHaveAttribute('data-density', 'compact');
-    await page.getByRole('radio', { name: 'Large' }).click();
+    await page
+      .getByRole('radiogroup', { name: 'Font size', exact: true })
+      .getByRole('radio', { name: 'Large' })
+      .click();
     await expect(root).toHaveAttribute('data-font-size', 'large');
     await page.getByRole('radio', { name: 'Dark' }).click();
     await expect(root).toHaveAttribute('data-theme', 'dark');
@@ -182,6 +185,8 @@ test('keeps a saved setting after a restart', async () => {
     accent: 'purple',
     density: 'default',
     fontSize: 'default',
+    diffFontSize: 'default',
+    diffWordWrap: false,
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
@@ -206,6 +211,8 @@ test('keeps a saved setting after a restart', async () => {
     accent: 'purple',
     density: 'default',
     fontSize: 'default',
+    diffFontSize: 'default',
+    diffWordWrap: false,
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
@@ -237,6 +244,8 @@ test('rejects an invalid setting', async () => {
     accent: 'purple',
     density: 'default',
     fontSize: 'default',
+    diffFontSize: 'default',
+    diffWordWrap: false,
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
@@ -738,6 +747,40 @@ test('celebrates a merged pull request and picks a new companion', async () => {
     await page.getByRole('button', { name: /^Ember/ }).click();
     await page.getByRole('button', { name: 'Set as Companion' }).click();
     await expect(page.getByRole('button', { name: 'Your Companion' })).toBeDisabled();
+  } finally {
+    await app.close();
+  }
+});
+
+test('applies the diff font size and word wrap settings', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    const long = `const a = '${'x'.repeat(2000)}';\n`;
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Diff settings'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': {
+        original: long,
+        modified: `${long}// End\n`,
+        unavailable: null,
+      },
+    });
+    await page.evaluate(() =>
+      window.preview.settings.update({ diffFontSize: 'large', diffWordWrap: true }),
+    );
+    await openReview(app, page);
+
+    const rows = page.locator('.editor.modified .view-line');
+    await expect(rows.first()).toBeVisible();
+    await expect(page.locator('.editor.modified .view-lines')).toHaveCSS('font-size', '15px');
+    // Monaco draws each wrapped row as its own line, and the file only has two lines.
+    await expect.poll(() => rows.count()).toBeGreaterThan(3);
   } finally {
     await app.close();
   }
