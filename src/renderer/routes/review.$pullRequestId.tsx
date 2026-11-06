@@ -332,7 +332,7 @@ function ReviewPage() {
     selected?.previousPath ?? null,
   );
 
-  const { composer, changeComposer, saveComposer } = useDraftComposer(
+  const { composer, changeComposer, saveComposer, saveOpenComment } = useDraftComposer(
     pullRequestId,
     files.data,
     reviewDrafts,
@@ -465,9 +465,9 @@ function ReviewPage() {
             mergeWarning={agentMergeWarning(agentTask)}
             roundFinished={roundFinished}
             canFinish={!rounds.isPending && !roundFinished && !finishReview.isPending}
-            onVerdict={openReviewDialog}
-            onMerge={() => openReviewDialog('comment')}
-            onSendToAgent={() => setAgentReviewOpen(true)}
+            onVerdict={(verdict) => saveOpenComment(() => openReviewDialog(verdict))}
+            onMerge={() => saveOpenComment(() => openReviewDialog('comment'))}
+            onSendToAgent={() => saveOpenComment(() => setAgentReviewOpen(true))}
             onFinish={() => finishReview.mutate()}
             onClose={() => setCloseOpen(true)}
           />
@@ -748,7 +748,7 @@ function ReviewPage() {
                           : { name: 'You' },
                         composer: composer?.path === selected.path ? composer : undefined,
                         onComposerChange: changeComposer,
-                        onSave: saveComposer,
+                        onSave: () => saveComposer(),
                         saving: reviewDrafts.create.isPending || reviewDrafts.update.isPending,
                         saveFailed: reviewDrafts.create.isError || reviewDrafts.update.isError,
                         onDelete: (id) => reviewDrafts.remove.mutate(id),

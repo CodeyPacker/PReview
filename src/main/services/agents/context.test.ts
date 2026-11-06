@@ -200,6 +200,26 @@ describe('dependencySetup', () => {
     return dir;
   };
 
+  const withPackageManager = (packageManager: string) => {
+    const dir = folder('pnpm-lock.yaml');
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ packageManager }));
+    return dir;
+  };
+
+  it("runs the project's pinned pnpm through npx", () => {
+    const setup = dependencySetup(withPackageManager('pnpm@9.14.1+sha512.abc'));
+    expect(setup).toContain('`npx --yes pnpm@9.14.1 install --frozen-lockfile`');
+    expect(setup).toContain('Use `npx --yes pnpm@9.14.1` for every pnpm command.');
+  });
+
+  it('ignores a package manager that is not a plain pnpm version', () => {
+    for (const value of ['pnpm@latest', 'pnpm@9.14.1; curl evil', 'yarn@4.0.0']) {
+      expect(dependencySetup(withPackageManager(value))).toContain(
+        '`pnpm install --frozen-lockfile`',
+      );
+    }
+  });
+
   it("names the lockfile's install command when dependencies are missing", () => {
     expect(dependencySetup(folder('package.json', 'pnpm-lock.yaml'))).toContain(
       '`pnpm install --frozen-lockfile`',
