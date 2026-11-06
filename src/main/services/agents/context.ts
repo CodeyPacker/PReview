@@ -46,7 +46,7 @@ export const AGENT_INSTRUCTIONS = [
   'Git is not available, and the network only reaches the npm and Yarn registries. Use the get_file_diff tool to see what the pull request changed in a file.',
   'Make the fix first. Then search for tests that cover what you changed, before installing anything.',
   'If tests cover it, run only those tests, not the whole suite. If none do, do not install dependencies or run tests. CI checks every pushed commit.',
-  'If an item is unclear or needs a decision from the reviewer, leave it and mark it needs_input with your question.',
+  'If an item is unclear or needs a decision from the reviewer, ask with the AskUserQuestion tool and wait for the answer. Mark it needs_input with your question only if you get no answer.',
 ].join('\n');
 
 export class TaskNotFoundError extends Error {}
