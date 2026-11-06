@@ -63,7 +63,10 @@ beforeEach(() => {
   );
 });
 
-function setup(result: PublishResult = { status: 'pushed', sha: 'f'.repeat(40) }) {
+function setup(
+  result: PublishResult = { status: 'pushed', sha: 'f'.repeat(40) },
+  changes: unknown[] = [],
+) {
   const publish = vi.fn().mockResolvedValue(result);
   const getChecks = vi.fn<GitProvider['getChecks']>().mockResolvedValue([]);
   const notify = vi.fn();
@@ -71,7 +74,7 @@ function setup(result: PublishResult = { status: 'pushed', sha: 'f'.repeat(40) }
   const publisher = new AgentPublisher({
     db,
     provider: { getChecks } as unknown as GitProvider,
-    worktrees: { publish, changes: vi.fn().mockResolvedValue([]) },
+    worktrees: { publish, changes: vi.fn().mockResolvedValue(changes) },
     notify,
     log: { warn: vi.fn() },
     noChecksMs: 1000,
@@ -105,6 +108,17 @@ describe('AgentPublisher', () => {
 
     expect(publish).toHaveBeenCalledTimes(1);
     expect(latest().push?.status).toBe('pushed');
+  });
+
+  it('only says it is pushing past a failed test when there is something to push', async () => {
+    const note = 'A test failed in the agent’s sandbox. Pushing anyway, so CI can check it.';
+    const notes = () => listActivity(db, taskId).map(({ summary }) => summary);
+
+    await setup({ status: 'no_changes' }).publisher.afterRun(taskId, report([false]));
+    expect(notes()).not.toContain(note);
+
+    await setup(undefined, [{ path: 'a.ts' }]).publisher.afterRun(taskId, report([false]));
+    expect(notes()).toContain(note);
   });
 
   it('records a refused push and why', async () => {

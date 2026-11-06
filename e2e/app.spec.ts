@@ -2299,6 +2299,27 @@ test('submits to the agent with an optional message', async () => {
     await expect(submit).toBeEnabled();
     await dialog.getByRole('button', { name: 'Cancel' }).click();
 
+    // An outdated discussion gives the agent nothing to work on.
+    await mockIpc(app, {
+      'pullRequestReviews.listThreads': [
+        {
+          id: 'T0',
+          path: 'a.ts',
+          side: 'modified',
+          startLine: null,
+          line: 1,
+          resolved: false,
+          outdated: true,
+          comments: [],
+        },
+      ],
+    });
+    await page.reload();
+    await open();
+    await expect(dialog.getByText('There are no comments or findings yet.')).toBeVisible();
+    await expect(submit).toBeDisabled();
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+
     // With an open discussion, an empty message gets the default GitHub needs.
     await mockIpc(app, {
       'pullRequestReviews.listThreads': [

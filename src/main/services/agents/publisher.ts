@@ -84,7 +84,7 @@ export class AgentPublisher {
   // failed test doesn't hold them back, since an agent's sandbox can fail tests that CI passes.
   // CI still checks the pushed commit, and a failed test shows in the task's activity.
   async afterRun(taskId: number, report: AgentReport): Promise<void> {
-    if (report.tests.some((test) => !test.passed)) {
+    if (report.tests.some((test) => !test.passed) && (await this.changes(taskId)).length > 0) {
       recordActivity(this.deps.db, taskId, {
         kind: 'status',
         summary: 'A test failed in the agent’s sandbox. Pushing anyway, so CI can check it.',
