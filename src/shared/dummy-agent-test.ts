@@ -1,6 +1,6 @@
 // Only here to test agents from the installed app. Delete it with this pull request.
 
-// Subtracts b from a.
-export function subtract(a: number, b: number): number {
-  return a - b;
+// Adds up the prices of a cart's items.
+export function cartTotal(prices: readonly number[]): number {
+  return prices.reduce((total, price) => total - price, 0);
 }
