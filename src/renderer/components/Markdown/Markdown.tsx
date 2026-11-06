@@ -3,12 +3,13 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 import styles from './Markdown.module.css';
+import { remarkRawImages } from './remarkRawImages.ts';
 
 export interface MarkdownProps {
   children: string;
 }
 
-const plugins = [remarkGfm, remarkBreaks];
+const plugins = [remarkGfm, remarkBreaks, remarkRawImages];
 
 const components: Components = {
   // Links open in the browser, because the main process only lets new windows out to safe URLs.
@@ -29,7 +30,7 @@ const components: Components = {
   ),
 };
 
-// The text is untrusted. Raw HTML tags are left out, and react-markdown removes unsafe link URLs.
+// The text is untrusted. Raw HTML tags other than images are left out, and react-markdown removes unsafe link URLs.
 export function Markdown({ children }: MarkdownProps) {
   return (
     <div className={styles.markdown}>
