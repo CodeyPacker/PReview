@@ -477,10 +477,11 @@ void app.whenReady().then(async () => {
   const agentRunner = new AgentRunner({
     db,
     provider,
-    agent: new ClaudeAgent(() => getSettings(db).wslDistro),
+    agent: new ClaudeAgent(() => getSettings(db)),
     worktrees,
     notify,
     log,
+    limit: () => getSettings(db).agentLimit,
     onCompleted: (taskId, report) => {
       try {
         validateReport(db, taskId, report);

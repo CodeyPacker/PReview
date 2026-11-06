@@ -225,7 +225,7 @@ describe('AgentRunner', () => {
   });
 
   it('stops a running task, and a queued one', async () => {
-    const { runner, runs } = setup({ limit: 1 });
+    const { runner, runs } = setup({ limit: () => 1 });
     const running = addTask(addPullRequest(1));
     const queued = addTask(addPullRequest(2));
 
@@ -237,6 +237,20 @@ describe('AgentRunner', () => {
     await vi.waitFor(() => expect(task(running).status).toBe('stopped'));
     expect(task(queued).status).toBe('stopped');
     expect(runs).toHaveLength(1);
+  });
+
+  it('starts more tasks when the limit is raised', async () => {
+    let limit = 1;
+    const { runner, runs } = setup({ limit: () => limit });
+    addTask(addPullRequest(1));
+    addTask(addPullRequest(2));
+
+    runner.wake();
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+    limit = 2;
+    runner.wake();
+
+    await vi.waitFor(() => expect(runs).toHaveLength(2));
   });
 
   it('resumes a stopped task in its saved session, with fresh retries', async () => {

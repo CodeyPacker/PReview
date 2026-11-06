@@ -96,6 +96,28 @@ test('applies the appearance settings', async () => {
   }
 });
 
+test('saves the agent settings', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+
+    await page.getByRole('radio', { name: '4', exact: true }).click();
+    await page.getByRole('combobox', { name: 'Default model' }).click();
+    await page.getByRole('option', { name: 'Sonnet' }).click();
+
+    await expect
+      .poll(() => page.evaluate(() => window.preview.settings.getAll()))
+      .toMatchObject({ agentLimit: 4, agentModel: 'sonnet' });
+  } finally {
+    await app.close();
+  }
+});
+
 test('keeps a saved setting after a restart', async () => {
   let app = await launch();
   let page = await app.firstWindow();
@@ -107,6 +129,8 @@ test('keeps a saved setting after a restart', async () => {
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
+    agentLimit: 2,
+    agentModel: 'default',
     groupSupportFiles: true,
     notifyPullRequests: true,
     notifyAgents: true,
@@ -125,6 +149,8 @@ test('keeps a saved setting after a restart', async () => {
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
+    agentLimit: 2,
+    agentModel: 'default',
     groupSupportFiles: true,
     notifyPullRequests: true,
     notifyAgents: true,
@@ -150,6 +176,8 @@ test('rejects an invalid setting', async () => {
     githubPromptDismissed: false,
     reviewLeader: 'Control',
     wslDistro: 'Ubuntu',
+    agentLimit: 2,
+    agentModel: 'default',
     groupSupportFiles: true,
     notifyPullRequests: true,
     notifyAgents: true,

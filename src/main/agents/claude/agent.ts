@@ -1,5 +1,6 @@
 import type { Options, SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import type { Settings } from '../../../shared/contracts/settings.ts';
 import {
   agentReportSchema,
   type AgentProvider,
@@ -19,14 +20,15 @@ const messageOf = (error: unknown) => (error instanceof Error ? error.message : 
 // get_file_diff tool and a structured closing report.
 export class ClaudeAgent implements AgentProvider {
   constructor(
-    // The WSL distribution Claude Code runs in on Windows.
-    private readonly wslDistro: () => string,
+    // The WSL distribution Claude Code runs in on Windows, and the model to use.
+    private readonly settings: () => Pick<Settings, 'wslDistro' | 'agentModel'>,
     private readonly load: () => Promise<Sdk> = loadSdk,
   ) {}
 
   async start(input: AgentRunInput): Promise<AgentRun> {
     const sdk = await this.load();
-    const runtime = claudeRuntime(this.wslDistro());
+    const { wslDistro, agentModel } = this.settings();
+    const runtime = claudeRuntime(wslDistro);
     const failed = (error: string): AgentRun => ({
       result: Promise.resolve({ status: 'failed', error, retryable: false }),
       stop: () => Promise.resolve(),
@@ -85,6 +87,7 @@ export class ClaudeAgent implements AgentProvider {
       options: {
         ...options,
         env: { ...options.env, ...isolation.env },
+        ...(agentModel === 'default' ? {} : { model: agentModel }),
         permissionMode: 'default',
         settings: { permissions: { blockReadsOutsideWorkingDirectories: true } },
         tools: ALLOWED_TOOLS,
