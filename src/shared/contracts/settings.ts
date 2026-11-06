@@ -21,6 +21,31 @@ export const reviewLeaderSchema = z.enum([
 ]);
 export type ReviewLeader = z.infer<typeof reviewLeaderSchema>;
 
+// Copy, paste, cut, quit, close, hide, minimize and reload keep their usual keys, because the
+// shortcuts would block them or the app menu would act first.
+export const RESERVED_REVIEW_KEYS = ['c', 'v', 'x', 'q', 'w', 'h', 'm', 'r'];
+
+const reviewKeySchema = z
+  .string()
+  .regex(/^[a-z]$/)
+  .refine((key) => !RESERVED_REVIEW_KEYS.includes(key));
+
+// The letter pressed with the leader for each review action. No two actions share one.
+export const reviewKeysSchema = z
+  .strictObject({
+    approve: reviewKeySchema,
+    flag: reviewKeySchema,
+    comment: reviewKeySchema,
+    tree: reviewKeySchema,
+    next: reviewKeySchema,
+    previous: reviewKeySchema,
+    zen: reviewKeySchema,
+    sidebar: reviewKeySchema,
+  })
+  .refine((keys) => new Set(Object.values(keys)).size === Object.keys(keys).length);
+export type ReviewKeys = z.infer<typeof reviewKeysSchema>;
+export type ReviewAction = keyof ReviewKeys;
+
 // Passed to Claude Code as model aliases, so they stay current. 'default' uses Claude Code's own.
 export const agentModelSchema = z.enum(['default', 'fable', 'opus', 'sonnet', 'haiku']);
 export type AgentModel = z.infer<typeof agentModelSchema>;
@@ -42,6 +67,7 @@ export const settingsSchema = z.strictObject({
   diffFontSize: fontSizeSchema,
   diffWordWrap: z.boolean(),
   reviewLeader: reviewLeaderSchema,
+  reviewKeys: reviewKeysSchema,
   // Set when the user closes the first-launch GitHub prompt without connecting.
   githubPromptDismissed: z.boolean(),
   // The WSL distribution agents run in on Windows.
@@ -73,6 +99,16 @@ export const defaultSettings: Settings = {
   diffFontSize: 'default',
   diffWordWrap: false,
   reviewLeader: 'Control',
+  reviewKeys: {
+    approve: 'a',
+    flag: 'f',
+    comment: 'i',
+    tree: 't',
+    next: 'n',
+    previous: 'p',
+    zen: 'z',
+    sidebar: 'b',
+  },
   githubPromptDismissed: false,
   wslDistro: 'Ubuntu',
   agentLimit: 2,

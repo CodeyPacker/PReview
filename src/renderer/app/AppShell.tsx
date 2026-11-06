@@ -96,7 +96,15 @@ export function AppShell() {
           size="sm"
           icon={collapsed ? <ChevronRight /> : <ChevronLeft />}
           label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
-          shortcut={isReview ? reviewShortcutLabel(leader, 'b', isMac) : undefined}
+          shortcut={
+            isReview
+              ? reviewShortcutLabel(
+                  leader,
+                  settings?.reviewKeys.sidebar ?? defaultSettings.reviewKeys.sidebar,
+                  isMac,
+                )
+              : undefined
+          }
           aria-expanded={!collapsed}
           aria-controls="main-sidebar"
           onClick={() => setCollapsed((value) => !value)}

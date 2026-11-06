@@ -66,23 +66,6 @@
   font: 400 var(--text-md) / 18px var(--font-sans);
 }
 
-.shortcuts {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: left;
-  font: 400 var(--text-md) / 18px var(--font-sans);
-}
-
-.shortcuts th,
-.shortcuts td {
-  padding: var(--space-8);
-  border-bottom: 1px solid var(--border);
-}
-
-.shortcuts th {
-  font-weight: 500;
-}
-
 .error {
   color: var(--danger);
 }

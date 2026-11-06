@@ -1,0 +1,29 @@
+/* Review shortcuts table. Read values from tokens.css custom properties only. */
+
+.shortcuts {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.shortcuts th,
+.shortcuts td {
+  padding: var(--space-8);
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcuts th {
+  font-weight: 500;
+}
+
+.error {
+  margin: 0;
+  color: var(--danger);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+}

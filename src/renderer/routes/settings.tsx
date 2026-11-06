@@ -3,6 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { ClearReviewDataDialog } from '../app/ClearReviewDataDialog.tsx';
 import { PageHeader } from '../app/PageHeader.tsx';
+import { ReviewShortcutsTable } from '../app/ReviewShortcutsTable.tsx';
 import { Button } from '../components/Button/Button.tsx';
 import { ColorSwatch } from '../components/ColorSwatch/ColorSwatch.tsx';
 import { Panel } from '../components/Panel/Panel.tsx';
@@ -29,7 +30,6 @@ import {
   type Settings,
   type StartupScreen,
 } from '../../shared/contracts/settings.ts';
-import { reviewShortcuts, reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
 import { isMac, isWindows } from '../lib/platform.ts';
 import styles from './settings.module.css';
 
@@ -287,29 +287,17 @@ function SettingsPage() {
               />
             </div>
             <p className={styles.description}>
-              Hold the leader with a letter while reviewing. J and K scroll code from anywhere on
-              the review screen. Shortcuts pause while typing or using a dialog or menu.
+              Hold the leader with a letter while reviewing. Click a shortcut to change its letter.
+              J and K scroll code from anywhere on the review screen. Shortcuts pause while typing
+              or using a dialog or menu.
             </p>
-            <table className={styles.shortcuts} aria-label="Review keyboard shortcuts">
-              <thead>
-                <tr>
-                  <th scope="col">Shortcut</th>
-                  <th scope="col">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.values(reviewShortcuts).map(({ key, label }) => (
-                  <tr key={key}>
-                    <td>{reviewShortcutLabel(leader, key, isMac)}</td>
-                    <td>{label}</td>
-                  </tr>
-                ))}
-                <tr>
-                  <td>J / K</td>
-                  <td>Scroll code down / up</td>
-                </tr>
-              </tbody>
-            </table>
+            <ReviewShortcutsTable
+              leader={leader}
+              keys={settings.data?.reviewKeys ?? defaultSettings.reviewKeys}
+              mac={isMac}
+              disabled={!settings.data || update.isPending}
+              onChange={(reviewKeys) => update.mutate({ reviewKeys })}
+            />
             {(settings.isError || update.isError) && (
               <p role="alert" className={styles.error}>
                 Could not save or load settings. Try again.
