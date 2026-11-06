@@ -215,6 +215,16 @@ test('keeps a saved setting after a restart', async () => {
     diffWordWrap: false,
     githubPromptDismissed: false,
     reviewLeader: 'Control',
+    reviewKeys: {
+      approve: 'a',
+      flag: 'f',
+      comment: 'i',
+      tree: 't',
+      next: 'n',
+      previous: 'p',
+      zen: 'z',
+      sidebar: 'b',
+    },
     wslDistro: 'Ubuntu',
     agentLimit: 2,
     agentModel: 'default',
@@ -241,6 +251,16 @@ test('keeps a saved setting after a restart', async () => {
     diffWordWrap: false,
     githubPromptDismissed: false,
     reviewLeader: 'Control',
+    reviewKeys: {
+      approve: 'a',
+      flag: 'f',
+      comment: 'i',
+      tree: 't',
+      next: 'n',
+      previous: 'p',
+      zen: 'z',
+      sidebar: 'b',
+    },
     wslDistro: 'Ubuntu',
     agentLimit: 2,
     agentModel: 'default',
@@ -274,6 +294,16 @@ test('rejects an invalid setting', async () => {
     diffWordWrap: false,
     githubPromptDismissed: false,
     reviewLeader: 'Control',
+    reviewKeys: {
+      approve: 'a',
+      flag: 'f',
+      comment: 'i',
+      tree: 't',
+      next: 'n',
+      previous: 'p',
+      zen: 'z',
+      sidebar: 'b',
+    },
     wslDistro: 'Ubuntu',
     agentLimit: 2,
     agentModel: 'default',
@@ -1439,6 +1469,61 @@ test('configures review shortcuts and scrolls without focusing the code', async 
     const codeFocusedTop = await thumbTop();
     await page.keyboard.press('j');
     await expect.poll(thumbTop).toBeGreaterThan(codeFocusedTop);
+  } finally {
+    await app.close();
+  }
+});
+
+test('changes a review shortcut in Settings', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Custom shortcuts'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+    });
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+    const zen = page.getByRole('button', { name: 'Change shortcut for Toggle Zen mode' });
+    const alert = page.getByRole('alert');
+
+    await zen.click();
+    await page.keyboard.press('n');
+    await expect(alert).toHaveText('N is already used for Next file.');
+    await page.keyboard.press('c');
+    await expect(alert).toContainText('C is kept for system shortcuts');
+    await page.keyboard.press('Escape');
+    await expect(zen).toHaveText('Ctrl+Z');
+
+    await zen.click();
+    await page.keyboard.press('Control+y');
+    await expect(zen).toHaveText('Ctrl+Y');
+    await expect
+      .poll(() => page.evaluate(() => window.preview.settings.getAll()))
+      .toMatchObject({ reviewKeys: { zen: 'y' } });
+
+    await openReview(app, page);
+    const enter = page.getByRole('button', { name: 'Enter Zen mode' });
+    await expect(enter).toHaveAttribute('title', 'Enter Zen mode (Ctrl+Y)');
+    await page.keyboard.press('Control+z');
+    await expect(enter).toBeVisible();
+    await page.keyboard.press('Control+y');
+    await expect(page.getByRole('button', { name: 'Exit Zen mode' })).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => {
+      location.hash = '/settings';
+    });
+    await page.getByRole('button', { name: 'Reset Shortcuts' }).click();
+    await expect(zen).toHaveText('Ctrl+Z');
   } finally {
     await app.close();
   }

@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent } from 'react';
-import type { ReviewLeader } from '../../shared/contracts/settings.ts';
-import { matchesReviewLeader, reviewShortcuts, type ReviewAction } from '../lib/reviewShortcuts.ts';
+import type { ReviewAction, ReviewKeys, ReviewLeader } from '../../shared/contracts/settings.ts';
+import { matchesReviewLeader } from '../lib/reviewShortcuts.ts';
 
 function isTypingOrInOverlay(target: EventTarget | null): boolean {
   if (target instanceof Element) {
@@ -26,6 +26,7 @@ function isTypingOrInOverlay(target: EventTarget | null): boolean {
 
 export function useReviewShortcuts(
   leader: ReviewLeader,
+  keys: ReviewKeys,
   actions: Record<ReviewAction, () => void>,
   scroll: {
     start: (direction: -1 | 1) => void;
@@ -81,9 +82,7 @@ export function useReviewShortcuts(
       if (scrollingKey) cancel();
       if (!matchesReviewLeader(event, leader)) return;
       const chordKey = /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : key;
-      const action = (Object.keys(reviewShortcuts) as ReviewAction[]).find(
-        (name) => reviewShortcuts[name].key === chordKey,
-      );
+      const action = (Object.keys(keys) as ReviewAction[]).find((name) => keys[name] === chordKey);
       if (!action) return;
       event.preventDefault();
       event.stopPropagation();
@@ -117,5 +116,5 @@ export function useReviewShortcuts(
       document.removeEventListener('pointerdown', cancel, true);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [leader]);
+  }, [leader, keys]);
 }

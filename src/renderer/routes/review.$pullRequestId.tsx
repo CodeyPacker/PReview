@@ -64,7 +64,7 @@ import { useThreadActions } from '../hooks/useThreadActions.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { orderForReview } from '../lib/supportFiles.ts';
 import { useReviewShortcuts } from '../hooks/useReviewShortcuts.ts';
-import { defaultSettings } from '../../shared/contracts/settings.ts';
+import { defaultSettings, type ReviewAction } from '../../shared/contracts/settings.ts';
 import { reviewShortcutLabel } from '../lib/reviewShortcuts.ts';
 import { isMac } from '../lib/platform.ts';
 import { collapseReason } from '../lib/collapsedFile.ts';
@@ -191,7 +191,8 @@ function ReviewPage() {
     toggleZen,
   } = useSidebar();
   const leader = settings?.reviewLeader ?? defaultSettings.reviewLeader;
-  const shortcut = (key: string) => reviewShortcutLabel(leader, key, isMac);
+  const reviewKeys = settings?.reviewKeys ?? defaultSettings.reviewKeys;
+  const shortcut = (action: ReviewAction) => reviewShortcutLabel(leader, reviewKeys[action], isMac);
   const diffViewer = useRef<DiffViewerHandle>(null);
   // The toggle moves to the other panel, so it is a new element and takes focus back after a click.
   const refocusFilesToggle = useRef(false);
@@ -279,6 +280,7 @@ function ReviewPage() {
 
   useReviewShortcuts(
     leader,
+    reviewKeys,
     {
       approve: () => toggleReviewState('approved'),
       flag: () => toggleReviewState('flagged'),
@@ -384,7 +386,7 @@ function ReviewPage() {
       size="sm"
       icon={filesCollapsed ? <ChevronRight /> : <ChevronLeft />}
       label={filesCollapsed ? 'Expand changed files' : 'Collapse changed files'}
-      shortcut={shortcut('t')}
+      shortcut={shortcut('tree')}
       aria-expanded={!filesCollapsed}
       aria-controls="review-files"
       onClick={() => {
@@ -610,7 +612,7 @@ function ReviewPage() {
                 size="sm"
                 icon={<ArrowLeft />}
                 label="Previous file"
-                shortcut={shortcut('p')}
+                shortcut={shortcut('previous')}
                 disabled={!previousFile}
                 onClick={() => previousFile && selectFile(previousFile.path)}
               />
@@ -619,7 +621,7 @@ function ReviewPage() {
                 size="sm"
                 icon={<ArrowRight />}
                 label="Next file"
-                shortcut={shortcut('n')}
+                shortcut={shortcut('next')}
                 disabled={!nextFile}
                 onClick={() => nextFile && selectFile(nextFile.path)}
               />
@@ -630,7 +632,7 @@ function ReviewPage() {
                 size="sm"
                 icon={<Check />}
                 label={reviewState === 'approved' ? 'Remove file approval' : 'Approve file'}
-                shortcut={shortcut('a')}
+                shortcut={shortcut('approve')}
                 selected={reviewState === 'approved'}
                 disabled={!selected || readOnlyView}
                 onClick={() => toggleReviewState('approved')}
@@ -642,7 +644,7 @@ function ReviewPage() {
                 size="sm"
                 icon={<Flag className={styles.flagIcon} />}
                 label={reviewState === 'flagged' ? 'Remove file flag' : 'Flag file'}
-                shortcut={shortcut('f')}
+                shortcut={shortcut('flag')}
                 selected={reviewState === 'flagged'}
                 disabled={!selected || readOnlyView}
                 onClick={() => toggleReviewState('flagged')}
@@ -652,7 +654,7 @@ function ReviewPage() {
                 size="sm"
                 icon={zen ? <Minimize2 /> : <Maximize2 />}
                 label={zen ? 'Exit Zen mode' : 'Enter Zen mode'}
-                shortcut={shortcut('z')}
+                shortcut={shortcut('zen')}
                 selected={zen}
                 onClick={toggleZen}
               />

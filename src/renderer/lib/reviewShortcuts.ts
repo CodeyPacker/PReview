@@ -1,16 +1,38 @@
-import type { ReviewLeader } from '../../shared/contracts/settings.ts';
+import {
+  RESERVED_REVIEW_KEYS,
+  type ReviewAction,
+  type ReviewKeys,
+  type ReviewLeader,
+} from '../../shared/contracts/settings.ts';
 
-export const reviewShortcuts = {
-  approve: { key: 'a', label: 'Toggle approval' },
-  flag: { key: 'f', label: 'Toggle flag' },
-  comment: { key: 'i', label: 'Comment on line' },
-  tree: { key: 't', label: 'Toggle file tree' },
-  next: { key: 'n', label: 'Next file' },
-  previous: { key: 'p', label: 'Previous file' },
-  zen: { key: 'z', label: 'Toggle Zen mode' },
-  sidebar: { key: 'b', label: 'Toggle main sidebar' },
-} as const;
-export type ReviewAction = keyof typeof reviewShortcuts;
+export const reviewActionLabels: Record<ReviewAction, string> = {
+  approve: 'Toggle approval',
+  flag: 'Toggle flag',
+  comment: 'Comment on line',
+  tree: 'Toggle file tree',
+  next: 'Next file',
+  previous: 'Previous file',
+  zen: 'Toggle Zen mode',
+  sidebar: 'Toggle main sidebar',
+};
+
+// The keys after giving an action the letter of a key code like 'KeyB', or why it can't have it.
+export function changeReviewKey(
+  keys: ReviewKeys,
+  action: ReviewAction,
+  code: string,
+): { keys: ReviewKeys; error?: undefined } | { keys?: undefined; error: string } {
+  if (!/^Key[A-Z]$/.test(code)) return { error: 'Use a letter from A to Z.' };
+  const letter = code.slice(3).toLowerCase();
+  const name = letter.toUpperCase();
+  if (RESERVED_REVIEW_KEYS.includes(letter)) {
+    return { error: `${name} is kept for system shortcuts like copy and quit.` };
+  }
+  if (keys[action] === letter) return { keys };
+  const owner = (Object.keys(keys) as ReviewAction[]).find((other) => keys[other] === letter);
+  if (owner) return { error: `${name} is already used for ${reviewActionLabels[owner]}.` };
+  return { keys: { ...keys, [action]: letter } };
+}
 
 export function matchesReviewLeader(
   event: Pick<KeyboardEvent, 'ctrlKey' | 'altKey' | 'metaKey' | 'shiftKey'>,
