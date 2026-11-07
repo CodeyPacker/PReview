@@ -53,3 +53,19 @@
   align-items: center;
   gap: var(--space-8);
 }
+
+.compact {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-6) var(--space-8);
+}
+
+.compact .title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.compact .trailing {
+  grid-column: 2;
+  flex-wrap: wrap;
+}

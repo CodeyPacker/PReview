@@ -37,6 +37,7 @@ export interface FindingItemProps {
   // Shown once an agent has checked the finding.
   validation?: FindingValidation;
   selected?: boolean;
+  compact?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -48,6 +49,7 @@ export function FindingItem({
   resolution,
   validation = 'pending',
   selected,
+  compact,
   onClick,
   className,
 }: FindingItemProps) {
@@ -57,7 +59,7 @@ export function FindingItem({
     <button
       type="button"
       aria-current={selected || undefined}
-      className={cx(styles.item, selected && styles.selected, className)}
+      className={cx(styles.item, selected && styles.selected, compact && styles.compact, className)}
       onClick={onClick}
     >
       <IconTile icon={<Icon aria-hidden />} tone={tone} size="sm" />

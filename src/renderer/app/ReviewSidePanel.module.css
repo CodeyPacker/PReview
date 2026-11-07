@@ -1,0 +1,30 @@
+.section {
+  min-height: 0;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  scrollbar-gutter: stable;
+}
+
+.agent {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.heading {
+  margin: 0;
+  font: 600 var(--text-lg) / 22px var(--font-sans);
+}
+
+.message {
+  margin: 0;
+  color: var(--ink-secondary);
+  font: 400 var(--text-md) / 18px var(--font-sans);
+}
+
+.list {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
