@@ -2220,9 +2220,9 @@ test('adds, edits and resolves findings, and keeps published ones read-only', as
     });
     await openReview(app, page);
 
-    await page.getByRole('button', { name: 'Findings, 1 open' }).click();
+    const findingsPanel = page.getByRole('complementary', { name: 'Agent and findings' });
+    await findingsPanel.getByRole('button', { name: 'Add finding' }).click();
     const dialog = page.getByRole('dialog');
-    await dialog.getByRole('button', { name: 'Add finding' }).click();
     await expect(dialog.getByRole('heading', { name: 'New finding' })).toBeVisible();
     await dialog.getByRole('radio', { name: 'UI bug' }).click();
     await dialog.getByLabel('Description').fill('Button overlaps\nOn narrow windows.');
@@ -2288,8 +2288,9 @@ test('adds, edits and resolves findings, and keeps published ones read-only', as
     await dialog.getByRole('button', { name: 'Delete' }).click();
     await expect(dialog.getByRole('button', { name: /Button overlaps/ })).toHaveCount(0);
     await dialog.getByRole('button', { name: 'Close' }).click();
-    // The resolved finding no longer counts as open.
-    await expect(page.getByRole('button', { name: 'Findings, 0 open' })).toBeVisible();
+    await findingsPanel.getByRole('radio', { name: 'Open', exact: true }).click();
+    await expect(findingsPanel.getByRole('button', { name: /Token is logged/ })).toBeHidden();
+    await expect(page.getByRole('button', { name: /^Findings,/ })).toHaveCount(0);
   } finally {
     await app.close();
   }

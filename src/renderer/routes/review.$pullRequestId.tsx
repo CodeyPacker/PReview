@@ -7,7 +7,6 @@ import {
   ChevronRight,
   FileText,
   Flag,
-  ListChecks,
   Maximize2,
   Minimize2,
   PanelRight,
@@ -51,7 +50,6 @@ import { ReviewDialog } from '../app/ReviewDialog.tsx';
 import { ReviewSidePanel } from '../app/ReviewSidePanel.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { PullRequestDetailsDialog } from '../app/PullRequestDetailsDialog.tsx';
-import { Count } from '../components/Count/Count.tsx';
 import { loadFindingScreenshot, useReviewFindings } from '../hooks/useReviewFindings.ts';
 import { useQueuedReview } from '../hooks/useQueuedReview.ts';
 import { useReviewCompletion } from '../hooks/useReviewCompletion.ts';
@@ -169,7 +167,6 @@ function ReviewPage() {
   const { finish: finishReview } = useReviewCompletion(pullRequestId);
   const roundFinished = round?.finishedAt != null;
   const findings = reviewFindings.findings.data ?? [];
-  const openFindings = findings.filter((finding) => finding.resolution === 'open').length;
   const unpublishedFindings = findings.filter((finding) => finding.publishedAt === null);
   const reviewThreads = useReviewThreads(pullRequestId, files.data?.headSha);
   // The discussions an agent reads. It skips outdated ones, since their code has changed.
@@ -456,15 +453,6 @@ function ReviewPage() {
             onClick={() => setDetailsOpen(true)}
           >
             Details
-          </Button>
-          <Button
-            size="sm"
-            iconStart={<ListChecks aria-hidden />}
-            iconEnd={openFindings > 0 ? <Count value={openFindings} /> : undefined}
-            aria-label={`Findings, ${openFindings} open`}
-            onClick={() => openFinding()}
-          >
-            Findings
           </Button>
           {!zen && (
             <IconButton
