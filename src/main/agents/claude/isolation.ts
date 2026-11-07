@@ -74,13 +74,21 @@ function tempRoot(): string {
   return process.platform === 'darwin' ? '/private/tmp' : tmpdir();
 }
 
-function cacheRoot(): string {
-  return join(homedir(), process.platform === 'darwin' ? 'Library/Caches' : '.cache');
+function packageCachePath(): string {
+  return join(
+    homedir(),
+    process.platform === 'darwin' ? 'Library/Caches' : '.cache',
+    PACKAGE_CACHE,
+  );
+}
+
+export async function clearPackageCache(cacheFolder = packageCachePath()): Promise<void> {
+  await rm(cacheFolder, { recursive: true, force: true });
 }
 
 export async function prepareIsolation(
   worktree: string,
-  cacheFolder = join(cacheRoot(), PACKAGE_CACHE),
+  cacheFolder = packageCachePath(),
 ): Promise<Isolation> {
   const root = await realpath(worktree);
   await mkdir(cacheFolder, { recursive: true });

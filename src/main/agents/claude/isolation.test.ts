@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PNPM_VIRTUAL_STORE, prepareIsolation } from './isolation.ts';
+import { clearPackageCache, PNPM_VIRTUAL_STORE, prepareIsolation } from './isolation.ts';
 
 describe('prepareIsolation', () => {
   let worktree: string;
@@ -27,6 +27,20 @@ describe('prepareIsolation', () => {
     await isolation.close();
     expect(existsSync(folder)).toBe(true);
     expect(existsSync(isolation.env.TMPDIR!)).toBe(false);
+  });
+
+  it('clears only the cache and recreates it on the next run', async () => {
+    const first = await prepareIsolation(worktree, cache);
+    await mkdir(join(cache, 'npm', 'downloaded-package'), { recursive: true });
+    await first.close();
+    await clearPackageCache(cache);
+    await clearPackageCache(cache);
+    expect(existsSync(cache)).toBe(false);
+    expect(existsSync(join(worktree, 'node_modules'))).toBe(true);
+    const next = await prepareIsolation(worktree, cache);
+    expect(existsSync(cache)).toBe(true);
+    expect(existsSync(join(cache, 'npm', 'downloaded-package'))).toBe(false);
+    await next.close();
   });
 
   it('points pnpm’s packages at the temp folder', async () => {

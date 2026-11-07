@@ -1,3 +1,4 @@
+import type { ClearPackageCacheResult } from '../../shared/contracts/settings.ts';
 import { app } from 'electron';
 import type { ExportBackupResult, RestoreBackupResult } from '../../shared/contracts/backups.ts';
 import type { DatabaseSync } from 'node:sqlite';
@@ -64,6 +65,7 @@ import type { AgentRunner } from '../services/agents/runner.ts';
 import { handle } from './handle.ts';
 
 export interface IpcServices {
+  clearPackageCache: () => Promise<ClearPackageCacheResult>;
   setLaunchAtLogin: (open: boolean) => void;
   // Opens the folder of log files. Rejects when it can't.
   openLogs: () => Promise<void>;
@@ -92,6 +94,7 @@ export interface IpcServices {
 export function registerIpcHandlers(
   db: DatabaseSync,
   {
+    clearPackageCache,
     setLaunchAtLogin,
     openLogs,
     backupFiles,
@@ -115,6 +118,7 @@ export function registerIpcHandlers(
     electronVersion: process.versions.electron,
   }));
 
+  handle('packageCache.clear', clearPackageCache);
   handle('settings.getAll', () => getSettings(db));
   handle('settings.update', (patch) => {
     const settings = updateSettings(db, patch);

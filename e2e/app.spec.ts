@@ -199,6 +199,42 @@ test('opens the logs folder from Settings', async () => {
   }
 });
 
+test('clears the package cache from Settings and shows busy and failure results', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await app.evaluate(({ ipcMain }) => {
+      let calls = 0;
+      ipcMain.removeHandler('packageCache.clear');
+      ipcMain.handle('packageCache.clear', () => {
+        calls += 1;
+        if (calls === 1) return { status: 'busy' };
+        if (calls === 2) throw new Error('Could not delete cache');
+        return { status: 'cleared' };
+      });
+    });
+    await page
+      .getByRole('navigation', { name: 'Main' })
+      .getByRole('link', { name: 'Settings' })
+      .click();
+    const clear = page.getByRole('button', { name: 'Clear Package Cache' });
+    await clear.click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'An agent or cache cleanup is active. Try again when it finishes.',
+    );
+    await clear.click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Could not clear the package cache. Try again.',
+    );
+    await clear.click();
+    await expect(page.getByRole('status')).toHaveText('Package cache cleared.');
+    await expect(page.getByRole('alert')).toBeHidden();
+  } finally {
+    await app.close();
+  }
+});
+
 test('keeps a saved setting after a restart', async () => {
   let app = await launch();
   let page = await app.firstWindow();

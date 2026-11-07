@@ -189,3 +189,10 @@ export async function prepareWslIsolation(
       ).then(() => {}),
   };
 }
+
+// Clears the same Linux cache used by agents in the selected distribution.
+export async function clearWslPackageCache(distro: string, run: Exec = exec): Promise<void> {
+  const home = await wslRun(distro, ['sh', '-c', 'printf %s "$HOME"'], run);
+  if (!home.startsWith('/') || home === '/') throw new Error('Invalid WSL home folder.');
+  await wslRun(distro, ['rm', '-rf', '--', `${home}/.cache/${PACKAGE_CACHE}`], run);
+}

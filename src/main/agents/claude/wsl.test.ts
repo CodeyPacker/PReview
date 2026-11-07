@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   checkWsl,
+  clearWslPackageCache,
   findWslClaude,
   fromWslPath,
   prepareWslIsolation,
@@ -157,5 +158,32 @@ describe('prepareWslIsolation', () => {
     expect(isolation.env.npm_config_store_dir).toBe(`${cache}/pnpm-store`);
     expect(isolation.sandbox.filesystem?.allowWrite).toContain(cache);
     expect(isolation.env.npm_config_virtual_store_dir).toBe('/tmp/pv-abc/pnpm-virtual');
+  });
+});
+
+describe('clearWslPackageCache', () => {
+  it('removes only the agent cache in the selected distribution, including paths with spaces', async () => {
+    const run = vi.fn<Exec>().mockResolvedValue({ stdout: '/home/user name\n' });
+    await clearWslPackageCache('Ubuntu Custom', run);
+    expect(run).toHaveBeenLastCalledWith('wsl.exe', [
+      '-d',
+      'Ubuntu Custom',
+      '--exec',
+      'rm',
+      '-rf',
+      '--',
+      '/home/user name/.cache/preview/agent-packages',
+    ]);
+  });
+
+  it('reports deletion failures and refuses an invalid home folder', async () => {
+    const run = vi
+      .fn<Exec>()
+      .mockResolvedValueOnce({ stdout: '/home/me' })
+      .mockRejectedValueOnce(new Error('Permission denied'));
+    await expect(clearWslPackageCache('Ubuntu', run)).rejects.toThrow('Permission denied');
+    run.mockResolvedValue({ stdout: '' });
+    await expect(clearWslPackageCache('Ubuntu', run)).rejects.toThrow('Invalid WSL home');
+    expect(run).toHaveBeenCalledTimes(3);
   });
 });
