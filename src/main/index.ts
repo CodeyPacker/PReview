@@ -1,3 +1,5 @@
+import { clearPackageCache } from './agents/claude/isolation.ts';
+import { clearWslPackageCache } from './agents/claude/wsl.ts';
 import {
   app,
   BrowserWindow,
@@ -533,6 +535,12 @@ void app.whenReady().then(async () => {
     log,
   });
   registerIpcHandlers(db, {
+    clearPackageCache: () =>
+      agentRunner.clearPackageCache(() =>
+        process.platform === 'win32'
+          ? clearWslPackageCache(getSettings(db).wslDistro)
+          : clearPackageCache(),
+      ),
     // A development build would register the Electron binary, and Linux has no such setting.
     setLaunchAtLogin: (openAtLogin) => {
       if (app.isPackaged && process.platform !== 'linux') app.setLoginItemSettings({ openAtLogin });

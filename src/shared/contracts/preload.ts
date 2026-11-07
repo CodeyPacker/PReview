@@ -1,3 +1,4 @@
+import type { ClearPackageCacheResult } from './settings.ts';
 import type {
   AgentChange,
   AgentEvent,
@@ -67,6 +68,9 @@ import type { Settings, SettingsPatch } from './settings.ts';
 export interface PreviewApi {
   app: {
     getInfo(): Promise<AppInfo>;
+  };
+  packageCache: {
+    clear(): Promise<ClearPackageCacheResult>;
   };
   settings: {
     getAll(): Promise<Settings>;

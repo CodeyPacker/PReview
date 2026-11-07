@@ -1996,7 +1996,7 @@ These override earlier sections where they differ.
 - Editor preferences are diff font size and word wrap.
 - Each review shortcut's letter can be changed. J, K and Escape are fixed. C, V, X, Q, W, H, M and R are reserved.
 - Agents make the fix first and install or test only when tests cover the change. CI checks every push.
-- Downloaded packages stay between agent runs in one folder shared by all repositories. The owner accepted the risk that a bad pull request could change saved packages, since only trusted code goes through PReview. Nothing removes old packages yet.
+- Downloaded packages stay between agent runs in one folder shared by all repositories. The owner accepted the risk that a bad pull request could change saved packages, since only trusted code goes through PReview. Settings has a Clear Package Cache button. It clears the current platform’s cache (the selected WSL distribution on Windows) while agents are idle and holds queued tasks until cleanup finishes. WSL cleanup still needs a real run.
 - Queued agent tasks move up and down from their own Agent Activity section. The Dashboard lists them in run order.
 
 ---

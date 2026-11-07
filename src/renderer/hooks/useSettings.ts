@@ -17,3 +17,7 @@ export function useUpdateSettings() {
     onSuccess: (settings: Settings) => queryClient.setQueryData(settingsKey, settings),
   });
 }
+
+export function useClearPackageCache() {
+  return useMutation({ mutationFn: () => window.preview.packageCache.clear() });
+}

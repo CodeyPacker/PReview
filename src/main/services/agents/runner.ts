@@ -1,3 +1,4 @@
+import type { ClearPackageCacheResult } from '../../../shared/contracts/settings.ts';
 import { randomUUID } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import type { DatabaseSync } from 'node:sqlite';
@@ -78,12 +79,26 @@ export class AgentRunner {
   private readonly waiting = new Map<number, (answers: Answers) => void>();
   // Set as the app quits, so ending its agents isn't recorded as the user stopping them.
   private closing = false;
+  private clearingPackages = false;
 
   constructor(private readonly deps: AgentRunnerDeps) {}
 
   // Whether an agent is running.
   get busy(): boolean {
     return this.running.size > 0;
+  }
+
+  // Hold the queue while deleting packages so no agent can start using them mid-delete.
+  async clearPackageCache(clear: () => Promise<void>): Promise<ClearPackageCacheResult> {
+    if (this.busy || this.clearingPackages || this.closing) return { status: 'busy' };
+    this.clearingPackages = true;
+    try {
+      await clear();
+      return { status: 'cleared' };
+    } finally {
+      this.clearingPackages = false;
+      if (!this.closing) this.wake();
+    }
   }
 
   // Puts tasks a crash left mid-run back in the queue. Call once at startup, before wake.
@@ -99,6 +114,7 @@ export class AgentRunner {
 
   // Starts queued tasks while there is room.
   wake(): void {
+    if (this.clearingPackages || this.closing) return;
     const limit = this.deps.limit?.() ?? DEFAULT_LIMIT;
     while (this.running.size < limit) {
       const next = this.deps.db

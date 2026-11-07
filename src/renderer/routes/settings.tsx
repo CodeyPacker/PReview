@@ -11,7 +11,7 @@ import { Select } from '../components/Select/Select.tsx';
 import { Switch } from '../components/Switch/Switch.tsx';
 import { TextField } from '../components/TextField/TextField.tsx';
 import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
-import { useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
+import { useClearPackageCache, useSettings, useUpdateSettings } from '../hooks/useSettings.ts';
 import { useExportBackup, useOpenLogs, useRestoreBackup } from '../hooks/useBackups.ts';
 import {
   useAppVersion,
@@ -155,6 +155,7 @@ function SettingsPage() {
   const exportBackup = useExportBackup();
   const restoreBackup = useRestoreBackup();
   const openLogs = useOpenLogs();
+  const clearPackageCache = useClearPackageCache();
   const exported = exportBackup.data?.status === 'exported' ? exportBackup.data.path : undefined;
   const invalidBackup =
     restoreBackup.data?.status === 'invalid' ? restoreBackup.data.message : undefined;
@@ -362,6 +363,34 @@ function SettingsPage() {
                     update.mutate({ wslDistro });
                 }}
               />
+            )}
+            <p className={styles.description}>
+              Downloaded packages are shared between agent runs. Clearing them frees disk space. The
+              next install downloads them again.
+              {isWindows && ' This clears the selected WSL distribution’s cache.'}
+            </p>
+            <div className={styles.actions}>
+              <Button
+                loading={clearPackageCache.isPending}
+                onClick={() => clearPackageCache.mutate()}
+              >
+                Clear Package Cache
+              </Button>
+            </div>
+            {clearPackageCache.data?.status === 'cleared' && (
+              <p role="status" className={styles.description}>
+                Package cache cleared.
+              </p>
+            )}
+            {clearPackageCache.data?.status === 'busy' && (
+              <p role="alert" className={styles.error}>
+                An agent or cache cleanup is active. Try again when it finishes.
+              </p>
+            )}
+            {clearPackageCache.isError && (
+              <p role="alert" className={styles.error}>
+                Could not clear the package cache. Try again.
+              </p>
             )}
           </Panel>
         </div>

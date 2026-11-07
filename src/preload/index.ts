@@ -10,6 +10,9 @@ const api: PreviewApi = {
   app: {
     getInfo: () => invoke('app.getInfo', undefined),
   },
+  packageCache: {
+    clear: () => invoke('packageCache.clear', undefined),
+  },
   settings: {
     getAll: () => invoke('settings.getAll', undefined),
     update: (patch) => invoke('settings.update', patch),

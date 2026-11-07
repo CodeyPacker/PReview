@@ -118,3 +118,6 @@ export const defaultSettings: Settings = {
   notifyAgents: true,
   notifyAchievements: true,
 };
+
+export const clearPackageCacheResultSchema = z.object({ status: z.enum(['cleared', 'busy']) });
+export type ClearPackageCacheResult = z.infer<typeof clearPackageCacheResultSchema>;

@@ -1,3 +1,4 @@
+import { clearPackageCacheResultSchema } from './settings.ts';
 import { z } from 'zod';
 import {
   agentChangeSchema,
@@ -81,6 +82,7 @@ export type AppInfo = z.infer<typeof appInfoSchema>;
 // The main process validates both sides; the preload exposes one function per channel.
 export const ipcContract = {
   'app.getInfo': { input: z.undefined(), output: appInfoSchema },
+  'packageCache.clear': { input: z.undefined(), output: clearPackageCacheResultSchema },
   'settings.getAll': { input: z.undefined(), output: settingsSchema },
   'settings.update': { input: settingsPatchSchema, output: settingsSchema },
   // Saves a copy of the database where the user chooses.

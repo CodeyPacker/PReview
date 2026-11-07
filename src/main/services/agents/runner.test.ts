@@ -503,3 +503,47 @@ describe('AgentRunner', () => {
     expect(start).not.toHaveBeenCalled();
   });
 });
+
+describe('package cache cleanup', () => {
+  it('refuses cleanup while a task is starting or running', async () => {
+    const { runner, runs } = setup();
+    addTask(addPullRequest(1));
+    const clear = vi.fn().mockResolvedValue(undefined);
+    runner.wake();
+    await expect(runner.clearPackageCache(clear)).resolves.toEqual({ status: 'busy' });
+    await vi.waitFor(() => expect(runs).toHaveLength(1));
+    await expect(runner.clearPackageCache(clear)).resolves.toEqual({ status: 'busy' });
+    expect(clear).not.toHaveBeenCalled();
+    runs[0]!.finish({ status: 'completed', report, costUsd: null });
+    await vi.waitFor(() => expect(runner.busy).toBe(false));
+  });
+
+  it.each([false, true])(
+    'holds queued tasks and releases them after cleanup (failure %s)',
+    async (fail) => {
+      const { runner, runs } = setup();
+      let finish: () => void = () => {};
+      let failCleanup: (error: Error) => void = () => {};
+      const deletion = new Promise<void>((resolve, reject) => {
+        finish = resolve;
+        failCleanup = reject;
+      });
+      const cleanup = runner.clearPackageCache(() => deletion);
+      const assertion = fail
+        ? expect(cleanup).rejects.toThrow('Delete failed')
+        : expect(cleanup).resolves.toEqual({ status: 'cleared' });
+      const id = addTask(addPullRequest(1));
+      runner.wake();
+      expect(task(id).status).toBe('queued');
+      const otherClear = vi.fn().mockResolvedValue(undefined);
+      await expect(runner.clearPackageCache(otherClear)).resolves.toEqual({ status: 'busy' });
+      expect(otherClear).not.toHaveBeenCalled();
+      if (fail) failCleanup(new Error('Delete failed'));
+      else finish();
+      await assertion;
+      await vi.waitFor(() => expect(runs).toHaveLength(1));
+      runs[0]!.finish({ status: 'completed', report, costUsd: null });
+      await vi.waitFor(() => expect(runner.busy).toBe(false));
+    },
+  );
+});
