@@ -262,9 +262,9 @@ export function awardComment(db: DatabaseSync, commentId: number): boolean {
   });
 }
 
-// Marks the findings and comments the agent fixed as validated, then awards the ones already
-// resolved. The report names findings F1, F2, … in id order and comments C1, C2, … in the
-// order they were sent, as the task context gave them.
+// Records agent validation or rejection, then awards validated items already resolved.
+// Findings use F1, F2, … in id order and comments use C1, C2, … in submission order.
+// A later fix can validate a rejected item. Existing validation and XP are kept.
 export function validateReport(db: DatabaseSync, taskId: number, report: AgentReport): void {
   const row = db
     .prepare(
@@ -275,7 +275,8 @@ export function validateReport(db: DatabaseSync, taskId: number, report: AgentRe
   if (!row) return;
   const findingIds = (JSON.parse(row.finding_ids) as number[]).sort((a, b) => a - b);
   for (const item of report.items) {
-    if (item.outcome !== 'fixed') continue;
+    if (item.outcome !== 'fixed' && item.outcome !== 'rejected') continue;
+    const validation = item.outcome === 'fixed' ? 'validated' : 'rejected';
     const match = /^([FC])(\d+)$/.exec(item.id);
     if (!match) continue;
     const number = Number(match[2]);
@@ -284,9 +285,9 @@ export function validateReport(db: DatabaseSync, taskId: number, report: AgentRe
       if (findingId === undefined) continue;
       db.prepare(
         `UPDATE review_findings
-         SET validation = 'validated', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-         WHERE id = ? AND validation = 'pending'`,
-      ).run(findingId);
+         SET validation = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ? AND validation != 'validated'`,
+      ).run(validation, findingId);
       awardFinding(db, findingId);
     } else {
       const comment = db
@@ -294,8 +295,8 @@ export function validateReport(db: DatabaseSync, taskId: number, report: AgentRe
         .get(row.id, number) as { id: number } | undefined;
       if (!comment) continue;
       db.prepare(
-        "UPDATE review_comments SET validation = 'validated' WHERE id = ? AND validation = 'pending'",
-      ).run(comment.id);
+        "UPDATE review_comments SET validation = ? WHERE id = ? AND validation != 'validated'",
+      ).run(validation, comment.id);
       awardComment(db, comment.id);
     }
   }

@@ -34,6 +34,7 @@ const FEED_LENGTH = 30;
 const outcomeLabels: Record<AgentReport['items'][number]['outcome'], string> = {
   fixed: 'Fixed',
   not_fixed: 'Not fixed',
+  rejected: 'Rejected',
   needs_input: 'Needs your input',
 };
 

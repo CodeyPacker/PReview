@@ -226,7 +226,7 @@ export function taskPrompt(context: TaskContext): string {
     );
   }
   sections.push(
-    '## When you finish\n\nReport every line comment and finding by its id (C1, F1 and so on): fixed, not_fixed with the reason, or needs_input with your question. List the test commands you ran and whether they passed. If you ran none, say in your summary that no tests cover the change.',
+    '## When you finish\n\nReport every line comment and finding by its id (C1, F1 and so on): fixed, not_fixed with the reason, rejected with evidence that the reported issue is invalid, or needs_input with your question. Use not_fixed when the issue remains valid but you could not fix it. List the test commands you ran and whether they passed. If you ran none, say in your summary that no tests cover the change.',
   );
   return sections.join('\n\n');
 }

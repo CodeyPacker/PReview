@@ -6,7 +6,7 @@ export const agentReportSchema = z.object({
   items: z.array(
     z.object({
       id: z.string(),
-      outcome: z.enum(['fixed', 'not_fixed', 'needs_input']),
+      outcome: z.enum(['fixed', 'not_fixed', 'needs_input', 'rejected']),
       // What was done, or why not.
       note: z.string(),
     }),
