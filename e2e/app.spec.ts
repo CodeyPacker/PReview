@@ -2119,6 +2119,7 @@ test('reads, replies to and resolves a discussion in the diff', async () => {
 
     const thread = page.getByRole('region', { name: 'Thread on new line 1' });
     await expect(thread.getByText('Why 2?')).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('review-thread-with-side-panel.png') });
     await thread.getByRole('button', { name: 'Reply' }).click();
     await thread.getByRole('textbox', { name: 'Reply to the thread on line 1' }).fill('It is 2.');
     await thread.getByRole('button', { name: 'Reply' }).click();
@@ -3723,7 +3724,7 @@ test("shows the agent's unpushed changes and warns before merging without them",
     });
     await finishReviewWith(page, /^Merge Pull Request/);
     await expect(agent).toBeHidden();
-    await expect(page.getByText('Agent Finished')).toBeVisible();
+    await expect(page.getByText('Agent Finished', { exact: true }).first()).toBeVisible();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('note')).toHaveText(
       "The agent has changes that aren't pushed. Merging now leaves them out.",

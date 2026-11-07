@@ -2,11 +2,13 @@
 
 .thread {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-8);
 }
 
 .composer {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-8);
   padding: var(--space-12);
   border: 1px solid var(--border);
@@ -18,6 +20,7 @@
 
 .composerActions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-8);

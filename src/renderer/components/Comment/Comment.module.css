@@ -1,6 +1,7 @@
 /* Comment styles. Read values from tokens.css custom properties only. */
 
 .comment {
+  container-type: inline-size;
   display: flex;
   gap: var(--space-12);
   padding: var(--space-12) var(--space-16);
@@ -14,6 +15,7 @@
 
 .body {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   flex: 1;
   gap: var(--space-8);
   min-width: 0;
@@ -53,4 +55,19 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-6);
+}
+
+/* Inline discussions can be narrow when the review side panel is open. */
+.foot > * {
+  max-width: 100%;
+  height: auto;
+  min-height: var(--control-sm);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+@container (max-width: 240px) {
+  .comment > :first-child {
+    display: none;
+  }
 }
