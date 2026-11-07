@@ -30,6 +30,7 @@ export interface FindingDraft {
 
 export interface FindingsDialogProps {
   open: boolean;
+  initialSelection?: number | 'new';
   onOpenChange: (open: boolean) => void;
   findings: readonly ReviewFinding[];
   loadScreenshot: (id: number) => Promise<string | null>;
@@ -62,6 +63,7 @@ function title(finding: ReviewFinding) {
 // because GitHub already has their text.
 export function FindingsDialog({
   open,
+  initialSelection,
   onOpenChange,
   findings,
   loadScreenshot,
@@ -70,8 +72,11 @@ export function FindingsDialog({
   onDelete,
 }: FindingsDialogProps) {
   // 'new' while adding a finding, or the id of the one on show.
-  const [selected, setSelected] = useState<'new' | number>();
-  const [draft, setDraft] = useState(emptyDraft);
+  const [selected, setSelected] = useState<'new' | number | undefined>(initialSelection);
+  const [draft, setDraft] = useState<FindingDraft>(() => {
+    const initial = findings.find((item) => item.id === initialSelection);
+    return initial ? { ...initial, newScreenshots: [] } : emptyDraft;
+  });
   const [busy, setBusy] = useState<'save' | 'resolve' | 'delete'>();
   const [failed, setFailed] = useState(false);
   const [converting, setConverting] = useState(false);

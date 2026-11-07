@@ -1985,7 +1985,7 @@ Still open:
 | Context-aware sprite animations | The sidebar companion idles and plays victory on XP, a finished agent, and saved findings or reviews. Only idle and victory art exist, so every event looks the same. Only the agent trigger has a test. |
 | Offline drafts and queued submissions | Unit tests and startup code. Not tried with a real outage. |
 | Backups and crash recovery | Backup export and restore, and window reload, have mocked or isolated e2e tests. No real crash tried. |
-| All nine designs represented | All nine screens exist. The review screen has no agent and findings side panel. Agent activity is in the Inbox and findings are in a dialog. Only the review design was compared this pass. |
+| All nine designs represented | All nine screens exist. The review screen has stacked agent activity and findings panels, with a hide/show control and automatic hiding in Zen Mode. Findings open directly in the existing editor. On narrow windows the panel opens over the right edge. Only the review design was compared this pass. |
 
 ## 23.2 Decisions Made During Implementation
 

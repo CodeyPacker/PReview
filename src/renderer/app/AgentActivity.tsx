@@ -25,6 +25,7 @@ import {
   useAnswerAgentQuestion,
 } from '../hooks/useAgentTasks.ts';
 import styles from './AgentActivity.module.css';
+import { cx } from '../lib/cx.ts';
 import { agentStatus } from './agentStatus.ts';
 import { relativeTime } from './relativeTime.ts';
 
@@ -41,11 +42,12 @@ const outcomeLabels: Record<AgentReport['items'][number]['outcome'], string> = {
 export interface AgentActivityProps {
   // The pull request's latest task.
   task: AgentTask;
+  className?: string;
 }
 
 // What the agent is doing on a pull request: its state, its question for you, its report and
 // a feed of its steps. Lets you stop, force stop or resume it.
-export function AgentActivity({ task }: AgentActivityProps) {
+export function AgentActivity({ task, className }: AgentActivityProps) {
   const active = isAgentActive(task) || task.status === 'waiting';
   const { data: events = [] } = useAgentActivity(task.id, active);
   const action = useAgentTaskAction();
@@ -60,7 +62,7 @@ export function AgentActivity({ task }: AgentActivityProps) {
   const { data: changes = [] } = useAgentChanges(task.id, unpushed);
 
   return (
-    <section className={styles.agent} aria-label="Agent activity">
+    <section className={cx(styles.agent, className)} aria-label="Agent activity">
       <div className={styles.header}>
         <h4 className="title-3">Agent Activity</h4>
         <StatusPill status={agentStatus[task.status]} />

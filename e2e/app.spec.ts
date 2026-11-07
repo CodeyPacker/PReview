@@ -2119,6 +2119,7 @@ test('reads, replies to and resolves a discussion in the diff', async () => {
 
     const thread = page.getByRole('region', { name: 'Thread on new line 1' });
     await expect(thread.getByText('Why 2?')).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('review-thread-with-side-panel.png') });
     await thread.getByRole('button', { name: 'Reply' }).click();
     await thread.getByRole('textbox', { name: 'Reply to the thread on line 1' }).fill('It is 2.');
     await thread.getByRole('button', { name: 'Reply' }).click();
@@ -2289,6 +2290,189 @@ test('adds, edits and resolves findings, and keeps published ones read-only', as
     await dialog.getByRole('button', { name: 'Close' }).click();
     // The resolved finding no longer counts as open.
     await expect(page.getByRole('button', { name: 'Findings, 0 open' })).toBeVisible();
+  } finally {
+    await app.close();
+  }
+});
+
+test('reviews agent activity and findings beside the diff', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'pullRequests.list': pullRequestsState('Side panel'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts'), changedFile('b.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+      'agentTasks.listActivity': [
+        {
+          id: 1,
+          kind: 'file',
+          summary: 'Checked the input validation.',
+          detail: null,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    });
+    await app.evaluate(({ ipcMain }) => {
+      const now = new Date().toISOString();
+      let findings = [
+        {
+          id: 1,
+          pullRequestId: 1,
+          category: 'security',
+          description: 'Token is logged',
+          steps: 'Open the log.',
+          screenshotIds: [],
+          validation: 'validated',
+          resolution: 'open',
+          publishedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          id: 2,
+          pullRequestId: 1,
+          category: 'bug',
+          description: 'Input accepts empty values',
+          steps: '',
+          screenshotIds: [],
+          validation: 'pending',
+          resolution: 'open',
+          publishedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ];
+      let task: Record<string, unknown> = {
+        id: 5,
+        pullRequestId: 1,
+        status: 'waiting',
+        attempts: 1,
+        error: null,
+        report: null,
+        costUsd: null,
+        question: {
+          id: 9,
+          createdAt: now,
+          questions: [
+            {
+              question: 'Should this round to 2 decimals?',
+              header: 'Rounding',
+              multiSelect: false,
+              options: [],
+            },
+          ],
+        },
+        createdAt: now,
+        startedAt: now,
+        finishedAt: null,
+      };
+      ipcMain.removeHandler('agentTasks.list');
+      ipcMain.handle('agentTasks.list', () => [task]);
+      ipcMain.removeHandler('reviewFindings.list');
+      ipcMain.handle('reviewFindings.list', () => findings);
+      ipcMain.removeHandler('reviewFindings.setResolution');
+      ipcMain.handle(
+        'reviewFindings.setResolution',
+        (_event, { id, resolution }: { id: number; resolution: string }) => {
+          findings = findings.map((finding) =>
+            finding.id === id ? { ...finding, resolution } : finding,
+          );
+          return findings;
+        },
+      );
+      ipcMain.removeHandler('agentTasks.answer');
+      ipcMain.handle('agentTasks.answer', (_event, input: unknown) => {
+        Object.assign(globalThis, { sidePanelAnswer: input });
+        findings[1]!.validation = 'rejected';
+        task = {
+          ...task,
+          status: 'completed',
+          question: null,
+          finishedAt: now,
+          report: {
+            items: [{ id: 'F2', outcome: 'rejected', note: 'Empty input is already rejected.' }],
+            tests: [],
+            summary: 'Checked the findings.',
+          },
+        };
+        return true;
+      });
+    });
+    await openReview(app, page);
+    const panel = page.getByRole('complementary', { name: 'Agent and findings' });
+    const findings = panel.getByRole('region', { name: 'Findings' });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText('Should this round to 2 decimals?')).toBeVisible();
+    await panel.getByRole('textbox', { name: 'Your answer' }).fill('Yes, use 2 decimals.');
+    await page.getByRole('button', { name: 'Hide agent and findings' }).click();
+    await expect(panel).toBeHidden();
+    await page.getByRole('button', { name: 'Show agent and findings' }).click();
+    await expect(panel.getByRole('textbox', { name: 'Your answer' })).toHaveValue(
+      'Yes, use 2 decimals.',
+    );
+    await page.getByRole('button', { name: 'Enter Zen mode' }).click();
+    await expect(panel).toBeHidden();
+    await page.getByRole('button', { name: 'Exit Zen mode' }).click();
+    await expect(panel.getByRole('textbox', { name: 'Your answer' })).toHaveValue(
+      'Yes, use 2 decimals.',
+    );
+    await expect(page.getByRole('heading', { name: 'a.ts', exact: true })).toBeVisible();
+    await page.screenshot({ path: test.info().outputPath('review-side-panel.png') });
+
+    await findings.getByRole('button', { name: /Token is logged/ }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('heading', { name: 'Security finding' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Resolve', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Back' }).click();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+    await findings.getByRole('radio', { name: 'Resolved', exact: true }).click();
+    await expect(findings.getByRole('button', { name: /Token is logged/ })).toBeVisible();
+    await expect(findings.getByRole('button', { name: /Input accepts/ })).toBeHidden();
+    await findings.getByRole('radio', { name: 'Open', exact: true }).click();
+    await expect(findings.getByRole('button', { name: /Token is logged/ })).toBeHidden();
+    await findings.getByRole('button', { name: 'Add finding' }).click();
+    await expect(dialog.getByRole('heading', { name: 'New finding' })).toBeVisible();
+    await dialog.getByRole('button', { name: 'Back' }).click();
+    await dialog.getByRole('button', { name: 'Close' }).click();
+
+    await panel.getByRole('button', { name: 'Send Answer' }).click();
+    expect(
+      await app.evaluate(() => (globalThis as { sidePanelAnswer?: unknown }).sidePanelAnswer),
+    ).toEqual({
+      questionId: 9,
+      answers: { 'Should this round to 2 decimals?': 'Yes, use 2 decimals.' },
+    });
+    await expect(findings.getByRole('button', { name: /Input accepts/ })).toContainText(
+      'Not Confirmed',
+    );
+    await expect(panel.getByText('Empty input is already rejected.')).toBeVisible();
+    await expect(page).toHaveURL(/review\/1/);
+
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1024, 800));
+    await expect(panel).toBeVisible();
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
+      .toBe(true);
+    await expect
+      .poll(() => panel.evaluate((element) => element.getBoundingClientRect().right <= innerWidth))
+      .toBe(true);
+    await expect
+      .poll(() =>
+        page
+          .getByRole('button', { name: 'Hide agent and findings' })
+          .evaluate((element) => element.getBoundingClientRect().right <= innerWidth),
+      )
+      .toBe(true);
+    await page.screenshot({ path: test.info().outputPath('review-side-panel-narrow.png') });
+    await page.getByRole('button', { name: 'Hide agent and findings' }).click();
+    await expect(panel).toBeHidden();
+    await expect(page.getByRole('heading', { name: 'a.ts', exact: true })).toBeVisible();
   } finally {
     await app.close();
   }
@@ -3540,7 +3724,7 @@ test("shows the agent's unpushed changes and warns before merging without them",
     });
     await finishReviewWith(page, /^Merge Pull Request/);
     await expect(agent).toBeHidden();
-    await expect(page.getByText('Agent Finished')).toBeVisible();
+    await expect(page.getByText('Agent Finished', { exact: true }).first()).toBeVisible();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('note')).toHaveText(
       "The agent has changes that aren't pushed. Merging now leaves them out.",

@@ -10,6 +10,7 @@ import {
   ListChecks,
   Maximize2,
   Minimize2,
+  PanelRight,
   RefreshCw,
 } from 'lucide-react';
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
@@ -47,6 +48,7 @@ import { useAgentTasks } from '../hooks/useAgentTasks.ts';
 import { agentIsBusy, agentMergeWarning, agentStatus } from '../app/agentStatus.ts';
 import { AgentReviewDialog } from '../app/AgentReviewDialog.tsx';
 import { ReviewDialog } from '../app/ReviewDialog.tsx';
+import { ReviewSidePanel } from '../app/ReviewSidePanel.tsx';
 import { FindingsDialog } from '../app/FindingsDialog.tsx';
 import { PullRequestDetailsDialog } from '../app/PullRequestDetailsDialog.tsx';
 import { Count } from '../components/Count/Count.tsx';
@@ -86,12 +88,20 @@ function ReviewPage() {
   const { data: repositoryState } = useRepositories();
   const pullRequest = pullRequestState?.pullRequests.find((pull) => pull.id === pullRequestId);
   const { data: auth } = useGitHubAuth();
-  const { data: agentTasks } = useAgentTasks();
+  const { data: agentTasks, isPending: agentsLoading, isError: agentsError } = useAgentTasks();
   // Tasks come newest first.
   const agentTask = agentTasks?.find((task) => task.pullRequestId === pullRequestId);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [agentReviewOpen, setAgentReviewOpen] = useState(false);
   const [findingsOpen, setFindingsOpen] = useState(false);
+  const [findingSelection, setFindingSelection] = useState<number | 'new'>();
+  const [sidePanelOpen, setSidePanelOpen] = useState(
+    () => matchMedia('(min-width: 1400px)').matches,
+  );
+  function openFinding(selection?: number | 'new') {
+    setFindingSelection(selection);
+    setFindingsOpen(true);
+  }
   const [closeOpen, setCloseOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [chosenVerdict, setChosenVerdict] = useState<ReviewVerdict>('approve');
@@ -151,6 +161,10 @@ function ReviewPage() {
   // group of tests and generated files is skipped.
   const visibleFiles = listedFiles && orderForReview(listedFiles, groupSupport, supportOpen);
   const reviewFindings = useReviewFindings(pullRequestId);
+  const refreshFindings = reviewFindings.findings.refetch;
+  useEffect(() => {
+    if (agentTask?.status === 'completed') void refreshFindings();
+  }, [agentTask?.id, agentTask?.status, agentTask?.finishedAt, refreshFindings]);
   const queuedReview = useQueuedReview(pullRequestId).data;
   const { finish: finishReview } = useReviewCompletion(pullRequestId);
   const roundFinished = round?.finishedAt != null;
@@ -448,10 +462,21 @@ function ReviewPage() {
             iconStart={<ListChecks aria-hidden />}
             iconEnd={openFindings > 0 ? <Count value={openFindings} /> : undefined}
             aria-label={`Findings, ${openFindings} open`}
-            onClick={() => setFindingsOpen(true)}
+            onClick={() => openFinding()}
           >
             Findings
           </Button>
+          {!zen && (
+            <IconButton
+              size="sm"
+              icon={<PanelRight />}
+              label={sidePanelOpen ? 'Hide agent and findings' : 'Show agent and findings'}
+              aria-expanded={sidePanelOpen}
+              aria-controls="review-side-panel"
+              selected={sidePanelOpen}
+              onClick={() => setSidePanelOpen((open) => !open)}
+            />
+          )}
           <FinishReviewMenu
             roundNumber={round?.number}
             filesApproved={
@@ -480,21 +505,24 @@ function ReviewPage() {
         onOpenChange={setDetailsOpen}
         pullRequest={pullRequest}
       />
-      <FindingsDialog
-        open={findingsOpen}
-        onOpenChange={setFindingsOpen}
-        findings={findings}
-        loadScreenshot={loadFindingScreenshot}
-        onSave={({ id, ...finding }) =>
-          id === undefined
-            ? reviewFindings.create.mutateAsync({ pullRequestId, ...finding })
-            : reviewFindings.update.mutateAsync({ pullRequestId, id, ...finding })
-        }
-        onSetResolution={(id, resolution) =>
-          reviewFindings.setResolution.mutateAsync({ pullRequestId, id, resolution })
-        }
-        onDelete={(id) => reviewFindings.remove.mutateAsync(id)}
-      />
+      {findingsOpen && (
+        <FindingsDialog
+          initialSelection={findingSelection}
+          open={findingsOpen}
+          onOpenChange={setFindingsOpen}
+          findings={findings}
+          loadScreenshot={loadFindingScreenshot}
+          onSave={({ id, ...finding }) =>
+            id === undefined
+              ? reviewFindings.create.mutateAsync({ pullRequestId, ...finding })
+              : reviewFindings.update.mutateAsync({ pullRequestId, id, ...finding })
+          }
+          onSetResolution={(id, resolution) =>
+            reviewFindings.setResolution.mutateAsync({ pullRequestId, id, resolution })
+          }
+          onDelete={(id) => reviewFindings.remove.mutateAsync(id)}
+        />
+      )}
       <ClosePullRequestDialog
         open={closeOpen}
         onOpenChange={setCloseOpen}
@@ -544,7 +572,13 @@ function ReviewPage() {
           />
         </>
       )}
-      <div className={cx(styles.workspace, filesCollapsed && styles.filesCollapsed)}>
+      <div
+        className={cx(
+          styles.workspace,
+          filesCollapsed && styles.filesCollapsed,
+          sidePanelOpen && !zen && styles.withSidePanel,
+        )}
+      >
         <div
           className={styles.filesSlot}
           inert={filesCollapsed}
@@ -763,6 +797,17 @@ function ReviewPage() {
             ))
           )}
         </Panel>
+        <ReviewSidePanel
+          hidden={zen || !sidePanelOpen}
+          className={styles.sidePanel}
+          task={agentTask}
+          agentsLoading={agentsLoading}
+          agentsError={agentsError}
+          findings={findings}
+          findingsLoading={reviewFindings.findings.isPending}
+          findingsError={reviewFindings.findings.isError}
+          onOpenFinding={openFinding}
+        />
       </div>
     </div>
   );
