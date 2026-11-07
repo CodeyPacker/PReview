@@ -1981,7 +1981,7 @@ Still open:
 | Review sessions persist across restarts | Unit tests only. Not tried with a real restart. |
 | Agent progress, questions, and errors | Progress and errors worked in a real Windows run. Questions passed a real SDK call on macOS, but not through the app or WSL. |
 | Safe automatic pushes and CI monitoring | A real Windows push worked. Not yet seen: the app showing a finished CI result, or a refused push outside tests. |
-| Findings validated and user-verified | Agents validate and users resolve. Nothing can set a finding to rejected. |
+| Findings validated and user-verified | Agents validate or reject findings with a reason, and users resolve them. Rejection is covered by automated tests and still needs a real agent run. |
 | Context-aware sprite animations | The sidebar companion idles and plays victory on XP, a finished agent, and saved findings or reviews. Only idle and victory art exist, so every event looks the same. Only the agent trigger has a test. |
 | Offline drafts and queued submissions | Unit tests and startup code. Not tried with a real outage. |
 | Backups and crash recovery | Backup export and restore, and window reload, have mocked or isolated e2e tests. No real crash tried. |

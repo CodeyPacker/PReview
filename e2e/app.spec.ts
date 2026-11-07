@@ -3295,7 +3295,10 @@ test('shows CI on pushed agent changes and sends the agent back on request', asy
             attempts: 1,
             error: null,
             report: {
-              items: [{ id: 'C1', outcome: 'fixed', note: 'Renamed the store.' }],
+              items: [
+                { id: 'C1', outcome: 'fixed', note: 'Renamed the store.' },
+                { id: 'F1', outcome: 'rejected', note: 'The input is already checked.' },
+              ],
               tests: [{ command: 'pnpm test', passed: true, summary: '12 passed' }],
               summary: 'Renamed the token store.',
             },
@@ -3334,6 +3337,8 @@ test('shows CI on pushed agent changes and sends the agent back on request', asy
       .click();
 
     const agent = page.getByRole('region', { name: 'Agent activity' });
+    await expect(agent.getByText('Rejected', { exact: true })).toBeVisible();
+    await expect(agent.getByText('The input is already checked.')).toBeVisible();
     await expect(agent.getByText('CI Failed')).toBeVisible();
     await expect(agent.getByText('abcdef1', { exact: true })).toBeVisible();
     await expect(agent.getByRole('link', { name: 'e2e' })).toHaveAttribute(

@@ -137,3 +137,22 @@ describe('comment XP', () => {
     });
   });
 });
+
+describe('rejected comment validation', () => {
+  it('keeps rejected comments unrewarded until a later fix and reviewer resolution', () => {
+    draft('Off by one', 'bug');
+    const taskId = send();
+    validateReport(db, taskId, {
+      items: [{ id: 'C1', outcome: 'rejected', note: 'The bounds are already checked.' }],
+      tests: [],
+      summary: 'Checked the bounds.',
+    });
+    expect(db.prepare('SELECT validation FROM review_comments').get()).toEqual({
+      validation: 'rejected',
+    });
+    syncCommentResolutions(db, pullRequestId, [thread('Off by one', true)]);
+    expect(listXpTransactions(db, pullRequestId)).toEqual([]);
+    validateReport(db, taskId, fixed('C1'));
+    expect(listXpTransactions(db, pullRequestId)).toMatchObject([{ amount: 50 }]);
+  });
+});

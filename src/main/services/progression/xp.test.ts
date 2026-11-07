@@ -1,3 +1,4 @@
+import { agentReportSchema, type AgentReport } from '../../../shared/contracts/agent-tasks.ts';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../../database/connection.ts';
 import { migrate } from '../../database/migrate.ts';
@@ -59,7 +60,7 @@ function addTask(findingIds: number[]): number {
   return (db.prepare('SELECT id FROM agent_tasks').get() as { id: number }).id;
 }
 
-const report = (items: { id: string; outcome: 'fixed' | 'not_fixed' }[]) => ({
+const report = (items: { id: string; outcome: AgentReport['items'][number]['outcome'] }[]) => ({
   items: items.map((item) => ({ ...item, note: '' })),
   tests: [],
   summary: '',
@@ -270,6 +271,38 @@ describe('finding XP', () => {
     validateReport(db, taskId, report([{ id: 'F1', outcome: 'not_fixed' }]));
     setReviewFindingResolution(db, { pullRequestId, id: test, resolution: 'resolved' });
     expect(listXpTransactions(db, pullRequestId)).toEqual([]);
+  });
+
+  it('rejects only reported findings without resolving them or awarding XP, and allows a later fix', () => {
+    const rejected = addFinding('bug');
+    const untouched = addFinding('security');
+    const taskId = addTask([rejected]);
+    const result = agentReportSchema.parse({
+      ...report([]),
+      items: [
+        { id: 'F1', outcome: 'rejected', note: 'The input is already checked.' },
+        { id: 'F2', outcome: 'rejected', note: 'Outside this review.' },
+      ],
+    });
+    validateReport(db, taskId, result);
+    validateReport(db, taskId, result);
+    expect(
+      db.prepare('SELECT id, validation, resolution FROM review_findings ORDER BY id').all(),
+    ).toEqual([
+      { id: rejected, validation: 'rejected', resolution: 'open' },
+      { id: untouched, validation: 'pending', resolution: 'open' },
+    ]);
+    setReviewFindingResolution(db, { pullRequestId, id: rejected, resolution: 'resolved' });
+    expect(listXpTransactions(db, pullRequestId)).toEqual([]);
+
+    validateReport(db, taskId, report([{ id: 'F1', outcome: 'fixed' }]));
+    validateReport(db, taskId, result);
+    expect(db.prepare('SELECT validation FROM review_findings WHERE id = ?').get(rejected)).toEqual(
+      { validation: 'validated' },
+    );
+    expect(listXpTransactions(db, pullRequestId)).toMatchObject([
+      { findingId: rejected, amount: 50 },
+    ]);
   });
 
   it('is awarded once and kept when the finding is reopened', () => {
