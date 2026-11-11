@@ -3794,6 +3794,11 @@ for (const tourProvider of ['claude', 'codex'] as const) {
       await openReview(app, page);
       await page.getByRole('button', { name: 'Start tour', exact: true }).click();
       await expect(page.getByRole('heading', { name: 'How deep should we go?' })).toBeVisible();
+      await expect(
+        page.getByText(
+          'Every level covers the same files and stops. Choose how simple or technical the explanations should be.',
+        ),
+      ).toBeVisible();
       await expect(page.getByRole('radio', { name: 'Normal', exact: true })).toBeChecked();
       await page.getByRole('radio', { name: 'Deep', exact: true }).check();
       await expect(page.getByRole('radio', { name: 'Claude', exact: true })).toBeChecked();

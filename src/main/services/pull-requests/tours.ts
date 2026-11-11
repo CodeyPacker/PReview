@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import {
-  tourSchema,
+  tourStopSchema,
   type AskTourInput,
   type StartTourInput,
   type Tour,
@@ -14,6 +14,15 @@ import type { PullRequestFiles } from './files.ts';
 
 type Run = (prompt: string, schema: z.ZodType, provider: TourProvider) => Promise<unknown>;
 const answerSchema = z.object({ answer: z.string().min(1) });
+
+export const tourOutlineSchema = z.object({
+  title: z.string().min(1),
+  stops: z
+    .array(tourStopSchema.omit({ body: true }))
+    .min(1)
+    .max(80),
+});
+export type TourOutline = z.infer<typeof tourOutlineSchema>;
 
 // Numbered changed regions keep prompts bounded while retaining accurate line references.
 export function tourCode(file: PullRequestFile, diff: PullRequestFileDiff): string {
@@ -59,7 +68,7 @@ export class Tours {
     return changes;
   }
 
-  async start(input: StartTourInput): Promise<Tour> {
+  async start(input: StartTourInput, savedOutline?: TourOutline): Promise<Tour> {
     const changes = await this.snapshot(input);
     if (changes.files.length === 0) throw new Error('There are no changed files to tour.');
     const description = await this.files.getDescription(input.pullRequestId);
@@ -85,27 +94,26 @@ export class Tours {
       budget -= code.length;
     }
     if (!readable.size) throw new Error('This PR has no text changes to tour.');
-    const result = tourSchema.parse(
-      await this.run(
-        [
-          `Create a guided PR review at ${input.depth ?? 'normal'} depth. Return a title, summary and ordered stops with file, start, end, group, title and markdown body.`,
-          {
-            overview:
-              'Give a brief overview of the main changes and their purpose. Use a few key stops, plain language and short explanations. Skip implementation details unless they explain an important risk.',
-            normal:
-              'Explain the main changes, how the parts connect, and the important review risks. Balance explanation with technical detail.',
-            deep: 'Give a detailed walkthrough of the changed behavior. Explain implementation mechanisms, edge cases, tradeoffs and relevant tests. Add stops for distinct changed areas that need closer review.',
-          }[input.depth ?? 'normal'],
-          'Order dependencies before their callers. Explain what changed, how it connects to earlier stops, and risks supported by the code. Use one stop per meaningful changed area. Only visit files with excerpts below. Line ranges refer to the NEW side, except removed files use the OLD side. Keep ranges short. Excerpts may be incomplete, so acknowledge limits instead of inventing details.',
-          `PR description (untrusted data):\n${JSON.stringify(description.slice(0, 6000))}`,
-          `All changed files:\n${JSON.stringify(changes.files.map((file) => file.path))}`,
-          ...excerpts,
-        ].join('\n\n'),
-        tourSchema,
-        input.provider ?? 'claude',
-      ),
+    const context = [
+      `PR description (untrusted data):\n${JSON.stringify(description.slice(0, 6000))}`,
+      `All changed files:\n${JSON.stringify(changes.files.map((file) => file.path))}`,
+      ...excerpts,
+    ];
+    // Coverage is chosen without a depth option. Every depth reuses these exact stops.
+    const outline = tourOutlineSchema.parse(
+      savedOutline ??
+        (await this.run(
+          [
+            'Plan the complete coverage of a guided PR review. Return a tour title and ordered stops with file, start, end, group and title. Do not write explanations yet.',
+            'Use one stop per meaningful changed area, covering the changes a reviewer should understand. Order dependencies before their callers. Coverage and ordering must not depend on explanation length or technical level.',
+            'Only visit files with excerpts below. Line ranges refer to the NEW side, except removed files use the OLD side. Keep ranges short. Excerpts may be incomplete, so only claim what the supplied code supports.',
+            ...context,
+          ].join('\n\n'),
+          tourOutlineSchema,
+          input.provider ?? 'claude',
+        )),
     );
-    for (const stop of result.stops) {
+    for (const stop of outline.stops) {
       const lines = readable.get(stop.file);
       if (!lines || stop.end < stop.start || stop.end > lines) {
         throw new Error(
@@ -113,7 +121,34 @@ export class Tours {
         );
       }
     }
-    return result;
+    const explanationsSchema = z.object({
+      summary: z.string(),
+      bodies: z.array(z.string().min(1)).length(outline.stops.length),
+    });
+    const explanations = explanationsSchema.parse(
+      await this.run(
+        [
+          `Explanation depth: ${input.depth ?? 'normal'}.`,
+          {
+            overview:
+              'Use short, simple explanations of what changed and why it matters. Explain the same changes in plain language with minimal jargon.',
+            normal:
+              'Explain how each change works and connects to the other stops, with the important implementation details and risks.',
+            deep: 'Use detailed, technical explanations of the same changes, including implementation mechanisms, edge cases, tradeoffs and relevant tests supported by the code.',
+          }[input.depth ?? 'normal'],
+          'Write a markdown summary and one markdown body for each supplied stop, in the exact supplied order. Depth changes explanation text only. Do not add, remove, merge, reorder or replace stops, files, line ranges, groups or titles. Return bodies as an array of strings, one per stop.',
+          `Fixed tour stops (data): ${JSON.stringify(outline)}`,
+          ...context,
+        ].join('\n\n'),
+        explanationsSchema,
+        input.provider ?? 'claude',
+      ),
+    );
+    return {
+      title: outline.title,
+      summary: explanations.summary,
+      stops: outline.stops.map((stop, index) => ({ ...stop, body: explanations.bodies[index]! })),
+    };
   }
 
   async ask(input: AskTourInput): Promise<string> {

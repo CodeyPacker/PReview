@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { startTourInputSchema } from '../../../shared/contracts/tours.ts';
-import { Tours, tourCode } from './tours.ts';
+import { Tours, tourCode, tourOutlineSchema } from './tours.ts';
 import type { PullRequestFile } from '../../../shared/contracts/pull-request-files.ts';
 
 const input = { pullRequestId: 1, headSha: 'a'.repeat(40), mergeBase: 'b'.repeat(40) };
@@ -35,7 +35,15 @@ function setup() {
     getDescription: vi.fn().mockResolvedValue('Update the value'),
     getDiff: vi.fn().mockResolvedValue(diff),
   };
-  const run = vi.fn().mockResolvedValue(plan);
+  const run = vi
+    .fn<(prompt: string, schema: unknown, provider: string) => Promise<unknown>>()
+    .mockImplementation((_prompt, schema) =>
+      Promise.resolve(
+        schema === tourOutlineSchema
+          ? plan
+          : { summary: plan.summary, bodies: plan.stops.map((stop) => stop.body) },
+      ),
+    );
   return { files, run, tours: new Tours(files, run) };
 }
 
@@ -63,7 +71,25 @@ describe('PR tours', () => {
     async (depth) => {
       const { tours, run } = setup();
       await tours.start({ ...input, depth });
-      expect(run.mock.calls[0]?.[0]).toContain(`at ${depth} depth`);
+      expect(run.mock.calls[0]?.[0]).not.toContain(`Explanation depth: ${depth}`);
+      expect(run.mock.calls[1]?.[0]).toContain(`Explanation depth: ${depth}`);
+      expect(run.mock.calls[1]?.[0]).toContain('Depth changes explanation text only');
+    },
+  );
+
+  it('uses an existing stop list without asking the provider to choose files again', async () => {
+    const { tours, run } = setup();
+    expect(await tours.start({ ...input, depth: 'deep' }, plan)).toEqual(plan);
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0]?.[0]).toContain('Fixed tour stops');
+  });
+
+  it.each([{ bodies: [] }, { bodies: ['One', 'Extra'] }])(
+    'rejects explanations that add or remove stops',
+    async ({ bodies }) => {
+      const { tours, run } = setup();
+      run.mockResolvedValue({ summary: 'Summary', bodies });
+      await expect(tours.start(input, plan)).rejects.toThrow();
     },
   );
 

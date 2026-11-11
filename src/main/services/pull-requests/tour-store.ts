@@ -42,13 +42,31 @@ export class TourStore {
     const ids = this.db
       .prepare(
         `SELECT MAX(id) AS id FROM tours
-      WHERE repository = ? AND pr_provider_id = ? AND head_sha = ? AND merge_base = ?
+      WHERE repository = ? AND pr_provider_id = ? AND head_sha = ? AND merge_base = ? AND outline_version = 1
       GROUP BY provider, depth ORDER BY MAX(updated_at) DESC, MAX(id) DESC`,
       )
       .all(identity.repository, identity.providerId, input.headSha, input.mergeBase) as {
       id: number;
     }[];
     return ids.map(({ id }) => this.summary(id));
+  }
+
+  outline(input: StartTourInput): Tour | undefined {
+    const identity = this.identity(input.pullRequestId);
+    const row = this.db
+      .prepare(
+        `SELECT id FROM tours WHERE repository = ? AND pr_provider_id = ?
+      AND head_sha = ? AND merge_base = ? AND provider = ?
+      ORDER BY outline_version DESC, CASE WHEN depth = 'normal' THEN 0 ELSE 1 END, id DESC LIMIT 1`,
+      )
+      .get(
+        identity.repository,
+        identity.providerId,
+        input.headSha,
+        input.mergeBase,
+        input.provider ?? 'claude',
+      ) as { id: number } | undefined;
+    return row ? this.get(row.id).plan : undefined;
   }
 
   private summary(id: number) {
@@ -96,7 +114,7 @@ export class TourStore {
     const row = this.db
       .prepare(
         `SELECT id FROM tours WHERE id = ? AND repository = ?
-      AND pr_provider_id = ? AND head_sha = ? AND merge_base = ?`,
+      AND pr_provider_id = ? AND head_sha = ? AND merge_base = ? AND outline_version = 1`,
       )
       .get(input.tourId, identity.repository, identity.providerId, input.headSha, input.mergeBase);
     if (!row) throw new Error('This tour does not match the current PR commits. Start a new tour.');
@@ -114,8 +132,8 @@ export class TourStore {
         this.db
           .prepare(
             `INSERT INTO tours
-        (repository, pr_provider_id, pr_number, head_sha, merge_base, provider, depth, title, summary, generation_ms)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (repository, pr_provider_id, pr_number, head_sha, merge_base, provider, depth, title, summary, generation_ms, outline_version)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
           )
           .run(
             identity.repository,

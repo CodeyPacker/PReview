@@ -15,17 +15,19 @@ const depths: { value: TourDepth; label: string; description: string }[] = [
   {
     value: 'overview',
     label: 'Overview',
-    description: 'The main changes and why they matter. A short tour with fewer stops.',
+    description: 'Short, plain-language explanations of what changed and why it matters.',
   },
   {
     value: 'normal',
     label: 'Normal',
-    description: 'How the changes work together, with the important details and risks.',
+    description:
+      'Clear explanations of how the changes work, with the important details and risks.',
   },
   {
     value: 'deep',
     label: 'Deep',
-    description: 'Implementation details, edge cases, tradeoffs and tests. A closer review.',
+    description:
+      'Detailed, technical explanations of implementation, edge cases, tradeoffs and tests.',
   },
 ];
 
@@ -68,7 +70,10 @@ export function TourPlanning({
           }}
         >
           <h2 id="tour-depth-title">How deep should we go?</h2>
-          <p>Choose the level of detail for this tour. You can ask for more at any stop.</p>
+          <p>
+            Every level covers the same files and stops. Choose how simple or technical the
+            explanations should be.
+          </p>
           <fieldset className={styles.providers}>
             <legend className={styles.legend}>Tour provider</legend>
             {(['claude', 'codex'] as const).map((value) => (

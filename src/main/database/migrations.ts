@@ -645,4 +645,11 @@ export const migrations: readonly Migration[] = [
       CREATE INDEX tour_messages_stop ON tour_messages (tour_id, stop_position, id);
     `,
   },
+  {
+    version: 32,
+    name: 'depth_independent_tour_stops',
+    // Earlier tours may have selected different files for each depth. Keep them as history,
+    // but offer only new fixed-outline generations for resume.
+    sql: `ALTER TABLE tours ADD COLUMN outline_version INTEGER NOT NULL DEFAULT 0;`,
+  },
 ];

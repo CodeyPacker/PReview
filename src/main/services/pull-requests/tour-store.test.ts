@@ -9,7 +9,7 @@ import { reconcileRepositories } from '../repositories/registry.ts';
 import { clearReviewData } from './clear-review-data.ts';
 import { TourStore } from './tour-store.ts';
 import { SavedTours } from './saved-tours.ts';
-import type { Tours } from './tours.ts';
+import { Tours, tourOutlineSchema } from './tours.ts';
 
 const plan = {
   title: 'Review changes',
@@ -174,7 +174,7 @@ describe('saved tour storage', () => {
         migrations.filter((migration) => migration.version <= 30),
       );
       previous.prepare("INSERT INTO settings (key, value) VALUES ('test', 'kept')").run();
-      expect(migrate(previous)).toBe(31);
+      expect(migrate(previous)).toBe(32);
       expect(previous.prepare("SELECT value FROM settings WHERE key = 'test'").get()).toMatchObject(
         { value: 'kept' },
       );
@@ -221,6 +221,61 @@ describe('saved tour storage', () => {
 });
 
 describe('saved tour provider work', () => {
+  it('keeps identical files, order and ranges across depths, including concurrent requests', async () => {
+    const run = vi
+      .fn<(prompt: string, schema: unknown, provider: string) => Promise<unknown>>()
+      .mockImplementation((prompt, schema) => {
+        if (schema === tourOutlineSchema) return Promise.resolve(plan);
+        const depth = /Explanation depth: (\w+)/.exec(prompt)?.[1] ?? 'unknown';
+        return Promise.resolve({
+          summary: `${depth} summary`,
+          bodies: plan.stops.map(() => `${depth} explanation`),
+        });
+      });
+    const files = {
+      list: vi.fn().mockResolvedValue({
+        ...input,
+        files: plan.stops.map((stop) => ({
+          path: stop.file,
+          previousPath: null,
+          status: 'modified',
+          hunks: null,
+        })),
+      }),
+      getDescription: vi.fn().mockResolvedValue('Changes'),
+      getDiff: vi.fn().mockResolvedValue({
+        original: 'old\ncode',
+        modified: 'new\ncode',
+        unavailable: null,
+        images: null,
+      }),
+    };
+    const tours = new SavedTours(store, new Tours(files, run));
+    const depths = ['overview', 'normal', 'deep'] as const;
+    const results = await Promise.all(depths.map((depth) => tours.start({ ...input, depth })));
+    for (const [index, saved] of results.entries()) {
+      expect(tourOutlineSchema.parse(saved.plan)).toEqual(tourOutlineSchema.parse(plan));
+      expect(saved.plan.stops.map((stop) => stop.body)).toEqual(
+        plan.stops.map(() => `${depths[index]} explanation`),
+      );
+    }
+    expect(run.mock.calls.filter((call) => call[1] === tourOutlineSchema)).toHaveLength(1);
+    expect(store.list(input)).toHaveLength(3);
+  });
+
+  it('retains legacy tours as history and reuses their stop list for new explanations', async () => {
+    const legacy = create();
+    db.prepare('UPDATE tours SET outline_version = 0 WHERE id = ?').run(legacy.id);
+    expect(store.list(input)).toEqual([]);
+    expect(store.get(legacy.id).plan).toEqual(plan);
+    const provider = engine();
+    const tours = new SavedTours(store, provider);
+    const saved = await tours.start({ ...input, depth: 'overview' });
+    expect(provider.start).toHaveBeenCalledWith(expect.anything(), plan);
+    expect(store.list(input).map((tour) => tour.id)).toEqual([saved.id]);
+    expect(store.get(legacy.id).plan).toEqual(plan);
+  });
+
   function engine() {
     return {
       start: vi.fn<Tours['start']>().mockResolvedValue(plan),

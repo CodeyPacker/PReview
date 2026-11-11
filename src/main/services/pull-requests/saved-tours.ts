@@ -9,6 +9,7 @@ import type { Tours } from './tours.ts';
 // Provider work finishes before SQLite transactions begin, so a slow answer never locks the DB.
 export class SavedTours {
   private running = 0;
+  private generations = new Map<string, Promise<unknown>>();
   get busy() {
     return this.running > 0;
   }
@@ -21,12 +22,27 @@ export class SavedTours {
   async start(input: StartTourInput) {
     const identity = this.store.identity(input.pullRequestId);
     const started = Date.now();
+    const key = JSON.stringify([
+      identity.repository,
+      identity.providerId,
+      input.headSha,
+      input.mergeBase,
+      input.provider ?? 'claude',
+    ]);
+    const previous = this.generations.get(key);
     this.running++;
-    try {
-      const plan = await this.engine.start(input);
+    const generation = (async () => {
+      // Concurrent depth requests must observe the first saved outline before generating text.
+      if (previous) await previous.catch(() => undefined);
+      const plan = await this.engine.start(input, this.store.outline(input));
       return this.store.create(input, identity, plan, Math.max(0, Date.now() - started));
+    })();
+    this.generations.set(key, generation);
+    try {
+      return await generation;
     } finally {
       this.running--;
+      if (this.generations.get(key) === generation) this.generations.delete(key);
     }
   }
 
