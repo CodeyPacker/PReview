@@ -1,3 +1,11 @@
+import {
+  startTourInputSchema,
+  askSavedTourInputSchema,
+  savedTourSchema,
+  savedTourSummarySchema,
+  savedTourInputSchema,
+  tourProgressInputSchema,
+} from './tours.ts';
 import { clearPackageCacheResultSchema } from './settings.ts';
 import { z } from 'zod';
 import {
@@ -81,6 +89,11 @@ export type AppInfo = z.infer<typeof appInfoSchema>;
 // Every IPC channel and the schemas its input and output must match.
 // The main process validates both sides; the preload exposes one function per channel.
 export const ipcContract = {
+  'tours.start': { input: startTourInputSchema, output: savedTourSchema },
+  'tours.list': { input: startTourInputSchema, output: z.array(savedTourSummarySchema) },
+  'tours.resume': { input: savedTourInputSchema, output: savedTourSchema },
+  'tours.progress': { input: tourProgressInputSchema, output: z.null() },
+  'tours.ask': { input: askSavedTourInputSchema, output: savedTourSchema },
   'app.getInfo': { input: z.undefined(), output: appInfoSchema },
   'packageCache.clear': { input: z.undefined(), output: clearPackageCacheResultSchema },
   'settings.getAll': { input: z.undefined(), output: settingsSchema },

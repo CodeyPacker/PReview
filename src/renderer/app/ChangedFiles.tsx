@@ -1,7 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronRight, FileDiff } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
-import { splitSupportFiles } from '../lib/supportFiles.ts';
+import { splitSupportFiles, splitTourFiles } from '../lib/supportFiles.ts';
 import { useActiveItemRect } from '../lib/useActiveItemRect.ts';
 import { ActiveItemIndicator } from '../components/ActiveItemIndicator/ActiveItemIndicator.tsx';
 import type {
@@ -27,7 +27,9 @@ const ROW_ESTIMATE = 30;
 // Matches the list's gap (--space-2).
 const ROW_GAP = 2;
 
-type Row = { kind: 'file'; file: PullRequestFile } | { kind: 'group' };
+type Row =
+  | { kind: 'file'; file: PullRequestFile }
+  | { kind: 'group'; group: 'tour' | 'other' | 'support'; count: number };
 export const SINCE_REVIEW = 'since-review';
 
 export interface ChangedFilesProps {
@@ -60,6 +62,8 @@ export interface ChangedFilesProps {
   onBrowseChange?: (browsing: boolean) => void;
   // Puts tests, stories and generated files in a group at the bottom, collapsed until opened.
   groupSupport?: boolean;
+  // Files in tour stop order. Repeated paths appear only once.
+  tourPaths?: readonly string[];
   supportOpen?: boolean;
   onSupportOpenChange?: (open: boolean) => void;
 }
@@ -87,6 +91,7 @@ export function ChangedFiles({
   selectedPath,
   onSelect,
   onBrowseChange,
+  tourPaths,
   groupSupport = false,
   supportOpen = false,
   onSupportOpenChange,
@@ -102,31 +107,64 @@ export function ChangedFiles({
       searchQuery,
       searchMatches,
       groupSupport,
+      tourPaths,
       supportOpen,
       selectedShown,
     }),
-    [filter, selectedPath, searchQuery, searchMatches, groupSupport, supportOpen, selectedShown],
+    [
+      filter,
+      selectedPath,
+      searchQuery,
+      searchMatches,
+      groupSupport,
+      tourPaths,
+      supportOpen,
+      selectedShown,
+    ],
   );
-  const { code, support } = groupSupport
-    ? splitSupportFiles(files ?? [])
-    : { code: files ?? [], support: [] };
+  const groups = tourPaths ? splitTourFiles(files ?? [], tourPaths) : undefined;
+  const { code, support } = groups
+    ? { code: groups.other, support: groups.support }
+    : groupSupport
+      ? splitSupportFiles(files ?? [])
+      : { code: files ?? [], support: [] };
+  const fileRows = (files: readonly PullRequestFile[]): Row[] =>
+    files.map((file) => ({ kind: 'file', file }));
   const rows: Row[] = [
-    ...code.map((file) => ({ kind: 'file' as const, file })),
-    ...(support.length > 0 ? [{ kind: 'group' as const }] : []),
-    ...(supportOpen ? support.map((file) => ({ kind: 'file' as const, file })) : []),
+    ...(groups?.tour.length
+      ? [
+          { kind: 'group' as const, group: 'tour' as const, count: groups.tour.length },
+          ...fileRows(groups.tour),
+        ]
+      : []),
+    ...(groups && code.length
+      ? [{ kind: 'group' as const, group: 'other' as const, count: code.length }]
+      : []),
+    ...fileRows(code),
+    ...(support.length > 0
+      ? [{ kind: 'group' as const, group: 'support' as const, count: support.length }]
+      : []),
+    ...(supportOpen ? fileRows(support) : []),
   ];
   const row = (row: Row) =>
     row.kind === 'group' ? (
-      <button
-        type="button"
-        className={styles.groupHeader}
-        aria-expanded={supportOpen}
-        onClick={() => onSupportOpenChange?.(!supportOpen)}
-      >
-        <ChevronRight aria-hidden className={styles.groupChevron} />
-        <span>Tests, stories & generated</span>
-        <span className={styles.groupCount}>{support.length}</span>
-      </button>
+      row.group === 'support' ? (
+        <button
+          type="button"
+          className={styles.groupHeader}
+          aria-expanded={supportOpen}
+          onClick={() => onSupportOpenChange?.(!supportOpen)}
+        >
+          <ChevronRight aria-hidden className={styles.groupChevron} />
+          <span>Tests, stories & generated</span>
+          <span className={styles.groupCount}>{row.count}</span>
+        </button>
+      ) : (
+        <h3 className={styles.sectionHeader}>
+          <span>{row.group === 'tour' ? 'In the tour' : 'Other changed files'}</span>
+          <span className={styles.groupCount}>{row.count}</span>
+        </h3>
+      )
     ) : (
       <FileTreeItem
         path={row.file.path}
@@ -139,7 +177,8 @@ export function ChangedFiles({
         onClick={() => onSelect(row.file.path)}
       />
     );
-  const rowKey = (row: Row) => (row.kind === 'group' ? 'support-group' : row.file.path);
+  const rowKey = (row: Row) =>
+    row.kind === 'group' ? `group:${row.group}` : `file:${row.file.path}`;
   const rowClass = (row: Row) => (row.kind === 'group' ? styles.group : undefined);
   useActiveItemRect(listRef, ':scope > li > button[aria-current="true"]', activeLayout);
   const additions = files?.reduce((sum, file) => sum + file.additions, 0) ?? 0;

@@ -15,6 +15,7 @@ import {
   mockFileReviewMarks,
   mockIpc,
   mockReReview,
+  mockSavedTours,
   openReview,
   pullRequestsState,
 } from './mocks.ts';
@@ -3765,4 +3766,233 @@ test('closing the window hides it, and PReview stays open until it quits', async
   await expect.poll(windowState).toEqual({ count: 1, visible: true });
 
   await app.close();
+});
+
+for (const tourProvider of ['claude', 'codex'] as const) {
+  test(`starts an integrated AI tour with ${tourProvider}, navigates stops and answers questions`, async () => {
+    const app = await launch();
+    try {
+      const page = await app.firstWindow();
+      await page.setViewportSize({ width: 1500, height: 1000 });
+      await dismissGitHubPrompt(page);
+      await mockIpc(app, {
+        'pullRequests.list': pullRequestsState('Guided review'),
+        'pullRequestFiles.list': {
+          headSha: 'abcdef1',
+          mergeBase: 'abcdef0',
+          files: [
+            'other.ts',
+            'b.test.ts',
+            'a.ts',
+            'tests/unvisited.test.ts',
+            'client.generated.ts',
+          ].map(changedFile),
+        },
+        'pullRequestFiles.getDiff': changedLine,
+      });
+      await mockSavedTours(app, tourProvider);
+      await openReview(app, page);
+      await page.getByRole('button', { name: 'Start tour', exact: true }).click();
+      await expect(page.getByRole('heading', { name: 'How deep should we go?' })).toBeVisible();
+      await expect(
+        page.getByText(
+          'Every level covers the same files and stops. Choose how simple or technical the explanations should be.',
+        ),
+      ).toBeVisible();
+      await expect(page.getByRole('radio', { name: 'Normal', exact: true })).toBeChecked();
+      await page.getByRole('radio', { name: 'Deep', exact: true }).check();
+      await expect(page.getByRole('radio', { name: 'Claude', exact: true })).toBeChecked();
+      await page
+        .getByRole('radio', { name: tourProvider === 'codex' ? 'Codex' : 'Claude', exact: true })
+        .check();
+      await page.screenshot({ path: '/private/tmp/preview-tour-depth.png' });
+      await page.getByRole('button', { name: 'Continue', exact: true }).click();
+      await expect(
+        page.getByRole('heading', {
+          name: `${tourProvider === 'codex' ? 'Codex' : 'Claude'} is planning your tour`,
+        }),
+      ).toBeVisible();
+      const guide = page.getByRole('region', { name: 'AI guided tour' });
+      await expect(guide.getByRole('heading', { name: 'First change' })).toBeVisible();
+      const tree = page.locator('#review-files');
+      const divider = page.getByRole('separator', { name: 'Resize file tree' });
+      await expect(divider).toBeVisible();
+      const initialWidth = Number(await divider.getAttribute('aria-valuenow'));
+      await divider.focus();
+      await divider.press('ArrowRight');
+      await expect(divider).toHaveAttribute('aria-valuenow', String(initialWidth + 20));
+      const dividerBox = await divider.boundingBox();
+      if (!dividerBox) throw new Error('Missing file-tree divider');
+      await page.mouse.move(
+        dividerBox.x + dividerBox.width / 2,
+        dividerBox.y + dividerBox.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        dividerBox.x + dividerBox.width / 2 + 60,
+        dividerBox.y + dividerBox.height / 2,
+        { steps: 5 },
+      );
+      await page.mouse.up();
+      await expect(divider).toHaveAttribute('aria-valuenow', String(initialWidth + 80));
+      await expect
+        .poll(async () => Math.round((await tree.boundingBox())?.width ?? 0))
+        .toBe(initialWidth + 80);
+      await page.getByRole('button', { name: 'Collapse changed files', exact: true }).click();
+      await expect(divider).toHaveCount(0);
+      await page.getByRole('button', { name: 'Expand changed files', exact: true }).click();
+      await expect(divider).toHaveAttribute('aria-valuenow', String(initialWidth + 80));
+      await divider.dblclick();
+      await expect(divider).toHaveAttribute('aria-valuenow', '300');
+      await expect.poll(async () => Math.round((await tree.boundingBox())?.width ?? 0)).toBe(300);
+      const layout = guide.getByRole('radiogroup', { name: 'Tour layout' });
+      await layout.getByRole('radio', { name: 'Split', exact: true }).click();
+      const editor = page.locator('[data-review-diff]');
+      await expect
+        .poll(async () => {
+          const explanation = await guide.boundingBox();
+          const code = await editor.boundingBox();
+          return !!explanation && !!code && explanation.x + explanation.width <= code.x + 1;
+        })
+        .toBe(true);
+      await page.screenshot({ path: '/private/tmp/preview-tour-split.png' });
+      await layout.getByRole('radio', { name: 'Stacked', exact: true }).click();
+      await expect
+        .poll(async () => {
+          const explanation = await guide.boundingBox();
+          const code = await editor.boundingBox();
+          return !!explanation && !!code && explanation.y + explanation.height <= code.y + 1;
+        })
+        .toBe(true);
+
+      await expect(tree.getByRole('heading', { name: 'In the tour' })).toBeVisible();
+      await expect(tree.getByRole('heading', { name: 'Other changed files' })).toBeVisible();
+      const supportGroup = tree.getByRole('button', { name: /Tests, stories & generated/ });
+      await expect(supportGroup).toHaveAttribute('aria-expanded', 'false');
+      await expect(tree.locator('ul > li > button[title]')).toHaveCount(3);
+      expect(
+        await tree
+          .locator('ul > li > button[title]')
+          .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('title'))),
+      ).toEqual(['a.ts', 'b.test.ts', 'other.ts']);
+      await supportGroup.click();
+      expect(
+        await tree
+          .locator('ul > li > button[title]')
+          .evaluateAll((buttons) => buttons.map((button) => button.getAttribute('title'))),
+      ).toEqual([
+        'a.ts',
+        'b.test.ts',
+        'other.ts',
+        'tests/unvisited.test.ts',
+        'client.generated.ts',
+      ]);
+      await tree.locator('button[title="other.ts"]').click();
+      await expect(guide.getByRole('button', { name: 'Return to stop' })).toBeVisible();
+      await tree.locator('button[title="b.test.ts"]').click();
+      await expect(guide.getByRole('heading', { name: 'Second change' })).toBeVisible();
+      await tree.locator('button[title="a.ts"]').click();
+
+      await expect(page.getByRole('heading', { name: 'a.ts', exact: true })).toBeVisible();
+      await expect(guide.getByRole('button', { name: 'Back', exact: true })).toBeDisabled();
+      await guide.getByRole('button', { name: 'Next', exact: true }).click();
+      await expect(guide.getByRole('heading', { name: 'Second change' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'b.test.ts', exact: true })).toBeVisible();
+      await page.keyboard.press('d');
+      await expect(guide.getByText('Explain this more deeply.', { exact: true })).toBeVisible();
+      await page.keyboard.press('t');
+      await expect(
+        guide.getByText('Explain the technical details and tradeoffs.', { exact: true }),
+      ).toBeVisible();
+      await page.keyboard.press('a');
+      const question = guide.getByRole('textbox', { name: 'Ask about this stop' });
+      await expect(question).toBeFocused();
+      await question.pressSequentially('data');
+      await expect(question).toHaveValue('data');
+      await expect(guide.getByText('Explain this more deeply.', { exact: true })).toHaveCount(1);
+      await expect(
+        guide.getByText('Explain the technical details and tradeoffs.', { exact: true }),
+      ).toHaveCount(1);
+      await question.fill('Why this value?');
+      await question.press('Enter');
+      await expect(guide.getByText('Why this value?', { exact: true })).toBeVisible();
+      await page.screenshot({ path: '/private/tmp/preview-tour-experiment.png' });
+      await guide.getByRole('button', { name: 'Back', exact: true }).click();
+      await expect(guide.getByRole('heading', { name: 'First change' })).toBeVisible();
+      await guide.getByRole('button', { name: 'Next', exact: true }).click();
+      await expect(guide.getByText('Why this value?', { exact: true })).toBeVisible();
+      await question.focus();
+      await page.keyboard.press('Escape');
+      await expect(guide).toBeVisible();
+      await page.getByRole('button', { name: 'Finish Review', exact: true }).click();
+      await expect(page.getByRole('menu')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await expect(page.getByRole('menu')).toBeHidden();
+      await expect(guide).toBeVisible();
+      await guide.getByRole('button', { name: 'End tour', exact: true }).focus();
+      await page.keyboard.press('Escape');
+      await expect(guide).toHaveCount(0);
+      await expect(tree.getByRole('heading', { name: 'In the tour' })).toHaveCount(0);
+      await expect(tree.getByRole('heading', { name: 'Other changed files' })).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Start tour', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'b.test.ts', exact: true })).toBeVisible();
+      await page.reload();
+      await page.getByRole('button', { name: 'Start tour', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Resume tour', exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('radio', {
+          name: tourProvider === 'codex' ? 'Codex' : 'Claude',
+          exact: true,
+        }),
+      ).toBeChecked();
+      await expect(page.getByRole('radio', { name: 'Deep', exact: true })).toBeChecked();
+      await page.getByRole('button', { name: 'Resume tour', exact: true }).click();
+      await expect(guide.getByRole('heading', { name: 'Second change' })).toBeVisible();
+      await expect(guide.getByText('Why this value?', { exact: true })).toBeVisible();
+      await guide.getByRole('button', { name: 'Finish tour', exact: true }).click();
+      await expect(guide).toHaveCount(0);
+      await page.getByRole('button', { name: 'Start tour', exact: true }).click();
+      await expect(page.getByRole('button', { name: 'Reopen tour', exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Generate new tour', exact: true }).click();
+      await expect(guide.getByRole('heading', { name: 'First change' })).toBeVisible();
+      await expect(guide.getByText('Why this value?', { exact: true })).toHaveCount(0);
+    } finally {
+      await app.close();
+    }
+  });
+}
+
+test('returns to the review after tour planning fails', async () => {
+  const app = await launch();
+  try {
+    const page = await app.firstWindow();
+    await dismissGitHubPrompt(page);
+    await mockIpc(app, {
+      'tours.list': [],
+      'pullRequests.list': pullRequestsState('Tour failure'),
+      'pullRequestFiles.list': {
+        headSha: 'abcdef1',
+        mergeBase: 'abcdef0',
+        files: [changedFile('a.ts')],
+      },
+      'pullRequestFiles.getDiff': changedLine,
+    });
+    await app.evaluate(({ ipcMain }) => {
+      ipcMain.removeHandler('tours.start');
+      ipcMain.handle('tours.start', () => {
+        throw new Error('Claude is not signed in.');
+      });
+    });
+    await openReview(app, page);
+    await page.getByRole('button', { name: 'Start tour', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'How deep should we go?' })).toBeVisible();
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();
+    await expect(
+      page.getByRole('region', { name: 'Preparing AI tour' }).getByRole('alert'),
+    ).toContainText('Claude is not signed in.');
+    await page.getByRole('button', { name: 'Return to review', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'a.ts', exact: true })).toBeVisible();
+  } finally {
+    await app.close();
+  }
 });

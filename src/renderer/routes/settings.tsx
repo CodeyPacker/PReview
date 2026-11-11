@@ -495,8 +495,8 @@ function SettingsPage() {
           </Panel>
           <Panel title="Privacy & Data">
             <p className={styles.description}>
-              Delete the unsent comments, findings, screenshots and agent history stored on this
-              computer.
+              Delete the unsent comments, findings, screenshots, tours and agent history stored on
+              this computer.
             </p>
             <div className={styles.actions}>
               <Button variant="outline" tone="danger" onClick={() => setClearOpen(true)}>

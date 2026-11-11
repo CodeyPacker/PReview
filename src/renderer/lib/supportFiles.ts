@@ -48,13 +48,34 @@ export function splitSupportFiles<F extends { path: string }>(
   return { code, support };
 }
 
+// Tour files keep their first stop's order, including any tests the tour visits.
+export function splitTourFiles<F extends { path: string }>(
+  files: readonly F[],
+  tourPaths: readonly string[],
+): { tour: F[]; other: F[]; support: F[] } {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const tour: F[] = [];
+  for (const path of new Set(tourPaths)) {
+    const file = byPath.get(path);
+    if (file) tour.push(file);
+    byPath.delete(path);
+  }
+  const { code: other, support } = splitSupportFiles([...byPath.values()]);
+  return { tour, other, support };
+}
+
 // The files in the order the list shows them. With grouping on, support files come last and
 // are left out while their group is collapsed.
 export function orderForReview<F extends { path: string }>(
   files: readonly F[],
   grouped: boolean,
   supportOpen: boolean,
+  tourPaths?: readonly string[],
 ): F[] {
+  if (tourPaths) {
+    const { tour, other, support } = splitTourFiles(files, tourPaths);
+    return [...tour, ...other, ...(supportOpen ? support : [])];
+  }
   if (!grouped) return [...files];
   const { code, support } = splitSupportFiles(files);
   return supportOpen ? [...code, ...support] : code;

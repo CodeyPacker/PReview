@@ -1,3 +1,11 @@
+import type {
+  StartTourInput,
+  AskSavedTourInput,
+  SavedTour,
+  SavedTourSummary,
+  SavedTourInput,
+  TourProgressInput,
+} from './tours.ts';
 import type { ClearPackageCacheResult } from './settings.ts';
 import type {
   AgentChange,
@@ -66,6 +74,13 @@ import type { Settings, SettingsPatch } from './settings.ts';
 // The API the preload script exposes to the renderer as `window.preview`.
 // One function per IPC channel. Never expose ipcRenderer or Node APIs.
 export interface PreviewApi {
+  tours: {
+    start(input: StartTourInput): Promise<SavedTour>;
+    list(input: StartTourInput): Promise<SavedTourSummary[]>;
+    resume(input: SavedTourInput): Promise<SavedTour>;
+    progress(input: TourProgressInput): Promise<null>;
+    ask(input: AskSavedTourInput): Promise<SavedTour>;
+  };
   app: {
     getInfo(): Promise<AppInfo>;
   };

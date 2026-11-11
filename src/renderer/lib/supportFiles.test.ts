@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isSupportFile, orderForReview, splitSupportFiles } from './supportFiles.ts';
+import {
+  isSupportFile,
+  orderForReview,
+  splitSupportFiles,
+  splitTourFiles,
+} from './supportFiles.ts';
 
 describe('isSupportFile', () => {
   it.each([
@@ -62,5 +67,35 @@ describe('orderForReview', () => {
     const { code, support } = splitSupportFiles(files);
     expect(paths(code)).toEqual(['a.ts', 'b.ts']);
     expect(paths(support)).toEqual(['a.test.ts', 'b.stories.tsx']);
+  });
+
+  it('puts tour files first, deduplicates stops and promotes tests that are toured', () => {
+    const tourPaths = ['b.ts', 'a.test.ts', 'b.ts', 'missing.ts'];
+    const groups = splitTourFiles(files, tourPaths);
+    expect(paths(groups.tour)).toEqual(['b.ts', 'a.test.ts']);
+    expect(paths(groups.other)).toEqual(['a.ts']);
+    expect(paths(groups.support)).toEqual(['b.stories.tsx']);
+    expect(paths(orderForReview(files, false, false, tourPaths))).toEqual([
+      'b.ts',
+      'a.test.ts',
+      'a.ts',
+    ]);
+    expect(paths(orderForReview(files, false, true, tourPaths))).toEqual([
+      'b.ts',
+      'a.test.ts',
+      'a.ts',
+      'b.stories.tsx',
+    ]);
+  });
+
+  it('keeps filtered-out tour files out of the visible list', () => {
+    expect(
+      paths(
+        splitTourFiles(
+          files.filter((file) => file.path === 'a.ts'),
+          ['b.ts', 'a.ts'],
+        ).tour,
+      ),
+    ).toEqual(['a.ts']);
   });
 });
