@@ -110,3 +110,13 @@
   margin-inline-start: auto;
   font-variant-numeric: tabular-nums;
 }
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin: 0;
+  padding: var(--space-4) var(--space-12);
+  color: var(--ink-secondary);
+  font: 500 var(--text-sm) / 16px var(--font-sans);
+}

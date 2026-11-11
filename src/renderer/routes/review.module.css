@@ -296,3 +296,7 @@
     flex-wrap: wrap;
   }
 }
+
+.tourDiff {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}

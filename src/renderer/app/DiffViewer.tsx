@@ -80,6 +80,7 @@ export interface DiffViewerProps {
   onScrollChange?: (scrollTop: number) => void;
   searchQuery?: string;
   searchMatch?: FileSearchMatch;
+  tourRange?: { start: number; end: number; side: 'original' | 'modified'; visit: number };
   drafts?: DiffViewerDrafts;
   threads?: DiffViewerThreads;
 }
@@ -133,6 +134,7 @@ export function DiffViewer({
   onScrollChange,
   searchQuery = '',
   searchMatch,
+  tourRange,
   drafts,
   threads,
 }: DiffViewerProps) {
@@ -494,6 +496,30 @@ export function DiffViewer({
       modifiedHits.clear();
     };
   }, [searchQuery, searchMatch, path, original, modified, mode]);
+
+  const tourStart = tourRange?.start;
+  const tourEnd = tourRange?.end;
+  const tourSide = tourRange?.side;
+  const tourVisit = tourRange?.visit;
+  useEffect(() => {
+    const diff = editor.current;
+    if (!diff || !tourStart || !tourEnd || !tourSide) return;
+    const code = tourSide === 'original' ? diff.getOriginalEditor() : diff.getModifiedEditor();
+    const range = new monaco.Range(tourStart, 1, tourEnd, 1);
+    const highlights = code.createDecorationsCollection([
+      {
+        range,
+        options: { isWholeLine: true, className: styles.tourRange },
+      },
+    ]);
+    const reveal = () => code.revealRangeInCenter(range, monaco.editor.ScrollType.Immediate);
+    reveal();
+    const subscription = diff.onDidUpdateDiff(reveal);
+    return () => {
+      highlights.clear();
+      subscription.dispose();
+    };
+  }, [tourStart, tourEnd, tourSide, tourVisit, modelVersion, mode, path]);
 
   useEffect(() => {
     // Monaco themes can't be changed in place, so each theme change defines a new one.

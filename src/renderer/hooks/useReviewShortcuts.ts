@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent } from 'react';
 import type { ReviewAction, ReviewKeys, ReviewLeader } from '../../shared/contracts/settings.ts';
 import { matchesReviewLeader } from '../lib/reviewShortcuts.ts';
 
-function isTypingOrInOverlay(target: EventTarget | null): boolean {
+export function isTypingOrInOverlay(target: EventTarget | null): boolean {
   if (target instanceof Element) {
     const editable = target.closest(
       'input, textarea, select, [role="textbox"], [contenteditable]:not([contenteditable="false"])',

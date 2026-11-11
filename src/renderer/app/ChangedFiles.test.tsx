@@ -62,4 +62,23 @@ describe('ChangedFiles support file group', () => {
     expect(html.indexOf('src/a.test.ts')).toBeLessThan(html.indexOf('src/a.ts'));
     expect(html).toContain('aria-pressed="false"');
   });
+
+  it('shows three tour sections in order and keeps toured tests at the top', () => {
+    const html = render({ tourPaths: ['src/a.test.ts', 'src/a.test.ts'], supportOpen: true });
+    expect(html.indexOf('In the tour')).toBeLessThan(html.indexOf('src/a.test.ts'));
+    expect(html.indexOf('src/a.test.ts')).toBeLessThan(html.indexOf('Other changed files'));
+    expect(html.indexOf('Other changed files')).toBeLessThan(html.indexOf('src/a.ts'));
+    expect(html.indexOf('src/a.ts')).toBeLessThan(html.indexOf('Tests, stories &amp; generated'));
+    expect(html.indexOf('Tests, stories &amp; generated')).toBeLessThan(
+      html.indexOf('pnpm-lock.yaml'),
+    );
+    expect(html.match(/title="src\/a.test.ts"/g)).toHaveLength(1);
+  });
+
+  it('omits empty tour sections while filtering', () => {
+    const html = render({ tourPaths: ['missing.ts'], files: [file('src/a.ts')] });
+    expect(html).not.toContain('In the tour');
+    expect(html).toContain('Other changed files');
+    expect(html).not.toContain('Tests, stories &amp; generated');
+  });
 });

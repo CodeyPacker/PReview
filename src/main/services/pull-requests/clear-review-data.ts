@@ -9,12 +9,14 @@ export function clearReviewData(db: DatabaseSync): ClearReviewDataResult {
   const { busy } = db
     .prepare(
       `SELECT EXISTS (SELECT 1 FROM agent_tasks WHERE status IN ('queued', 'running', 'waiting'))
-           OR EXISTS (SELECT 1 FROM review_submissions WHERE state = 'publishing') AS busy`,
+           OR EXISTS (SELECT 1 FROM review_submissions WHERE state = 'publishing')
+           OR EXISTS (SELECT 1 FROM tour_messages WHERE status = 'pending') AS busy`,
     )
     .get() as { busy: number };
   if (busy === 1) return { status: 'busy' };
   transaction(db, () => {
     db.exec(`
+      DELETE FROM tours;
       DELETE FROM review_drafts;
       DELETE FROM review_findings;
       DELETE FROM review_submissions;

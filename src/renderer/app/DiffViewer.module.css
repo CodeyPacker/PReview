@@ -58,3 +58,7 @@
 .commentRangeBar {
   background: var(--accent);
 }
+
+.tourRange {
+  background: var(--accent-soft);
+}

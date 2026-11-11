@@ -7,6 +7,13 @@ function invoke<C extends IpcChannel>(channel: C, input: IpcInput<C>): Promise<I
 }
 
 const api: PreviewApi = {
+  tours: {
+    start: (input) => invoke('tours.start', input),
+    list: (input) => invoke('tours.list', input),
+    resume: (input) => invoke('tours.resume', input),
+    progress: (input) => invoke('tours.progress', input),
+    ask: (input) => invoke('tours.ask', input),
+  },
   app: {
     getInfo: () => invoke('app.getInfo', undefined),
   },

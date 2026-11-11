@@ -1,3 +1,8 @@
+import { SavedTours } from '../services/pull-requests/saved-tours.ts';
+import { TourStore } from '../services/pull-requests/tour-store.ts';
+import { runCodexTourPrompt } from '../agents/codex/tour.ts';
+import { Tours } from '../services/pull-requests/tours.ts';
+import { runTourPrompt } from '../agents/claude/tour.ts';
 import type { ClearPackageCacheResult } from '../../shared/contracts/settings.ts';
 import { app } from 'electron';
 import type { ExportBackupResult, RestoreBackupResult } from '../../shared/contracts/backups.ts';
@@ -111,6 +116,18 @@ export function registerIpcHandlers(
     pickFolder,
   }: IpcServices,
 ): void {
+  const engine = new Tours(pullRequestFiles, (prompt, schema, provider) =>
+    provider === 'codex'
+      ? runCodexTourPrompt(prompt, schema, getSettings(db).wslDistro)
+      : runTourPrompt(prompt, schema, getSettings(db), app.getPath('userData')),
+  );
+  const tours = new SavedTours(new TourStore(db), engine);
+  handle('tours.list', (input) => tours.store.list(input));
+  handle('tours.resume', (input) => tours.resume(input));
+  handle('tours.progress', (input) => tours.store.progress(input));
+  handle('tours.start', (input) => tours.start(input));
+  handle('tours.ask', (input) => tours.ask(input));
+
   handle('app.getInfo', () => ({
     name: app.getName(),
     version: app.getVersion(),
@@ -132,7 +149,9 @@ export function registerIpcHandlers(
     await openLogs();
     return null;
   });
-  handle('reviewData.clear', () => clearReviewData(db));
+  handle('reviewData.clear', () =>
+    tours.busy ? { status: 'busy' as const } : clearReviewData(db),
+  );
   handle('backups.export', () => backupFiles.export());
   handle('backups.restore', () => backupFiles.restore());
   handle('notifications.list', () => notifier.list());

@@ -589,4 +589,60 @@ export const migrations: readonly Migration[] = [
       ALTER TABLE agent_tasks ADD COLUMN queue_position INTEGER;
     `,
   },
+  {
+    version: 31,
+    name: 'saved_tours',
+    // Stable GitHub identity keeps tours and statistics after active PR rows are pruned.
+    sql: `
+      CREATE TABLE tours (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        repository TEXT NOT NULL,
+        pr_provider_id TEXT NOT NULL,
+        pr_number INTEGER NOT NULL,
+        head_sha TEXT NOT NULL,
+        merge_base TEXT NOT NULL,
+        provider TEXT NOT NULL CHECK (provider IN ('claude', 'codex')),
+        depth TEXT NOT NULL CHECK (depth IN ('overview', 'normal', 'deep')),
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        current_stop INTEGER NOT NULL DEFAULT 0 CHECK (current_stop >= 0),
+        active_ms INTEGER NOT NULL DEFAULT 0 CHECK (active_ms >= 0),
+        generation_ms INTEGER NOT NULL CHECK (generation_ms >= 0),
+        started_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        completed_at TEXT
+      ) STRICT;
+      CREATE INDEX tours_snapshot ON tours (repository, pr_provider_id, head_sha, merge_base, provider, depth, id DESC);
+      CREATE TABLE tour_stops (
+        tour_id INTEGER NOT NULL REFERENCES tours (id) ON DELETE CASCADE,
+        position INTEGER NOT NULL CHECK (position >= 0),
+        path TEXT NOT NULL,
+        start_line INTEGER NOT NULL,
+        end_line INTEGER NOT NULL,
+        group_name TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL,
+        first_visited_at TEXT,
+        last_visited_at TEXT,
+        visit_count INTEGER NOT NULL DEFAULT 0 CHECK (visit_count >= 0),
+        PRIMARY KEY (tour_id, position)
+      ) STRICT;
+      CREATE TABLE tour_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        tour_id INTEGER NOT NULL,
+        stop_position INTEGER NOT NULL,
+        kind TEXT NOT NULL CHECK (kind IN ('deeper', 'technical', 'ask')),
+        question TEXT NOT NULL,
+        answer TEXT,
+        status TEXT NOT NULL CHECK (status IN ('pending', 'completed', 'failed')),
+        error TEXT,
+        duration_ms INTEGER NOT NULL DEFAULT 0 CHECK (duration_ms >= 0),
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+        completed_at TEXT,
+        FOREIGN KEY (tour_id, stop_position) REFERENCES tour_stops (tour_id, position) ON DELETE CASCADE
+      ) STRICT;
+      CREATE INDEX tour_messages_stop ON tour_messages (tour_id, stop_position, id);
+    `,
+  },
 ];

@@ -1,3 +1,11 @@
+import type {
+  SavedTour,
+  StartTourInput,
+  SavedTourInput,
+  TourProgressInput,
+  AskSavedTourInput,
+  TourProvider,
+} from '../src/shared/contracts/tours.ts';
 // Mocks for the review page. The mocked pull request is not in the database, so the tests
 // answer the app's requests in the main process instead.
 import type { ElectronApplication, Page } from '@playwright/test';
@@ -131,4 +139,102 @@ export async function mockReReview(
     'reviewRounds.sync': reReviewRounds(baseline),
     ...extra,
   });
+}
+
+// Main-process fixtures survive renderer reloads, like the saved-tour database service.
+export async function mockSavedTours(app: ElectronApplication, expectedProvider: TourProvider) {
+  await app.evaluate(({ ipcMain }, expectedProvider) => {
+    let saved: SavedTour | undefined;
+    let generation = 0;
+    const visited = new Set<number>();
+    for (const channel of [
+      'tours.start',
+      'tours.list',
+      'tours.resume',
+      'tours.progress',
+      'tours.ask',
+    ])
+      ipcMain.removeHandler(channel);
+    ipcMain.handle('tours.list', () => (saved ? [saved] : []));
+    ipcMain.handle(
+      'tours.start',
+      (_event, input: StartTourInput) =>
+        new Promise((resolve) => {
+          if (input.depth !== 'deep') throw new Error('Expected deep tour request');
+          if (input.provider !== expectedProvider) throw new Error('Wrong tour provider');
+          generation++;
+          visited.clear();
+          visited.add(0);
+          const now = new Date().toISOString();
+          saved = {
+            id: generation,
+            title: 'Value updates',
+            provider: expectedProvider,
+            depth: 'deep',
+            currentStop: 0,
+            totalStops: 2,
+            visitedStops: 1,
+            activeMs: 0,
+            generationMs: 1200,
+            createdAt: now,
+            updatedAt: now,
+            completedAt: null,
+            messages: [],
+            plan: {
+              title: 'Value updates',
+              summary: 'Two connected changes.',
+              stops: [
+                {
+                  file: 'a.ts',
+                  start: 1,
+                  end: 1,
+                  group: 'Core',
+                  title: 'First change',
+                  body: 'Start with the shared value.',
+                },
+                {
+                  file: 'b.test.ts',
+                  start: 1,
+                  end: 1,
+                  group: 'Usage',
+                  title: 'Second change',
+                  body: 'Then follow its caller.',
+                },
+              ],
+            },
+          };
+          setTimeout(() => resolve(saved), 1200);
+        }),
+    );
+    ipcMain.handle('tours.resume', (_event, input: SavedTourInput) => {
+      if (!saved || input.tourId !== saved.id) throw new Error('Unknown saved tour');
+      return saved;
+    });
+    ipcMain.handle('tours.progress', (_event, input: TourProgressInput) => {
+      if (!saved || input.tourId !== saved.id) throw new Error('Unknown saved tour');
+      if (input.stopIndex !== undefined) {
+        saved.currentStop = input.stopIndex;
+        visited.add(input.stopIndex);
+        saved.visitedStops = visited.size;
+      }
+      if (input.activeMs !== undefined) saved.activeMs = Math.max(saved.activeMs, input.activeMs);
+      if (input.complete) saved.completedAt ??= new Date().toISOString();
+      return null;
+    });
+    ipcMain.handle('tours.ask', (_event, input: AskSavedTourInput) => {
+      if (!saved || input.tourId !== saved.id) throw new Error('Unknown saved tour');
+      saved.messages.push({
+        id: saved.messages.length + 1,
+        stopIndex: input.stopIndex,
+        kind: input.kind,
+        question: input.question,
+        answer: 'The value changes from one to two.',
+        status: 'completed',
+        error: null,
+        createdAt: new Date().toISOString(),
+        durationMs: 100,
+      });
+      return saved;
+    });
+  }, expectedProvider);
 }
