@@ -162,3 +162,16 @@
   color: var(--ink-secondary);
   font-size: var(--text-sm);
 }
+
+.split {
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  padding-bottom: 0;
+  padding-right: var(--space-12);
+  border-bottom: 0;
+  border-right: 1px solid var(--border);
+}
+
+.split .explanation {
+  max-height: none;
+  align-content: start;
+}

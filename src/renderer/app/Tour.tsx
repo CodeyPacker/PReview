@@ -1,3 +1,5 @@
+import { ToggleGroup } from '../components/ToggleGroup/ToggleGroup.tsx';
+import { cx } from '../lib/cx.ts';
 import { useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, LoaderCircle } from 'lucide-react';
 import { Button } from '../components/Button/Button.tsx';
@@ -141,10 +143,14 @@ export function TourGuide({
   state,
   onStep,
   atStop,
+  layout,
+  onLayoutChange,
 }: {
   state: TourState;
   onStep: (index: number) => void;
   atStop: boolean;
+  layout: 'split' | 'stacked';
+  onLayoutChange: (layout: 'split' | 'stacked') => void;
 }) {
   const [question, setQuestion] = useState('');
   const askInput = useRef<HTMLInputElement>(null);
@@ -161,11 +167,24 @@ export function TourGuide({
   });
   if (!tour || !stop) return null;
   return (
-    <section className={styles.guide} aria-label="AI guided tour">
+    <section
+      className={cx(styles.guide, layout === 'split' && styles.split)}
+      aria-label="AI guided tour"
+    >
       <div className={styles.controls}>
         <span className={styles.progress}>
           Stop {state.index + 1} of {tour.stops.length} · {stop.group || tour.title}
         </span>
+        <ToggleGroup
+          aria-label="Tour layout"
+          size="sm"
+          value={layout}
+          onValueChange={onLayoutChange}
+          options={[
+            { value: 'split', label: 'Split' },
+            { value: 'stacked', label: 'Stacked' },
+          ]}
+        />
         <Button
           size="sm"
           variant="plain"

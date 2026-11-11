@@ -1,3 +1,4 @@
+import { FileTreeResizeHandle } from '../app/FileTreeResizeHandle.tsx';
 import { useTour } from '../hooks/useTour.ts';
 import { TourGuide, TourPlanning } from '../app/Tour.tsx';
 import type { TourStop, TourDepth, TourProvider } from '../../shared/contracts/tours.ts';
@@ -16,7 +17,7 @@ import {
   RefreshCw,
   Route as TourIcon,
 } from 'lucide-react';
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useSidebar } from '../app/SidebarContext.ts';
 import { IconButton } from '../components/IconButton/IconButton.tsx';
 import { cx } from '../lib/cx.ts';
@@ -93,6 +94,9 @@ function ReviewPage() {
   const { data: agentTasks, isPending: agentsLoading, isError: agentsError } = useAgentTasks();
   // Tasks come newest first.
   const agentTask = agentTasks?.find((task) => task.pullRequestId === pullRequestId);
+  const [filesWidth, setFilesWidth] = useState(300);
+  const [resizingFiles, setResizingFiles] = useState(false);
+  const [tourLayout, setTourLayout] = useState<'split' | 'stacked'>('stacked');
   const [reviewOpen, setReviewOpen] = useState(false);
   const [agentReviewOpen, setAgentReviewOpen] = useState(false);
   const [findingsOpen, setFindingsOpen] = useState(false);
@@ -635,9 +639,11 @@ function ReviewPage() {
         <div
           className={cx(
             styles.workspace,
+            resizingFiles && styles.resizing,
             filesCollapsed && styles.filesCollapsed,
             sidePanelOpen && !zen && !tour.open && styles.withSidePanel,
           )}
+          style={{ '--files-width': `${filesWidth}px` } as CSSProperties}
         >
           <div
             className={styles.filesSlot}
@@ -693,12 +699,15 @@ function ReviewPage() {
                 onBrowseChange={setBrowsing}
               />
             )}
+            {!filesCollapsed && (
+              <FileTreeResizeHandle
+                width={filesWidth}
+                onResize={setFilesWidth}
+                onDraggingChange={setResizingFiles}
+              />
+            )}
           </div>
-          <Panel
-            className={cx(styles.diff, tourStop && styles.tourDiff)}
-            padding="sm"
-            aria-labelledby="review-file-title"
-          >
+          <Panel className={styles.diff} padding="sm" aria-labelledby="review-file-title">
             {filesCollapsed && filesToggle}
             <header
               className={styles.diffHeader}
@@ -771,114 +780,130 @@ function ReviewPage() {
                 />
               </div>
             </header>
-            {tourStop && (
-              <TourGuide
-                state={tour}
-                atStop={selected?.path === tourStop.file && !readOnlyView}
-                onStep={stepTour}
-              />
-            )}
-            {collapsedReason && selected ? (
-              <div className={styles.collapsed}>
-                <p className={styles.message}>
-                  {collapsedReason === 'generated'
-                    ? 'This file looks generated, so its diff is collapsed.'
-                    : 'This diff is large, so it is collapsed.'}
-                </p>
-                <Button
-                  size="sm"
-                  onClick={() => setExpandedPaths((paths) => new Set(paths).add(selected.path))}
-                >
-                  Show diff
-                </Button>
+            <div
+              className={cx(
+                styles.diffContent,
+                tourStop && styles.tourContent,
+                tourStop && tourLayout === 'split' && styles.tourSplit,
+              )}
+            >
+              {tourStop && (
+                <TourGuide
+                  state={tour}
+                  layout={tourLayout}
+                  onLayoutChange={setTourLayout}
+                  atStop={selected?.path === tourStop.file && !readOnlyView}
+                  onStep={stepTour}
+                />
+              )}
+              <div className={styles.diffBody}>
+                {collapsedReason && selected ? (
+                  <div className={styles.collapsed}>
+                    <p className={styles.message}>
+                      {collapsedReason === 'generated'
+                        ? 'This file looks generated, so its diff is collapsed.'
+                        : 'This diff is large, so it is collapsed.'}
+                    </p>
+                    <Button
+                      size="sm"
+                      onClick={() => setExpandedPaths((paths) => new Set(paths).add(selected.path))}
+                    >
+                      Show diff
+                    </Button>
+                  </div>
+                ) : diffMessage ? (
+                  <p className={styles.message}>{diffMessage}</p>
+                ) : (
+                  selected &&
+                  diff.data &&
+                  (diff.data.images ? (
+                    <ImageDiff
+                      path={selected.path}
+                      original={diff.data.images.original}
+                      modified={diff.data.images.modified}
+                    />
+                  ) : (
+                    <DiffViewer
+                      ref={diffViewer}
+                      tourRange={
+                        tourStop && selected.path === tourStop.file && !readOnlyView
+                          ? {
+                              start: tourStop.start,
+                              end: tourStop.end,
+                              side: selected.status === 'removed' ? 'original' : 'modified',
+                              visit: tourVisit,
+                            }
+                          : undefined
+                      }
+                      fontSize={settings?.diffFontSize}
+                      wordWrap={settings?.diffWordWrap}
+                      path={selected.path}
+                      previousPath={selected.previousPath}
+                      original={diff.data.original}
+                      modified={diff.data.modified}
+                      mode={effectiveMode}
+                      onLineNumberOffsetChange={setLineNumberOffset}
+                      initialScrollTop={initialScrollTop}
+                      onScrollChange={(scrollTop) =>
+                        saveSession({ selectedPath: selected.path, scrollTop })
+                      }
+                      searchQuery={browsing ? (openMatch?.query ?? '') : fileSearch.trim()}
+                      searchMatch={
+                        browsing
+                          ? openMatchInFile
+                          : selected
+                            ? search.matches.get(selected.path)
+                            : undefined
+                      }
+                      threads={
+                        readOnlyView
+                          ? undefined
+                          : {
+                              items:
+                                reviewThreads.data?.filter(
+                                  (thread) => thread.path === selected.path,
+                                ) ?? [],
+                              actions: {
+                                onReply: (threadId, body) =>
+                                  threadActions.reply
+                                    .mutateAsync({ threadId, body })
+                                    .catch(() => unreachable),
+                                onSetResolved: (threadId, resolved) =>
+                                  threadActions.setResolved
+                                    .mutateAsync({ threadId, resolved })
+                                    .catch(() => unreachable),
+                              },
+                            }
+                      }
+                      drafts={
+                        readOnlyView
+                          ? undefined
+                          : {
+                              items:
+                                currentDrafts?.filter((draft) => draft.path === selected.path) ??
+                                [],
+                              hunks: selected.hunks,
+                              author: reviewer
+                                ? { name: reviewer.login, avatarUrl: reviewer.avatarUrl }
+                                : { name: 'You' },
+                              composer: composer?.path === selected.path ? composer : undefined,
+                              onComposerChange: changeComposer,
+                              onSave: () => saveComposer(),
+                              saving:
+                                reviewDrafts.create.isPending || reviewDrafts.update.isPending,
+                              saveFailed:
+                                reviewDrafts.create.isError || reviewDrafts.update.isError,
+                              onDelete: (id) => reviewDrafts.remove.mutate(id),
+                              deletingId: reviewDrafts.remove.isPending
+                                ? reviewDrafts.remove.variables
+                                : undefined,
+                            }
+                      }
+                    />
+                  ))
+                )}
               </div>
-            ) : diffMessage ? (
-              <p className={styles.message}>{diffMessage}</p>
-            ) : (
-              selected &&
-              diff.data &&
-              (diff.data.images ? (
-                <ImageDiff
-                  path={selected.path}
-                  original={diff.data.images.original}
-                  modified={diff.data.images.modified}
-                />
-              ) : (
-                <DiffViewer
-                  ref={diffViewer}
-                  tourRange={
-                    tourStop && selected.path === tourStop.file && !readOnlyView
-                      ? {
-                          start: tourStop.start,
-                          end: tourStop.end,
-                          side: selected.status === 'removed' ? 'original' : 'modified',
-                          visit: tourVisit,
-                        }
-                      : undefined
-                  }
-                  fontSize={settings?.diffFontSize}
-                  wordWrap={settings?.diffWordWrap}
-                  path={selected.path}
-                  previousPath={selected.previousPath}
-                  original={diff.data.original}
-                  modified={diff.data.modified}
-                  mode={effectiveMode}
-                  onLineNumberOffsetChange={setLineNumberOffset}
-                  initialScrollTop={initialScrollTop}
-                  onScrollChange={(scrollTop) =>
-                    saveSession({ selectedPath: selected.path, scrollTop })
-                  }
-                  searchQuery={browsing ? (openMatch?.query ?? '') : fileSearch.trim()}
-                  searchMatch={
-                    browsing
-                      ? openMatchInFile
-                      : selected
-                        ? search.matches.get(selected.path)
-                        : undefined
-                  }
-                  threads={
-                    readOnlyView
-                      ? undefined
-                      : {
-                          items:
-                            reviewThreads.data?.filter((thread) => thread.path === selected.path) ??
-                            [],
-                          actions: {
-                            onReply: (threadId, body) =>
-                              threadActions.reply
-                                .mutateAsync({ threadId, body })
-                                .catch(() => unreachable),
-                            onSetResolved: (threadId, resolved) =>
-                              threadActions.setResolved
-                                .mutateAsync({ threadId, resolved })
-                                .catch(() => unreachable),
-                          },
-                        }
-                  }
-                  drafts={
-                    readOnlyView
-                      ? undefined
-                      : {
-                          items:
-                            currentDrafts?.filter((draft) => draft.path === selected.path) ?? [],
-                          hunks: selected.hunks,
-                          author: reviewer
-                            ? { name: reviewer.login, avatarUrl: reviewer.avatarUrl }
-                            : { name: 'You' },
-                          composer: composer?.path === selected.path ? composer : undefined,
-                          onComposerChange: changeComposer,
-                          onSave: () => saveComposer(),
-                          saving: reviewDrafts.create.isPending || reviewDrafts.update.isPending,
-                          saveFailed: reviewDrafts.create.isError || reviewDrafts.update.isError,
-                          onDelete: (id) => reviewDrafts.remove.mutate(id),
-                          deletingId: reviewDrafts.remove.isPending
-                            ? reviewDrafts.remove.variables
-                            : undefined,
-                        }
-                  }
-                />
-              ))
-            )}
+            </div>
           </Panel>
           <ReviewSidePanel
             hidden={zen || !sidePanelOpen || tour.open}

@@ -3810,6 +3810,56 @@ for (const tourProvider of ['claude', 'codex'] as const) {
       const guide = page.getByRole('region', { name: 'AI guided tour' });
       await expect(guide.getByRole('heading', { name: 'First change' })).toBeVisible();
       const tree = page.locator('#review-files');
+      const divider = page.getByRole('separator', { name: 'Resize file tree' });
+      await expect(divider).toBeVisible();
+      const initialWidth = Number(await divider.getAttribute('aria-valuenow'));
+      await divider.focus();
+      await divider.press('ArrowRight');
+      await expect(divider).toHaveAttribute('aria-valuenow', String(initialWidth + 20));
+      const dividerBox = await divider.boundingBox();
+      if (!dividerBox) throw new Error('Missing file-tree divider');
+      await page.mouse.move(
+        dividerBox.x + dividerBox.width / 2,
+        dividerBox.y + dividerBox.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        dividerBox.x + dividerBox.width / 2 + 60,
+        dividerBox.y + dividerBox.height / 2,
+        { steps: 5 },
+      );
+      await page.mouse.up();
+      await expect(divider).toHaveAttribute('aria-valuenow', String(initialWidth + 80));
+      await expect
+        .poll(async () => Math.round((await tree.boundingBox())?.width ?? 0))
+        .toBe(initialWidth + 80);
+      await page.getByRole('button', { name: 'Collapse changed files', exact: true }).click();
+      await expect(divider).toHaveCount(0);
+      await page.getByRole('button', { name: 'Expand changed files', exact: true }).click();
+      await expect(divider).toHaveAttribute('aria-valuenow', String(initialWidth + 80));
+      await divider.dblclick();
+      await expect(divider).toHaveAttribute('aria-valuenow', '300');
+      await expect.poll(async () => Math.round((await tree.boundingBox())?.width ?? 0)).toBe(300);
+      const layout = guide.getByRole('radiogroup', { name: 'Tour layout' });
+      await layout.getByRole('radio', { name: 'Split', exact: true }).click();
+      const editor = page.locator('[data-review-diff]');
+      await expect
+        .poll(async () => {
+          const explanation = await guide.boundingBox();
+          const code = await editor.boundingBox();
+          return !!explanation && !!code && explanation.x + explanation.width <= code.x + 1;
+        })
+        .toBe(true);
+      await page.screenshot({ path: '/private/tmp/preview-tour-split.png' });
+      await layout.getByRole('radio', { name: 'Stacked', exact: true }).click();
+      await expect
+        .poll(async () => {
+          const explanation = await guide.boundingBox();
+          const code = await editor.boundingBox();
+          return !!explanation && !!code && explanation.y + explanation.height <= code.y + 1;
+        })
+        .toBe(true);
+
       await expect(tree.getByRole('heading', { name: 'In the tour' })).toBeVisible();
       await expect(tree.getByRole('heading', { name: 'Other changed files' })).toBeVisible();
       const supportGroup = tree.getByRole('button', { name: /Tests, stories & generated/ });
